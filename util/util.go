@@ -54,22 +54,27 @@ func GetMe() *types.User {
 	resp, err = client.Do(req)
 	if err != nil {
 		fmt.Println("Error: Couldn't get user info. No http response!")
-		return nil
+		os.Exit(0)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		fmt.Println("Error: User with the specified token doesn't exist!")
+		os.Exit(0)
+	}
 
 	var bodyBytes []byte
 	bodyBytes, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println("Error: Couldn't read user info.")
-		return nil
+		os.Exit(0)
 	}
 
 	var user types.User
 	err = json.Unmarshal(bodyBytes, &user)
 	if err != nil {
 		fmt.Println("Error: Couldn't unmarshal user info.")
-		return nil
+		os.Exit(0)
 	}
 
 	return &user
