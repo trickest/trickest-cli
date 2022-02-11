@@ -9,6 +9,8 @@ import (
 	"trickest-cli/types"
 )
 
+type UnexpectedResponse map[string]interface{}
+
 const (
 	BaseURL = "https://hive-api.beta.trickest.com/"
 )
@@ -78,4 +80,24 @@ func GetMe() *types.User {
 	}
 
 	return &user
+}
+
+func ProcessUnexpectedResponse(responseBody []byte, statusCode int) {
+	if statusCode >= http.StatusInternalServerError {
+		fmt.Println("Sorry, something went wrong!")
+		os.Exit(0)
+	}
+
+	var response UnexpectedResponse
+	err := json.Unmarshal(responseBody, &response)
+	if err != nil {
+		fmt.Println("Sorry, something went wrong!")
+		os.Exit(0)
+	}
+
+	if details, exists := response["details"]; exists {
+		fmt.Println(details)
+	} else {
+		fmt.Println("Sorry, something went wrong!")
+	}
 }

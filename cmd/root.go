@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"fmt"
 	"github.com/spf13/cobra"
+	"trickest-cli/cmd/list"
 	"trickest-cli/util"
 )
 
@@ -12,14 +12,7 @@ var RootCmd = &cobra.Command{
 	Short: "Trickest client for platform access from your local machine",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		//_ = cmd.Help()
-
-		user := util.GetMe()
-		if user != nil {
-			fmt.Println("Authentication successful! Username: " + user.Profile.Username)
-		} else {
-			fmt.Println("Couldn't find user!")
-		}
+		_ = cmd.Help()
 	},
 }
 
@@ -33,6 +26,8 @@ func init() {
 	RootCmd.PersistentFlags().StringVar(&util.Cfg.User.Token, "token", "", "Trickest authentication token")
 
 	cobra.OnInitialize(initVaultID)
+
+	RootCmd.AddCommand(list.ListCmd)
 }
 
 func initVaultID() {
