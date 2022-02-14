@@ -99,5 +99,6 @@ func ProcessUnexpectedResponse(responseBody []byte, statusCode int) {
 		fmt.Println(details)
 	} else {
 		fmt.Println("Sorry, something went wrong!")
+		os.Exit(0)
 	}
 }
