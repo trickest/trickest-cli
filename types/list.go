@@ -49,6 +49,25 @@ type Project struct {
 	ModifiedDate  time.Time `json:"modified_date"`
 }
 
+type Workflows struct {
+	Next     string                 `json:"next"`
+	Previous string                 `json:"previous"`
+	Page     int                    `json:"page"`
+	Last     int                    `json:"last"`
+	Count    int                    `json:"count"`
+	Results  []WorkflowListResponse `json:"results"`
+}
+
+type WorkflowListResponse struct {
+	ID               string    `json:"id"`
+	CreatedDate      time.Time `json:"created_date"`
+	Name             string    `json:"name"`
+	Description      string    `json:"description"`
+	SpaceName        string    `json:"space_name"`
+	RunCount         int       `json:"run_count"`
+	WorkflowCategory string    `json:"workflow_category"`
+}
+
 type Workflow struct {
 	ID               string    `json:"id"`
 	CreatedDate      time.Time `json:"created_date"`
