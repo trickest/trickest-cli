@@ -2,7 +2,10 @@ module trickest-cli
 
 go 1.17
 
-require github.com/spf13/cobra v1.3.0
+require (
+	github.com/spf13/cobra v1.3.0
+	github.com/xlab/treeprint v1.1.0
+)
 
 require (
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
