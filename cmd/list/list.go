@@ -33,64 +33,23 @@ var ListCmd = &cobra.Command{
 			return
 		}
 
-		pathSplit := strings.Split(strings.Trim(args[0], "/"), "/")
-		if len(pathSplit) > 3 {
-			fmt.Println("Invalid object path!")
-			return
-		}
-		space := getSpaceByName(pathSplit[0])
-		if space == nil {
-			fmt.Println("Couldn't find space with the given name!\n" + pathSplit[0])
-			return
+		space, project, workflow := ResolveObjectPath(args[0])
+
+		if space == nil && project == nil && workflow == nil {
+			os.Exit(0)
 		}
 
-		if len(pathSplit) == 1 {
+		if space != nil {
 			printSpaceDetailed(*space)
-			return
 		}
 
-		var workflows []types.WorkflowListResponse
-		if space.Projects != nil && len(space.Projects) > 0 {
-			for _, proj := range space.Projects {
-				if proj.Name == pathSplit[1] {
-					workflows = getWorkflows(proj.ID)
-					if len(pathSplit) == 2 {
-						printProject(proj, workflows)
-						return
-					} else {
-						break
-					}
-				}
-			}
+		if project != nil {
+			printProject(*project)
 		}
 
-		if space.Workflows != nil && len(space.Workflows) > 0 {
-			for _, wf := range space.Workflows {
-				if wf.Name == pathSplit[1] {
-					printWorkflow(wf)
-					return
-				}
-			}
+		if workflow != nil {
+			printWorkflow(*workflow)
 		}
-
-		if len(pathSplit) == 2 {
-			fmt.Println("Couldn't find project or workflow named " + pathSplit[1] + " inside " +
-				pathSplit[0] + " space!")
-		}
-
-		if workflows != nil && len(workflows) > 0 {
-			for _, wf := range workflows {
-				if wf.Name == pathSplit[2] {
-					fullWorkflow := getWorkflowByID(wf.ID)
-					printWorkflow(*fullWorkflow)
-					return
-				}
-			}
-		} else {
-			fmt.Println("No workflows found in " + pathSplit[0] + "/" + pathSplit[1])
-		}
-
-		fmt.Println("Workflow named " + pathSplit[2] + " doesn't exist in " + pathSplit[0] + "/" + pathSplit[1] + "/")
 	},
 }
 
@@ -120,15 +79,15 @@ func printWorkflow(workflow types.Workflow) {
 	fmt.Println(tree.String())
 }
 
-func printProject(project types.Project, workflows []types.WorkflowListResponse) {
+func printProject(project types.Project) {
 	tree := treeprint.New()
 	tree.SetValue("\U0001f5c2  " + project.Name) //🗂
 	if project.Description != "" {
 		tree.AddNode("\U0001f4cb \033[3m" + project.Description + "\033[0m") //📋
 	}
-	if workflows != nil && len(workflows) > 0 {
+	if project.Workflows != nil && len(project.Workflows) > 0 {
 		wfBranch := tree.AddBranch("Workflows")
-		for _, workflow := range workflows {
+		for _, workflow := range project.Workflows {
 			wfSubBranch := wfBranch.AddBranch("\U0001f9be " + workflow.Name) //🦾
 			if workflow.Description != "" {
 				wfSubBranch.AddNode("\U0001f4cb \033[3m" + workflow.Description + "\033[0m") //📋
@@ -343,4 +302,63 @@ func getWorkflowByID(id string) *types.Workflow {
 	}
 
 	return &workflow
+}
+
+func ResolveObjectPath(path string) (*types.SpaceDetailed, *types.Project, *types.Workflow) {
+	pathSplit := strings.Split(strings.Trim(path, "/"), "/")
+	if len(pathSplit) > 3 {
+		fmt.Println("Invalid object path!")
+		return nil, nil, nil
+	}
+	space := getSpaceByName(pathSplit[0])
+	if space == nil {
+		fmt.Println("Couldn't find space with the given name!\n" + pathSplit[0])
+		return nil, nil, nil
+	}
+
+	if len(pathSplit) == 1 {
+		return space, nil, nil
+	}
+
+	var project *types.Project
+	if space.Projects != nil && len(space.Projects) > 0 {
+		for _, proj := range space.Projects {
+			if proj.Name == pathSplit[1] {
+				project = &proj
+				proj.Workflows = getWorkflows(proj.ID)
+				if len(pathSplit) == 2 {
+					return nil, &proj, nil
+				} else {
+					break
+				}
+			}
+		}
+	}
+
+	if space.Workflows != nil && len(space.Workflows) > 0 {
+		for _, wf := range space.Workflows {
+			if wf.Name == pathSplit[1] {
+				return nil, nil, &wf
+			}
+		}
+	}
+
+	if len(pathSplit) == 2 {
+		fmt.Println("Couldn't find project or workflow named " + pathSplit[1] + " inside " +
+			pathSplit[0] + " space!")
+	}
+
+	if project != nil && project.Workflows != nil && len(project.Workflows) > 0 {
+		for _, wf := range project.Workflows {
+			if wf.Name == pathSplit[2] {
+				fullWorkflow := getWorkflowByID(wf.ID)
+				return nil, nil, fullWorkflow
+			}
+		}
+	} else {
+		fmt.Println("No workflows found in " + pathSplit[0] + "/" + pathSplit[1])
+	}
+
+	fmt.Println("Workflow named " + pathSplit[2] + " doesn't exist in " + pathSplit[0] + "/" + pathSplit[1] + "/")
+	return nil, nil, nil
 }

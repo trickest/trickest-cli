@@ -47,6 +47,7 @@ type Project struct {
 	WorkflowCount int       `json:"workflow_count"`
 	CreatedDate   time.Time `json:"created_date"`
 	ModifiedDate  time.Time `json:"modified_date"`
+	Workflows     []WorkflowListResponse
 }
 
 type Workflows struct {
