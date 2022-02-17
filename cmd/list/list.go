@@ -183,7 +183,7 @@ func getSpaces(name string) []types.Space {
 func getSpaceByName(name string) *types.SpaceDetailed {
 	spaces := getSpaces(name)
 	if spaces == nil || len(spaces) == 0 {
-		fmt.Println("Couldn't find space with the given name!\n" + name)
+		fmt.Println("Couldn't find space named " + name + "!")
 		os.Exit(0)
 	}
 
@@ -312,7 +312,7 @@ func ResolveObjectPath(path string) (*types.SpaceDetailed, *types.Project, *type
 	}
 	space := getSpaceByName(pathSplit[0])
 	if space == nil {
-		fmt.Println("Couldn't find space with the given name!\n" + pathSplit[0])
+		fmt.Println("Couldn't find space named " + pathSplit[0] + "!")
 		return nil, nil, nil
 	}
 
@@ -361,6 +361,6 @@ func ResolveObjectPath(path string) (*types.SpaceDetailed, *types.Project, *type
 		return nil, nil, nil
 	}
 
-	fmt.Println("Workflow named " + pathSplit[2] + " doesn't exist in " + pathSplit[0] + "/" + pathSplit[1] + "/")
+	fmt.Println("Couldn't find workflow named " + pathSplit[2] + " in " + pathSplit[0] + "/" + pathSplit[1] + "/")
 	return nil, nil, nil
 }
