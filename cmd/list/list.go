@@ -346,6 +346,7 @@ func ResolveObjectPath(path string) (*types.SpaceDetailed, *types.Project, *type
 	if len(pathSplit) == 2 {
 		fmt.Println("Couldn't find project or workflow named " + pathSplit[1] + " inside " +
 			pathSplit[0] + " space!")
+		return nil, nil, nil
 	}
 
 	if project != nil && project.Workflows != nil && len(project.Workflows) > 0 {
@@ -357,6 +358,7 @@ func ResolveObjectPath(path string) (*types.SpaceDetailed, *types.Project, *type
 		}
 	} else {
 		fmt.Println("No workflows found in " + pathSplit[0] + "/" + pathSplit[1])
+		return nil, nil, nil
 	}
 
 	fmt.Println("Workflow named " + pathSplit[2] + " doesn't exist in " + pathSplit[0] + "/" + pathSplit[1] + "/")
