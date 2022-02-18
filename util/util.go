@@ -97,6 +97,7 @@ func ProcessUnexpectedResponse(responseBody []byte, statusCode int) {
 
 	if details, exists := response["details"]; exists {
 		fmt.Println(details)
+		os.Exit(0)
 	} else {
 		fmt.Println("Sorry, something went wrong!")
 		os.Exit(0)
