@@ -13,7 +13,7 @@ import (
 // DeleteCmd represents the delete command
 var DeleteCmd = &cobra.Command{
 	Use:   "delete",
-	Short: "Deletes a space or a project on the Trickest platform",
+	Short: "Deletes an object on the Trickest platform",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) != 1 {
