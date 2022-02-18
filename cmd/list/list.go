@@ -16,7 +16,7 @@ import (
 	"trickest-cli/util"
 )
 
-// listCmd represents the list command
+// ListCmd represents the list command
 var ListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "Lists objects on the Trickest platform",
@@ -226,12 +226,19 @@ func getSpaceByID(id string) *types.SpaceDetailed {
 	return &space
 }
 
-func getWorkflows(projectID string) []types.WorkflowListResponse {
-	urlReq := util.Cfg.BaseUrl + "v1/store/workflow/?vault=" + util.GetVault()
-	urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
+func GetWorkflows(projectID string, store bool, search string) []types.WorkflowListResponse {
+	urlReq := util.Cfg.BaseUrl + "v1/store/workflow/"
+	urlReq += "?page_size=" + strconv.Itoa(math.MaxInt)
+	if !store {
+		urlReq += "&vault=" + util.GetVault()
+	}
+
+	if search != "" {
+		urlReq += "&search=" + url.QueryEscape(search)
+	}
 
 	if projectID != "" {
-		urlReq = urlReq + "&project=" + projectID
+		urlReq += "&project=" + projectID
 	}
 
 	client := &http.Client{}
@@ -325,7 +332,7 @@ func ResolveObjectPath(path string) (*types.SpaceDetailed, *types.Project, *type
 		for _, proj := range space.Projects {
 			if proj.Name == pathSplit[1] {
 				project = &proj
-				proj.Workflows = getWorkflows(proj.ID)
+				proj.Workflows = GetWorkflows(proj.ID, false, "")
 				if len(pathSplit) == 2 {
 					return nil, &proj, nil
 				} else {
