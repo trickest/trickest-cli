@@ -3,6 +3,7 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 	"trickest-cli/cmd/create"
+	"trickest-cli/cmd/delete"
 	"trickest-cli/cmd/list"
 	"trickest-cli/cmd/store"
 	"trickest-cli/util"
@@ -32,6 +33,7 @@ func init() {
 	RootCmd.AddCommand(list.ListCmd)
 	RootCmd.AddCommand(store.StoreCmd)
 	RootCmd.AddCommand(create.CreateCmd)
+	RootCmd.AddCommand(delete.DeleteCmd)
 }
 
 func initVaultID() {
