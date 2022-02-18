@@ -180,11 +180,10 @@ func getSpaces(name string) []types.Space {
 	return spaces.Results
 }
 
-func getSpaceByName(name string) *types.SpaceDetailed {
+func GetSpaceByName(name string) *types.SpaceDetailed {
 	spaces := getSpaces(name)
 	if spaces == nil || len(spaces) == 0 {
-		fmt.Println("Couldn't find space named " + name + "!")
-		os.Exit(0)
+		return nil
 	}
 
 	return getSpaceByID(spaces[0].ID)
@@ -317,7 +316,7 @@ func ResolveObjectPath(path string) (*types.SpaceDetailed, *types.Project, *type
 		fmt.Println("Invalid object path!")
 		return nil, nil, nil
 	}
-	space := getSpaceByName(pathSplit[0])
+	space := GetSpaceByName(pathSplit[0])
 	if space == nil {
 		fmt.Println("Couldn't find space named " + pathSplit[0] + "!")
 		return nil, nil, nil
