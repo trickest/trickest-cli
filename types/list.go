@@ -96,3 +96,66 @@ type Parameter struct {
 	Value interface{} `json:"value"`
 	Type  string      `json:"type"`
 }
+
+type Runs struct {
+	Next     string `json:"next"`
+	Previous string `json:"previous"`
+	Page     int    `json:"page"`
+	Last     int    `json:"last"`
+	Count    int    `json:"count"`
+	Results  []Run  `json:"results"`
+}
+
+type Run struct {
+	ID                  string    `json:"id"`
+	Name                string    `json:"name"`
+	Status              string    `json:"status"`
+	UserInfo            int       `json:"user_info"`
+	SpaceInfo           string    `json:"space_info"`
+	SpaceName           string    `json:"space_name"`
+	ProjectInfo         string    `json:"project_info"`
+	ProjectName         string    `json:"project_name"`
+	WorkflowInfo        string    `json:"workflow_info"`
+	WorkflowName        string    `json:"workflow_name"`
+	WorkflowVersionName string    `json:"workflow_version_name"`
+	WorkflowVersionInfo string    `json:"workflow_version_info"`
+	HiveInfo            string    `json:"hive_info"`
+	StartedDate         time.Time `json:"started_date"`
+	CompletedDate       time.Time `json:"completed_date"`
+	Parallelism         int       `json:"parallelism"`
+	Bees                Bees      `json:"bees"`
+	CreatedDate         time.Time `json:"created_date"`
+	ModifiedDate        time.Time `json:"modified_date"`
+	Finished            bool      `json:"finished"`
+}
+
+type Bees struct {
+	Small  *int `json:"small,omitempty"`
+	Medium *int `json:"medium,omitempty"`
+	Large  *int `json:"large,omitempty"`
+}
+
+type SubJobs struct {
+	Next     string   `json:"next"`
+	Previous string   `json:"previous"`
+	Page     int      `json:"page"`
+	Last     int      `json:"last"`
+	Count    int      `json:"count"`
+	Results  []SubJob `json:"results"`
+}
+
+type SubJob struct {
+	ID            string            `json:"id"`
+	Name          string            `json:"name"`
+	NodeName      string            `json:"node_name"`
+	Status        string            `json:"status"`
+	StartedDate   time.Time         `json:"started_date"`
+	FinishedDate  time.Time         `json:"finished_date"`
+	Podname       string            `json:"podname"`
+	Params        map[string]string `json:"params"`
+	Message       string            `json:"message"`
+	TaskIndex     int               `json:"task_index"`
+	TaskCount     int               `json:"task_count"`
+	OutputsStatus string            `json:"outputs_status"`
+	Finished      bool              `json:"finished"`
+}
