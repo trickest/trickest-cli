@@ -154,8 +154,9 @@ type SubJob struct {
 	Podname       string            `json:"podname"`
 	Params        map[string]string `json:"params"`
 	Message       string            `json:"message"`
-	TaskIndex     int               `json:"task_index"`
+	TaskIndex     string            `json:"task_index"`
 	TaskCount     int               `json:"task_count"`
 	OutputsStatus string            `json:"outputs_status"`
 	Finished      bool              `json:"finished"`
+	TaskGroup     bool              `json:"task_group"`
 }

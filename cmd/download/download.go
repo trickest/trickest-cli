@@ -96,12 +96,12 @@ The YAML config file should be formatted like:
 
 		if len(nodes) == 0 {
 			for _, subJob := range subJobs {
-				getSubJobOutput(subJob.ID, true)
+				getSubJobOutput(subJob.ID, true, "")
 			}
 		} else {
 			for _, subJob := range subJobs {
 				if nodes[subJob.Name] {
-					getSubJobOutput(subJob.ID, true)
+					getSubJobOutput(subJob.ID, true, "")
 				}
 			}
 		}
@@ -112,7 +112,43 @@ func init() {
 	DownloadCmd.Flags().StringVar(&configFile, "config", "", "YAML file to determine which outputs should be downloaded")
 }
 
-func getSubJobOutput(subJobID string, fetchData bool) []types.SubJobOutput {
+func getChildrenSubJobs(subJobID string) []types.SubJob {
+	client := &http.Client{}
+
+	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/subjob/"+subJobID+"/children/", nil)
+	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
+	req.Header.Add("Accept", "application/json")
+
+	var resp *http.Response
+	resp, err = client.Do(req)
+	if err != nil {
+		fmt.Println("Error: Couldn't get sub-job children.")
+		return nil
+	}
+	defer resp.Body.Close()
+
+	var bodyBytes []byte
+	bodyBytes, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error: Couldn't read sub-job children.")
+		return nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+	}
+
+	var subJobs types.SubJobs
+	err = json.Unmarshal(bodyBytes, &subJobs)
+	if err != nil {
+		fmt.Println("Error unmarshalling sub-job children response!")
+		return nil
+	}
+
+	return subJobs.Results
+}
+
+func getSubJobOutput(subJobID string, fetchData bool, splitterDir string) []types.SubJobOutput {
 	subJob := GetSubJobByID(subJobID)
 	if subJob == nil {
 		return nil
@@ -149,10 +185,39 @@ func getSubJobOutput(subJobID string, fetchData bool) []types.SubJobOutput {
 		return nil
 	}
 
+	nodeNameAndTimestamp := subJob.NodeName + " " + subJob.FinishedDate.Format(time.RFC1123)
+
+	if subJob.TaskGroup {
+		if splitterDir == "" {
+			splitterDir = nodeNameAndTimestamp
+		}
+		dirInfo, err := os.Stat(splitterDir)
+		dirExists := !os.IsNotExist(err) && dirInfo.IsDir()
+
+		if !dirExists {
+			err = os.Mkdir(splitterDir, 0755)
+			if err != nil {
+				fmt.Println("Couldn't create a directory to store multiple outputs for " + subJob.Name + "!")
+				os.Exit(0)
+			}
+		}
+
+		children := getChildrenSubJobs(subJob.ID)
+		if children == nil || len(children) == 0 {
+			return nil
+		}
+
+		for _, child := range children {
+			getSubJobOutput(child.ID, true, splitterDir)
+		}
+	}
+
 	dir := ""
 	if len(subJobOutputs.Results) > 1 {
-		dir = subJob.NodeName + " " + subJob.FinishedDate.Format(time.RFC1123)
-
+		dir = nodeNameAndTimestamp
+		if subJob.TaskGroup {
+			dir = subJob.TaskIndex + "-" + dir
+		}
 		dirInfo, err := os.Stat(dir)
 		dirExists := !os.IsNotExist(err) && dirInfo.IsDir()
 
@@ -195,12 +260,13 @@ func getSubJobOutput(subJobID string, fetchData bool) []types.SubJobOutput {
 			subJobOutputs.Results[i].SignedURL = signedURL.Url
 
 			if fetchData {
-				fileName := subJob.NodeName + " " + subJob.FinishedDate.Format(time.RFC1123) +
-					" " + subJobOutputs.Results[i].FileName
+				fileName := nodeNameAndTimestamp + " " + subJobOutputs.Results[i].FileName
 
-				if len(subJobOutputs.Results) > 1 {
-					fileName = path.Join(dir, subJobOutputs.Results[i].FileName)
+				if splitterDir != "" {
+					fileName = subJob.TaskIndex + "-" + fileName
 				}
+
+				fileName = path.Join(splitterDir, dir, fileName)
 
 				outputFile, err := os.Create(fileName)
 				if err != nil {
@@ -245,7 +311,7 @@ func GetSubJobByID(id string) *types.SubJob {
 	var resp *http.Response
 	resp, err = client.Do(req)
 	if err != nil {
-		fmt.Println("Error: Couldn't get sub-job info.")
+		fmt.Println("Error: Couldn't get sub-job response.")
 		return nil
 	}
 	defer resp.Body.Close()
@@ -253,7 +319,7 @@ func GetSubJobByID(id string) *types.SubJob {
 	var bodyBytes []byte
 	bodyBytes, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("Error: Couldn't read sub-job info.")
+		fmt.Println("Error: Couldn't read sub-job response.")
 		return nil
 	}
 
@@ -268,9 +334,6 @@ func GetSubJobByID(id string) *types.SubJob {
 		return nil
 	}
 
-	if subJob.ID == "" {
-		return nil
-	}
 	return &subJob
 }
 
