@@ -19,6 +19,11 @@ import (
 	"trickest-cli/util"
 )
 
+type NodeInfo struct {
+	toFetch bool
+	found   bool
+}
+
 var configFile string
 
 // DownloadCmd represents the download command
@@ -60,10 +65,10 @@ The YAML config file should be formatted like:
 			return
 		}
 
-		nodes := make(map[string]bool, 0)
+		nodes := make(map[string]NodeInfo, 0)
 		if len(args) > 1 {
 			for i := 1; i < len(args); i++ {
-				nodes[args[i]] = true
+				nodes[args[i]] = NodeInfo{toFetch: true, found: false}
 			}
 		}
 
@@ -88,7 +93,7 @@ The YAML config file should be formatted like:
 			}
 
 			for _, node := range conf.Outputs {
-				nodes[node] = true
+				nodes[node] = NodeInfo{toFetch: true, found: false}
 			}
 		}
 
@@ -99,9 +104,28 @@ The YAML config file should be formatted like:
 				getSubJobOutput(subJob.ID, true, "")
 			}
 		} else {
+			noneFound := true
 			for _, subJob := range subJobs {
-				if nodes[subJob.Name] || nodes[subJob.NodeName] {
+				_, labelExists := nodes[subJob.Name]
+				if labelExists {
+					nodes[subJob.Name] = NodeInfo{toFetch: true, found: true}
+				}
+				_, nameExists := nodes[subJob.NodeName]
+				if nameExists {
+					nodes[subJob.NodeName] = NodeInfo{toFetch: true, found: true}
+				}
+				if nameExists || labelExists {
+					noneFound = false
 					getSubJobOutput(subJob.ID, true, "")
+				}
+			}
+			if noneFound {
+				fmt.Println("Couldn't find any nodes that match given name(s)!")
+			} else {
+				for nodeName, nodeInfo := range nodes {
+					if !nodeInfo.found {
+						fmt.Println("Couldn't find any sub-job named " + nodeName + "!")
+					}
 				}
 			}
 		}
