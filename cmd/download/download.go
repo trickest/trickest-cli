@@ -100,7 +100,7 @@ The YAML config file should be formatted like:
 			}
 		} else {
 			for _, subJob := range subJobs {
-				if nodes[subJob.Name] {
+				if nodes[subJob.Name] || nodes[subJob.NodeName] {
 					getSubJobOutput(subJob.ID, true, "")
 				}
 			}
@@ -278,6 +278,12 @@ func getSubJobOutput(subJobID string, fetchData bool, splitterDir string) []type
 				dataResp, err := http.Get(signedURL.Url)
 				if err != nil {
 					fmt.Println("Couldn't fetch output data!")
+					continue
+				}
+
+				if dataResp.StatusCode != http.StatusOK {
+					fmt.Println("Couldn't download output for " + subJob.NodeName +
+						"! HTTP status code: " + strconv.Itoa(dataResp.StatusCode))
 					continue
 				}
 
