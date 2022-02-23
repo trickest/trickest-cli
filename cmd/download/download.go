@@ -54,7 +54,7 @@ The YAML config file should be formatted like:
 			return
 		}
 
-		if run.Status != "COMPLETED" {
+		if run.Status != "COMPLETED" && run.Status != "STOPPED" && run.Status != "FAILED" {
 			fmt.Println("The workflow run hasn't been completed yet!")
 			fmt.Println("Status: " + run.Status)
 			return
