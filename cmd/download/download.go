@@ -122,44 +122,53 @@ The YAML config file should be formatted like:
 			}
 
 			subJobs := getSubJobs(run.ID)
+			labels := make(map[string]bool)
+
 			for i := range subJobs {
 				subJobs[i].Label = version.Data.Nodes[subJobs[i].NodeName].Meta.Label
-			}
-
-			labels := make([]LabelCnt, 0)
-			for i := range subJobs {
 				subJobs[i].Label = strings.ReplaceAll(subJobs[i].Label, "/", "-")
-				found := false
-				for _, l := range labels {
-					if l.name == subJobs[i].Label {
-						found = true
-						break
+				if labels[subJobs[i].Label] {
+					existingLabel := subJobs[i].Label
+					subJobs[i].Label = subJobs[i].NodeName
+					if labels[subJobs[i].Label] {
+						subJobs[i].Label += "-1"
+						for c := 1; c >= 1; c++ {
+							if labels[subJobs[i].Label] {
+								subJobs[i].Label = strings.TrimSuffix(subJobs[i].Label, "-"+strconv.Itoa(c))
+								subJobs[i].Label += "-" + strconv.Itoa(c+1)
+							} else {
+								labels[subJobs[i].Label] = true
+								break
+							}
+						}
+					} else {
+						for s := 0; s < i; s++ {
+							if subJobs[s].Label == existingLabel {
+								subJobs[s].Label = subJobs[s].NodeName
+								if subJobs[s].Children != nil {
+									for j := range subJobs[s].Children {
+										subJobs[s].Children[j].Label = subJobs[s].Children[j].TaskIndex + "-" + subJobs[s].NodeName
+									}
+								}
+							}
+						}
+						labels[subJobs[i].Label] = true
 					}
+				} else {
+					labels[subJobs[i].Label] = true
 				}
-				if !found {
-					labels = append(labels, LabelCnt{name: subJobs[i].Label, cnt: 0})
-				}
-			}
-			for _, sj := range subJobs {
-				for j := range labels {
-					if labels[j].name == sj.Label {
-						labels[j].cnt++
-						break
+
+				if subJobs[i].TaskGroup {
+					children := getChildrenSubJobs(subJobs[i].ID)
+					if children == nil || len(children) == 0 {
+						continue
 					}
-				}
-			}
-			for j := range labels {
-				if labels[j].cnt > 1 {
-					labels[j].cnt++
-				}
-			}
-			for i := len(subJobs) - 1; i > 0; i-- {
-				for j := range labels {
-					if labels[j].name == subJobs[i].Label && labels[j].cnt > 1 {
-						subJobs[i].Label += "-" + strconv.Itoa(labels[j].cnt-1)
-						labels[j].cnt--
-						break
+					for j := range children {
+						children[j].Label = children[j].TaskIndex + "-" + subJobs[i].Label
 					}
+
+					subJobs[i].Children = make([]types.SubJob, 0)
+					subJobs[i].Children = append(subJobs[i].Children, children...)
 				}
 			}
 
@@ -184,7 +193,7 @@ The YAML config file should be formatted like:
 
 			if len(nodes) == 0 {
 				for _, subJob := range subJobs {
-					getSubJobOutput(&subJob, true, "", runDir, 0)
+					getSubJobOutput(runDir, &subJob, true)
 				}
 			} else {
 				noneFound := true
@@ -203,7 +212,7 @@ The YAML config file should be formatted like:
 					}
 					if nameExists || labelExists || nodeIDExists {
 						noneFound = false
-						getSubJobOutput(&subJob, true, "", runDir, 0)
+						getSubJobOutput(runDir, &subJob, true)
 					}
 				}
 				if noneFound {
@@ -226,43 +235,10 @@ func init() {
 	DownloadCmd.Flags().IntVar(&numberOfRuns, "runs", 1, "Number of recent runs which outputs should be downloaded")
 }
 
-func getChildrenSubJobs(subJobID string) []types.SubJob {
-	client := &http.Client{}
-
-	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/subjob/"+subJobID+"/children/", nil)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't get sub-job children.")
+func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []types.SubJobOutput {
+	if subJob.OutputsStatus != "SAVED" && !subJob.TaskGroup {
 		return nil
 	}
-	defer resp.Body.Close()
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read sub-job children.")
-		return nil
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
-	}
-
-	var subJobs types.SubJobs
-	err = json.Unmarshal(bodyBytes, &subJobs)
-	if err != nil {
-		fmt.Println("Error unmarshalling sub-job children response!")
-		return nil
-	}
-
-	return subJobs.Results
-}
-
-func getSubJobOutput(subJob *types.SubJob, fetchData bool, splitterDir string, runDir string, splitterTaskCount int) []types.SubJobOutput {
 	client := &http.Client{}
 
 	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/subjob-output/?subjob="+subJob.ID, nil)
@@ -296,51 +272,36 @@ func getSubJobOutput(subJob *types.SubJob, fetchData bool, splitterDir string, r
 	}
 
 	if subJob.TaskGroup {
-		if splitterDir == "" {
-			splitterDir = subJob.Label
-		}
-		splitterPath := strings.Split(splitterDir, "/")
-		splitterDir = path.Join(runDir, splitterPath[len(splitterPath)-1])
-		dirInfo, err := os.Stat(splitterDir)
+		savePath = path.Join(savePath, subJob.Label)
+		dirInfo, err := os.Stat(savePath)
 		dirExists := !os.IsNotExist(err) && dirInfo.IsDir()
 
 		if !dirExists {
-			err = os.Mkdir(splitterDir, 0755)
-			if err != nil {
-				fmt.Println("Couldn't create a directory to store multiple outputs for " + subJob.Name + "!")
-				os.Exit(0)
-			}
-		}
-
-		children := getChildrenSubJobs(subJob.ID)
-		if children == nil || len(children) == 0 {
-			return nil
-		}
-
-		for i := range children {
-			children[i].Label = strconv.Itoa(i) + "-" + subJob.Label
-			getSubJobOutput(&children[i], true, splitterDir, runDir, subJob.TaskCount)
-		}
-	}
-
-	dir := ""
-	if len(subJobOutputs.Results) > 1 {
-		dir = subJob.Label
-		if subJob.TaskGroup && splitterTaskCount > 1 {
-			dir = subJob.TaskIndex + "-" + dir
-		}
-		splitterPath := strings.Split(splitterDir, "/")
-		dirPath := strings.Split(dir, "/")
-		dir = path.Join(runDir, splitterPath[len(splitterPath)-1], dirPath[len(dirPath)-1])
-		dirInfo, err := os.Stat(dir)
-		dirExists := !os.IsNotExist(err) && dirInfo.IsDir()
-
-		if !dirExists {
-			err = os.Mkdir(dir, 0755)
+			err = os.Mkdir(savePath, 0755)
 			if err != nil {
 				fmt.Println("Couldn't create a directory to store multiple outputs for " + subJob.Label + "!")
 				os.Exit(0)
 			}
+		}
+
+		if subJob.Children != nil {
+			for _, child := range subJob.Children {
+				getSubJobOutput(savePath, &child, true)
+			}
+		}
+		return nil
+	}
+
+	dir := subJob.Label
+	savePath = path.Join(savePath, dir)
+	dirInfo, err := os.Stat(savePath)
+	dirExists := !os.IsNotExist(err) && dirInfo.IsDir()
+
+	if !dirExists {
+		err = os.Mkdir(savePath, 0755)
+		if err != nil {
+			fmt.Println("Couldn't create a directory to store outputs for " + subJob.Label + "!")
+			os.Exit(0)
 		}
 	}
 
@@ -375,16 +336,7 @@ func getSubJobOutput(subJob *types.SubJob, fetchData bool, splitterDir string, r
 
 			if fetchData {
 				fileName := subJobOutputs.Results[i].FileName
-
-				if dir == "" && splitterDir == "" {
-					fileName = subJob.Label + "-" + fileName
-				}
-				if splitterDir != "" && splitterTaskCount > 1 {
-					fileName = subJob.TaskIndex + "-" + fileName
-				}
-				splitterPath := strings.Split(splitterDir, "/")
-				dirPath := strings.Split(dir, "/")
-				fileName = path.Join(runDir, splitterPath[len(splitterPath)-1], dirPath[len(dirPath)-1], fileName)
+				fileName = path.Join(savePath, fileName)
 
 				outputFile, err := os.Create(fileName)
 				if err != nil {
@@ -544,4 +496,40 @@ func getWorkflowVersionByID(id string) *types.WorkflowVersionDetailed {
 	}
 
 	return &workflowVersion
+}
+
+func getChildrenSubJobs(subJobID string) []types.SubJob {
+	client := &http.Client{}
+
+	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/subjob/"+subJobID+"/children/", nil)
+	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
+	req.Header.Add("Accept", "application/json")
+
+	var resp *http.Response
+	resp, err = client.Do(req)
+	if err != nil {
+		fmt.Println("Error: Couldn't get sub-job children.")
+		return nil
+	}
+	defer resp.Body.Close()
+
+	var bodyBytes []byte
+	bodyBytes, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error: Couldn't read sub-job children.")
+		return nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+	}
+
+	var subJobs types.SubJobs
+	err = json.Unmarshal(bodyBytes, &subJobs)
+	if err != nil {
+		fmt.Println("Error unmarshalling sub-job children response!")
+		return nil
+	}
+
+	return subJobs.Results
 }
