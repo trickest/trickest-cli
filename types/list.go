@@ -159,4 +159,5 @@ type SubJob struct {
 	OutputsStatus string            `json:"outputs_status"`
 	Finished      bool              `json:"finished"`
 	TaskGroup     bool              `json:"task_group"`
+	Label         string
 }

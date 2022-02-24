@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 	"trickest-cli/cmd/list"
 	"trickest-cli/types"
@@ -24,7 +25,16 @@ type NodeInfo struct {
 	found   bool
 }
 
-var configFile string
+type LabelCnt struct {
+	name string
+	cnt  int
+}
+
+var (
+	configFile   string
+	allRuns      bool
+	numberOfRuns int
+)
 
 // DownloadCmd represents the download command
 var DownloadCmd = &cobra.Command{
@@ -49,26 +59,10 @@ The YAML config file should be formatted like:
 			return
 		}
 
-		_, _, workflow := list.ResolveObjectPath(args[0])
-		if workflow == nil {
-			return
-		}
-
-		run := getMostRecentRun(workflow.ID)
-		if run == nil {
-			return
-		}
-
-		if run.Status != "COMPLETED" && run.Status != "STOPPED" && run.Status != "FAILED" {
-			fmt.Println("The workflow run hasn't been completed yet!")
-			fmt.Println("Status: " + run.Status)
-			return
-		}
-
 		nodes := make(map[string]NodeInfo, 0)
 		if len(args) > 1 {
 			for i := 1; i < len(args); i++ {
-				nodes[args[i]] = NodeInfo{toFetch: true, found: false}
+				nodes[strings.ReplaceAll(args[i], "/", "-")] = NodeInfo{toFetch: true, found: false}
 			}
 		}
 
@@ -93,38 +87,132 @@ The YAML config file should be formatted like:
 			}
 
 			for _, node := range conf.Outputs {
-				nodes[node] = NodeInfo{toFetch: true, found: false}
+				nodes[strings.ReplaceAll(node, "/", "-")] = NodeInfo{toFetch: true, found: false}
 			}
 		}
 
-		subJobs := getSubJobs(run.ID)
+		_, _, workflow := list.ResolveObjectPath(args[0])
+		if workflow == nil {
+			return
+		}
 
-		if len(nodes) == 0 {
-			for _, subJob := range subJobs {
-				getSubJobOutput(subJob.ID, true, "")
-			}
+		runs := make([]types.Run, 0)
+
+		if allRuns {
+			numberOfRuns = math.MaxInt
+		}
+		wfRuns := getRuns(workflow.ID, numberOfRuns)
+		if wfRuns != nil && len(wfRuns) > 0 {
+			runs = append(runs, wfRuns...)
 		} else {
-			noneFound := true
-			for _, subJob := range subJobs {
-				_, labelExists := nodes[subJob.Name]
-				if labelExists {
-					nodes[subJob.Name] = NodeInfo{toFetch: true, found: true}
+			fmt.Println("This workflow has not been executed yet!")
+			return
+		}
+
+		version := getWorkflowVersionByID(runs[0].WorkflowVersionInfo)
+		if version == nil {
+			return
+		}
+
+		for _, run := range runs {
+			if run.Status != "COMPLETED" && run.Status != "STOPPED" && run.Status != "FAILED" {
+				fmt.Println("The workflow run hasn't been completed yet!")
+				fmt.Println("Run ID: " + run.ID + "   Status: " + run.Status)
+				continue
+			}
+
+			subJobs := getSubJobs(run.ID)
+			for i := range subJobs {
+				subJobs[i].Label = version.Data.Nodes[subJobs[i].NodeName].Meta.Label
+			}
+
+			labels := make([]LabelCnt, 0)
+			for i := range subJobs {
+				subJobs[i].Label = strings.ReplaceAll(subJobs[i].Label, "/", "-")
+				found := false
+				for _, l := range labels {
+					if l.name == subJobs[i].Label {
+						found = true
+						break
+					}
 				}
-				_, nameExists := nodes[subJob.NodeName]
-				if nameExists {
-					nodes[subJob.NodeName] = NodeInfo{toFetch: true, found: true}
-				}
-				if nameExists || labelExists {
-					noneFound = false
-					getSubJobOutput(subJob.ID, true, "")
+				if !found {
+					labels = append(labels, LabelCnt{name: subJobs[i].Label, cnt: 0})
 				}
 			}
-			if noneFound {
-				fmt.Println("Couldn't find any nodes that match given name(s)!")
+			for _, sj := range subJobs {
+				for j := range labels {
+					if labels[j].name == sj.Label {
+						labels[j].cnt++
+						break
+					}
+				}
+			}
+			for j := range labels {
+				if labels[j].cnt > 1 {
+					labels[j].cnt++
+				}
+			}
+			for i := len(subJobs) - 1; i > 0; i-- {
+				for j := range labels {
+					if labels[j].name == subJobs[i].Label && labels[j].cnt > 1 {
+						subJobs[i].Label += "-" + strconv.Itoa(labels[j].cnt-1)
+						labels[j].cnt--
+						break
+					}
+				}
+			}
+
+			runDir := "run-" + run.StartedDate.Format(time.RFC3339)
+			runDir = path.Join(args[0], runDir)
+			runDirPath := strings.Split(runDir, "/")
+			toMerge := ""
+			for _, dir := range runDirPath {
+				toMerge = path.Join(toMerge, dir)
+				dirInfo, err := os.Stat(toMerge)
+				dirExists := !os.IsNotExist(err) && dirInfo.IsDir()
+
+				if !dirExists {
+					err = os.Mkdir(toMerge, 0755)
+					if err != nil {
+						fmt.Println(err)
+						fmt.Println("Couldn't create a directory to store run output!")
+						os.Exit(0)
+					}
+				}
+			}
+
+			if len(nodes) == 0 {
+				for _, subJob := range subJobs {
+					getSubJobOutput(&subJob, true, "", runDir, 0)
+				}
 			} else {
-				for nodeName, nodeInfo := range nodes {
-					if !nodeInfo.found {
-						fmt.Println("Couldn't find any sub-job named " + nodeName + "!")
+				noneFound := true
+				for _, subJob := range subJobs {
+					_, labelExists := nodes[subJob.Label]
+					if labelExists {
+						nodes[subJob.Label] = NodeInfo{toFetch: true, found: true}
+					}
+					_, nameExists := nodes[subJob.Name]
+					if nameExists {
+						nodes[subJob.Name] = NodeInfo{toFetch: true, found: true}
+					}
+					_, nodeIDExists := nodes[subJob.NodeName]
+					if nodeIDExists {
+						nodes[subJob.NodeName] = NodeInfo{toFetch: true, found: true}
+					}
+					if nameExists || labelExists || nodeIDExists {
+						noneFound = false
+						getSubJobOutput(&subJob, true, "", runDir, 0)
+					}
+				}
+				if noneFound {
+					fmt.Println("Couldn't find any nodes that match given name(s)!")
+				} else {
+					for nodeName, nodeInfo := range nodes {
+						if !nodeInfo.found {
+							fmt.Println("Couldn't find any sub-job named " + nodeName + "!")
+						}
 					}
 				}
 			}
@@ -133,7 +221,9 @@ The YAML config file should be formatted like:
 }
 
 func init() {
-	DownloadCmd.Flags().StringVar(&configFile, "config", "", "YAML file to determine which outputs should be downloaded")
+	DownloadCmd.Flags().StringVar(&configFile, "config", "", "YAML file to determine which nodes output(s) should be downloaded")
+	DownloadCmd.Flags().BoolVar(&allRuns, "all", false, "Download output data for all runs")
+	DownloadCmd.Flags().IntVar(&numberOfRuns, "runs", 1, "Number of recent runs which outputs should be downloaded")
 }
 
 func getChildrenSubJobs(subJobID string) []types.SubJob {
@@ -172,14 +262,10 @@ func getChildrenSubJobs(subJobID string) []types.SubJob {
 	return subJobs.Results
 }
 
-func getSubJobOutput(subJobID string, fetchData bool, splitterDir string) []types.SubJobOutput {
-	subJob := GetSubJobByID(subJobID)
-	if subJob == nil {
-		return nil
-	}
+func getSubJobOutput(subJob *types.SubJob, fetchData bool, splitterDir string, runDir string, splitterTaskCount int) []types.SubJobOutput {
 	client := &http.Client{}
 
-	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/subjob-output/?subjob="+subJobID, nil)
+	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/subjob-output/?subjob="+subJob.ID, nil)
 	req.Header.Add("Authorization", "Token "+util.GetToken())
 	req.Header.Add("Accept", "application/json")
 
@@ -209,12 +295,12 @@ func getSubJobOutput(subJobID string, fetchData bool, splitterDir string) []type
 		return nil
 	}
 
-	nodeNameAndTimestamp := subJob.NodeName + " " + subJob.FinishedDate.Format(time.RFC1123)
-
 	if subJob.TaskGroup {
 		if splitterDir == "" {
-			splitterDir = nodeNameAndTimestamp
+			splitterDir = subJob.Label
 		}
+		splitterPath := strings.Split(splitterDir, "/")
+		splitterDir = path.Join(runDir, splitterPath[len(splitterPath)-1])
 		dirInfo, err := os.Stat(splitterDir)
 		dirExists := !os.IsNotExist(err) && dirInfo.IsDir()
 
@@ -231,24 +317,28 @@ func getSubJobOutput(subJobID string, fetchData bool, splitterDir string) []type
 			return nil
 		}
 
-		for _, child := range children {
-			getSubJobOutput(child.ID, true, splitterDir)
+		for i := range children {
+			children[i].Label = strconv.Itoa(i) + "-" + subJob.Label
+			getSubJobOutput(&children[i], true, splitterDir, runDir, subJob.TaskCount)
 		}
 	}
 
 	dir := ""
 	if len(subJobOutputs.Results) > 1 {
-		dir = nodeNameAndTimestamp
-		if subJob.TaskGroup {
+		dir = subJob.Label
+		if subJob.TaskGroup && splitterTaskCount > 1 {
 			dir = subJob.TaskIndex + "-" + dir
 		}
+		splitterPath := strings.Split(splitterDir, "/")
+		dirPath := strings.Split(dir, "/")
+		dir = path.Join(runDir, splitterPath[len(splitterPath)-1], dirPath[len(dirPath)-1])
 		dirInfo, err := os.Stat(dir)
 		dirExists := !os.IsNotExist(err) && dirInfo.IsDir()
 
 		if !dirExists {
 			err = os.Mkdir(dir, 0755)
 			if err != nil {
-				fmt.Println("Couldn't create a directory to store multiple outputs for " + subJob.Name + "!")
+				fmt.Println("Couldn't create a directory to store multiple outputs for " + subJob.Label + "!")
 				os.Exit(0)
 			}
 		}
@@ -284,13 +374,17 @@ func getSubJobOutput(subJobID string, fetchData bool, splitterDir string) []type
 			subJobOutputs.Results[i].SignedURL = signedURL.Url
 
 			if fetchData {
-				fileName := nodeNameAndTimestamp + " " + subJobOutputs.Results[i].FileName
+				fileName := subJobOutputs.Results[i].FileName
 
-				if splitterDir != "" {
+				if dir == "" && splitterDir == "" {
+					fileName = subJob.Label + "-" + fileName
+				}
+				if splitterDir != "" && splitterTaskCount > 1 {
 					fileName = subJob.TaskIndex + "-" + fileName
 				}
-
-				fileName = path.Join(splitterDir, dir, fileName)
+				splitterPath := strings.Split(splitterDir, "/")
+				dirPath := strings.Split(dir, "/")
+				fileName = path.Join(runDir, splitterPath[len(splitterPath)-1], dirPath[len(dirPath)-1], fileName)
 
 				outputFile, err := os.Create(fileName)
 				if err != nil {
@@ -306,14 +400,14 @@ func getSubJobOutput(subJobID string, fetchData bool, splitterDir string) []type
 				}
 
 				if dataResp.StatusCode != http.StatusOK {
-					fmt.Println("Couldn't download output for " + subJob.NodeName +
+					fmt.Println("Couldn't download output for " + subJob.Label +
 						"! HTTP status code: " + strconv.Itoa(dataResp.StatusCode))
 					continue
 				}
 
 				bar := progressbar.DefaultBytes(
 					dataResp.ContentLength,
-					"Downloading ["+subJob.NodeName+"] output... ",
+					"Downloading ["+subJob.Label+"] output... ",
 				)
 				_, err = io.Copy(io.MultiWriter(outputFile, bar), dataResp.Body)
 				if err != nil {
@@ -329,42 +423,6 @@ func getSubJobOutput(subJobID string, fetchData bool, splitterDir string) []type
 	}
 
 	return subJobOutputs.Results
-}
-
-func GetSubJobByID(id string) *types.SubJob {
-	client := &http.Client{}
-
-	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/subjob/"+id+"/", nil)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't get sub-job response.")
-		return nil
-	}
-	defer resp.Body.Close()
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read sub-job response.")
-		return nil
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
-	}
-
-	var subJob types.SubJob
-	err = json.Unmarshal(bodyBytes, &subJob)
-	if err != nil {
-		fmt.Println("Error unmarshalling sub-job response!")
-		return nil
-	}
-
-	return &subJob
 }
 
 func getSubJobs(runID string) []types.SubJob {
@@ -407,17 +465,6 @@ func getSubJobs(runID string) []types.SubJob {
 	}
 
 	return subJobs.Results
-}
-
-func getMostRecentRun(workflowID string) *types.Run {
-	runs := getRuns(workflowID, 1)
-
-	if runs == nil || len(runs) == 0 {
-		fmt.Println("Couldn't find any run for the workflow: " + workflowID)
-		return nil
-	}
-
-	return &runs[0]
 }
 
 func getRuns(workflowID string, pageSize int) []types.Run {
@@ -465,4 +512,36 @@ func getRuns(workflowID string, pageSize int) []types.Run {
 	}
 
 	return runs.Results
+}
+
+func getWorkflowVersionByID(id string) *types.WorkflowVersionDetailed {
+	client := &http.Client{}
+
+	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/store/workflow-version/"+id+"/", nil)
+	req.Header.Add("Authorization", "Token "+util.GetToken())
+	req.Header.Add("Accept", "application/json")
+
+	var resp *http.Response
+	resp, err = client.Do(req)
+	if err != nil {
+		fmt.Println("Error: Couldn't get workflow version.")
+		return nil
+	}
+	defer resp.Body.Close()
+
+	var bodyBytes []byte
+	bodyBytes, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error: Couldn't read workflow version.")
+		return nil
+	}
+
+	var workflowVersion types.WorkflowVersionDetailed
+	err = json.Unmarshal(bodyBytes, &workflowVersion)
+	if err != nil {
+		fmt.Println("Error unmarshalling workflow version response!")
+		return nil
+	}
+
+	return &workflowVersion
 }
