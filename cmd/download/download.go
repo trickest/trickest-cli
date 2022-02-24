@@ -284,12 +284,16 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []ty
 			}
 		}
 
+		results := make([]types.SubJobOutput, 0)
 		if subJob.Children != nil {
 			for _, child := range subJob.Children {
-				getSubJobOutput(savePath, &child, true)
+				childRes := getSubJobOutput(savePath, &child, true)
+				if childRes != nil {
+					results = append(results, childRes...)
+				}
 			}
 		}
-		return nil
+		return results
 	}
 
 	dir := subJob.Label
