@@ -52,11 +52,11 @@ type WorkflowVersionDetailed struct {
 			} `json:"destination"`
 		} `json:"connections"`
 		PrimitiveNodes map[string]struct {
-			Name        string `json:"name"`
-			Type        string `json:"type"`
-			Label       string `json:"label"`
-			Value       string `json:"value"`
-			TypeName    string `json:"type_name"`
+			Name        string      `json:"name"`
+			Type        string      `json:"type"`
+			Label       string      `json:"label"`
+			Value       interface{} `json:"value"`
+			TypeName    string      `json:"type_name"`
 			Coordinates struct {
 				X float64 `json:"x"`
 				Y float64 `json:"y"`
@@ -97,11 +97,11 @@ type Node struct {
 }
 
 type NodeInput struct {
-	Type            string `json:"type"`
-	Order           int    `json:"order"`
-	Value           string `json:"value,omitempty"`
-	Command         string `json:"command,omitempty"`
-	Description     string `json:"description,omitempty"`
-	WorkerConnected *bool  `json:"workerConnected,omitempty"`
-	Multi           *bool  `json:"multi,omitempty"`
+	Type            string      `json:"type"`
+	Order           int         `json:"order"`
+	Value           interface{} `json:"value,omitempty"`
+	Command         string      `json:"command,omitempty"`
+	Description     string      `json:"description,omitempty"`
+	WorkerConnected *bool       `json:"workerConnected,omitempty"`
+	Multi           *bool       `json:"multi,omitempty"`
 }
