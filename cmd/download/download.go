@@ -340,6 +340,28 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []ty
 
 			if fetchData {
 				fileName := subJobOutputs.Results[i].FileName
+
+				if fileName != subJobOutputs.Results[i].Path {
+					subDirsPath := strings.TrimSuffix(subJobOutputs.Results[i].Path, fileName)
+					subDirs := strings.Split(strings.Trim(subDirsPath, "/"), "/")
+					toMerge := savePath
+					for _, subDir := range subDirs {
+						toMerge = path.Join(toMerge, subDir)
+						dirInfo, err := os.Stat(toMerge)
+						dirExists := !os.IsNotExist(err) && dirInfo.IsDir()
+
+						if !dirExists {
+							err = os.Mkdir(toMerge, 0755)
+							if err != nil {
+								fmt.Println(err)
+								fmt.Println("Couldn't create a directory to store run output!")
+								os.Exit(0)
+							}
+						}
+					}
+					fileName = subJobOutputs.Results[i].Path
+				}
+
 				fileName = path.Join(savePath, fileName)
 
 				outputFile, err := os.Create(fileName)
