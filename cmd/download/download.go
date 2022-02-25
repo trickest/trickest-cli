@@ -173,6 +173,8 @@ The YAML config file should be formatted like:
 			}
 
 			runDir := "run-" + run.StartedDate.Format(time.RFC3339)
+			runDir = strings.TrimSuffix(runDir, "Z")
+			runDir = strings.Replace(runDir, "T", "-", 1)
 			runDir = path.Join(args[0], runDir)
 			runDirPath := strings.Split(runDir, "/")
 			toMerge := ""
