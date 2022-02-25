@@ -157,19 +157,6 @@ The YAML config file should be formatted like:
 				} else {
 					labels[subJobs[i].Label] = true
 				}
-
-				if subJobs[i].TaskGroup {
-					children := getChildrenSubJobs(subJobs[i].ID)
-					if children == nil || len(children) == 0 {
-						continue
-					}
-					for j := range children {
-						children[j].Label = children[j].TaskIndex + "-" + subJobs[i].Label
-					}
-
-					subJobs[i].Children = make([]types.SubJob, 0)
-					subJobs[i].Children = append(subJobs[i].Children, children...)
-				}
 			}
 
 			runDir := "run-" + run.StartedDate.Format(time.RFC3339)
@@ -285,6 +272,17 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []ty
 				os.Exit(0)
 			}
 		}
+
+		children := getChildrenSubJobs(subJob.ID)
+		if children == nil || len(children) == 0 {
+			return nil
+		}
+		for j := range children {
+			children[j].Label = children[j].TaskIndex + "-" + subJob.Label
+		}
+
+		subJob.Children = make([]types.SubJob, 0)
+		subJob.Children = append(subJob.Children, children...)
 
 		results := make([]types.SubJobOutput, 0)
 		if subJob.Children != nil {
