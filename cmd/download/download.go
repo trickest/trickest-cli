@@ -230,7 +230,10 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []ty
 	}
 	client := &http.Client{}
 
-	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/subjob-output/?subjob="+subJob.ID, nil)
+	urlReq := util.Cfg.BaseUrl + "v1/subjob-output/?subjob=" + subJob.ID
+	urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
+
+	req, err := http.NewRequest("GET", urlReq, nil)
 	req.Header.Add("Authorization", "Token "+util.GetToken())
 	req.Header.Add("Accept", "application/json")
 
@@ -527,7 +530,10 @@ func getWorkflowVersionByID(id string) *types.WorkflowVersionDetailed {
 func getChildrenSubJobs(subJobID string) []types.SubJob {
 	client := &http.Client{}
 
-	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/subjob/"+subJobID+"/children/", nil)
+	urlReq := util.Cfg.BaseUrl + "v1/subjob/" + subJobID + "/children/"
+	urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
+
+	req, err := http.NewRequest("GET", urlReq, nil)
 	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
 	req.Header.Add("Accept", "application/json")
 
