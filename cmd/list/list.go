@@ -33,22 +33,18 @@ var ListCmd = &cobra.Command{
 			return
 		}
 
-		space, project, workflow := ResolveObjectPath(args[0])
+		space, project, workflow, found := ResolveObjectPath(args[0])
 
-		if space == nil && project == nil && workflow == nil {
-			os.Exit(0)
-		}
-
-		if space != nil {
-			printSpaceDetailed(*space)
-		}
-
-		if project != nil {
-			printProject(*project)
+		if !found {
+			return
 		}
 
 		if workflow != nil {
 			printWorkflow(*workflow)
+		} else if project != nil {
+			printProject(*project)
+		} else if space != nil {
+			printSpaceDetailed(*space)
 		}
 	},
 }
@@ -274,7 +270,7 @@ func GetWorkflows(projectID string, store bool, search string) []types.WorkflowL
 	return workflows.Results
 }
 
-func getWorkflowByID(id string) *types.Workflow {
+func GetWorkflowByID(id string) *types.Workflow {
 	client := &http.Client{}
 
 	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/store/workflow/"+id+"/", nil)
@@ -310,20 +306,20 @@ func getWorkflowByID(id string) *types.Workflow {
 	return &workflow
 }
 
-func ResolveObjectPath(path string) (*types.SpaceDetailed, *types.Project, *types.Workflow) {
+func ResolveObjectPath(path string) (*types.SpaceDetailed, *types.Project, *types.Workflow, bool) {
 	pathSplit := strings.Split(strings.Trim(path, "/"), "/")
 	if len(pathSplit) > 3 {
 		fmt.Println("Invalid object path!")
-		return nil, nil, nil
+		return nil, nil, nil, false
 	}
 	space := GetSpaceByName(pathSplit[0])
 	if space == nil {
 		fmt.Println("Couldn't find space named " + pathSplit[0] + "!")
-		return nil, nil, nil
+		return nil, nil, nil, false
 	}
 
 	if len(pathSplit) == 1 {
-		return space, nil, nil
+		return space, nil, nil, true
 	}
 
 	var project *types.Project
@@ -333,7 +329,7 @@ func ResolveObjectPath(path string) (*types.SpaceDetailed, *types.Project, *type
 				project = &proj
 				proj.Workflows = GetWorkflows(proj.ID, false, "")
 				if len(pathSplit) == 2 {
-					return nil, &proj, nil
+					return space, &proj, nil, true
 				} else {
 					break
 				}
@@ -344,7 +340,7 @@ func ResolveObjectPath(path string) (*types.SpaceDetailed, *types.Project, *type
 	if space.Workflows != nil && len(space.Workflows) > 0 {
 		for _, wf := range space.Workflows {
 			if wf.Name == pathSplit[1] {
-				return nil, nil, &wf
+				return space, nil, &wf, true
 			}
 		}
 	}
@@ -352,21 +348,21 @@ func ResolveObjectPath(path string) (*types.SpaceDetailed, *types.Project, *type
 	if len(pathSplit) == 2 {
 		fmt.Println("Couldn't find project or workflow named " + pathSplit[1] + " inside " +
 			pathSplit[0] + " space!")
-		return nil, nil, nil
+		return space, nil, nil, false
 	}
 
 	if project != nil && project.Workflows != nil && len(project.Workflows) > 0 {
 		for _, wf := range project.Workflows {
 			if wf.Name == pathSplit[2] {
-				fullWorkflow := getWorkflowByID(wf.ID)
-				return nil, nil, fullWorkflow
+				fullWorkflow := GetWorkflowByID(wf.ID)
+				return space, project, fullWorkflow, true
 			}
 		}
 	} else {
 		fmt.Println("No workflows found in " + pathSplit[0] + "/" + pathSplit[1])
-		return nil, nil, nil
+		return space, project, nil, false
 	}
 
 	fmt.Println("Couldn't find workflow named " + pathSplit[2] + " in " + pathSplit[0] + "/" + pathSplit[1] + "/")
-	return nil, nil, nil
+	return space, project, nil, false
 }

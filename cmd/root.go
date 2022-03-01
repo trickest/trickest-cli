@@ -5,6 +5,7 @@ import (
 	"trickest-cli/cmd/create"
 	"trickest-cli/cmd/delete"
 	"trickest-cli/cmd/download"
+	"trickest-cli/cmd/execute"
 	"trickest-cli/cmd/list"
 	"trickest-cli/cmd/store"
 	"trickest-cli/util"
@@ -36,6 +37,7 @@ func init() {
 	RootCmd.AddCommand(create.CreateCmd)
 	RootCmd.AddCommand(delete.DeleteCmd)
 	RootCmd.AddCommand(download.DownloadCmd)
+	RootCmd.AddCommand(execute.ExecuteCmd)
 }
 
 func initVaultID() {

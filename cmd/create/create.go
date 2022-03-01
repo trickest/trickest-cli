@@ -35,7 +35,7 @@ var CreateCmd = &cobra.Command{
 		if len(pathSplit) == 1 {
 			createSpace(pathSplit[0], description)
 		} else {
-			createProject(pathSplit[1], description, pathSplit[0])
+			CreateProject(pathSplit[1], description, pathSplit[0])
 		}
 
 	},
@@ -89,7 +89,7 @@ func createSpace(name string, description string) {
 	fmt.Println("Space successfully created! ")
 }
 
-func createProject(name string, description string, spaceName string) {
+func CreateProject(name string, description string, spaceName string) {
 	space := list.GetSpaceByName(spaceName)
 	if space == nil {
 		fmt.Println("The space \"" + spaceName + "\" doesn't exist. Would you like to create it? (Y/N)")
@@ -98,7 +98,7 @@ func createProject(name string, description string, spaceName string) {
 			_, _ = fmt.Scan(&answer)
 			if strings.ToLower(answer) == "y" || strings.ToLower(answer) == "yes" {
 				createSpace(spaceName, "")
-				createProject(name, description, spaceName)
+				CreateProject(name, description, spaceName)
 				return
 			} else if strings.ToLower(answer) == "n" || strings.ToLower(answer) == "no" {
 				return

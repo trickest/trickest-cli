@@ -5,7 +5,6 @@ import (
 	"github.com/spf13/cobra"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"trickest-cli/cmd/list"
 	"trickest-cli/util"
 )
@@ -21,22 +20,19 @@ var DeleteCmd = &cobra.Command{
 			return
 		}
 
-		space, project, workflow := list.ResolveObjectPath(args[0])
+		space, project, workflow, found := list.ResolveObjectPath(args[0])
 
-		if space == nil && project == nil && workflow == nil {
-			os.Exit(0)
-		}
-
-		if space != nil {
-			deleteSpace("", space.ID)
-		}
-
-		if project != nil {
-			deleteProject(project.ID)
+		if !found {
+			return
 		}
 
 		if workflow != nil {
 			deleteWorkflow(workflow.ID)
+		} else if project != nil {
+			deleteProject(project.ID)
+			return
+		} else if space != nil {
+			deleteSpace("", space.ID)
 		}
 	},
 }

@@ -91,8 +91,8 @@ The YAML config file should be formatted like:
 			}
 		}
 
-		_, _, workflow := list.ResolveObjectPath(args[0])
-		if workflow == nil {
+		_, _, workflow, found := list.ResolveObjectPath(args[0])
+		if !found {
 			return
 		}
 
