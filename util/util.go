@@ -82,6 +82,44 @@ func GetMe() *types.User {
 	return &user
 }
 
+func GetHiveInfo() *types.Hive {
+	client := &http.Client{}
+
+	req, err := http.NewRequest("GET", Cfg.BaseUrl+"v1/hive/?vault="+GetVault()+"&demo=true", nil)
+	req.Header.Add("Authorization", "Token "+GetToken())
+	req.Header.Add("Accept", "application/json")
+
+	var resp *http.Response
+	resp, err = client.Do(req)
+	if err != nil {
+		fmt.Println("Error: Couldn't get hive ID.")
+		return nil
+	}
+	defer resp.Body.Close()
+
+	var bodyBytes []byte
+	bodyBytes, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println(err)
+		fmt.Println("Error: Couldn't read hive ID.")
+		return nil
+	}
+
+	var hives types.Hives
+	err = json.Unmarshal(bodyBytes, &hives)
+	if err != nil {
+		fmt.Println("Error unmarshalling hive response!")
+		return nil
+	}
+
+	if hives.Results == nil && len(hives.Results) != 1 {
+		fmt.Println("Couldn't obtain hive ID!")
+		return nil
+	}
+
+	return &hives.Results[0]
+}
+
 func ProcessUnexpectedResponse(responseBody []byte, statusCode int) {
 	if statusCode >= http.StatusInternalServerError {
 		fmt.Println("Sorry, something went wrong!")

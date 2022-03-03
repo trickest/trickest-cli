@@ -109,7 +109,7 @@ The YAML config file should be formatted like:
 			return
 		}
 
-		version := getWorkflowVersionByID(runs[0].WorkflowVersionInfo)
+		version := GetWorkflowVersionByID(runs[0].WorkflowVersionInfo)
 		if version == nil {
 			return
 		}
@@ -495,7 +495,7 @@ func getRuns(workflowID string, pageSize int) []types.Run {
 	return runs.Results
 }
 
-func getWorkflowVersionByID(id string) *types.WorkflowVersionDetailed {
+func GetWorkflowVersionByID(id string) *types.WorkflowVersionDetailed {
 	client := &http.Client{}
 
 	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/store/workflow-version/"+id+"/", nil)
