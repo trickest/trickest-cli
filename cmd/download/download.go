@@ -21,8 +21,8 @@ import (
 )
 
 type NodeInfo struct {
-	toFetch bool
-	found   bool
+	ToFetch bool
+	Found   bool
 }
 
 type LabelCnt struct {
@@ -62,7 +62,7 @@ The YAML config file should be formatted like:
 		nodes := make(map[string]NodeInfo, 0)
 		if len(args) > 1 {
 			for i := 1; i < len(args); i++ {
-				nodes[strings.ReplaceAll(args[i], "/", "-")] = NodeInfo{toFetch: true, found: false}
+				nodes[strings.ReplaceAll(args[i], "/", "-")] = NodeInfo{ToFetch: true, Found: false}
 			}
 		}
 
@@ -87,7 +87,7 @@ The YAML config file should be formatted like:
 			}
 
 			for _, node := range conf.Outputs {
-				nodes[strings.ReplaceAll(node, "/", "-")] = NodeInfo{toFetch: true, found: false}
+				nodes[strings.ReplaceAll(node, "/", "-")] = NodeInfo{ToFetch: true, Found: false}
 			}
 		}
 
@@ -115,105 +115,7 @@ The YAML config file should be formatted like:
 		}
 
 		for _, run := range runs {
-			if run.Status != "COMPLETED" && run.Status != "STOPPED" && run.Status != "FAILED" {
-				fmt.Println("The workflow run hasn't been completed yet!")
-				fmt.Println("Run ID: " + run.ID + "   Status: " + run.Status)
-				continue
-			}
-
-			subJobs := getSubJobs(run.ID)
-			labels := make(map[string]bool)
-
-			for i := range subJobs {
-				subJobs[i].Label = version.Data.Nodes[subJobs[i].NodeName].Meta.Label
-				subJobs[i].Label = strings.ReplaceAll(subJobs[i].Label, "/", "-")
-				if labels[subJobs[i].Label] {
-					existingLabel := subJobs[i].Label
-					subJobs[i].Label = subJobs[i].NodeName
-					if labels[subJobs[i].Label] {
-						subJobs[i].Label += "-1"
-						for c := 1; c >= 1; c++ {
-							if labels[subJobs[i].Label] {
-								subJobs[i].Label = strings.TrimSuffix(subJobs[i].Label, "-"+strconv.Itoa(c))
-								subJobs[i].Label += "-" + strconv.Itoa(c+1)
-							} else {
-								labels[subJobs[i].Label] = true
-								break
-							}
-						}
-					} else {
-						for s := 0; s < i; s++ {
-							if subJobs[s].Label == existingLabel {
-								subJobs[s].Label = subJobs[s].NodeName
-								if subJobs[s].Children != nil {
-									for j := range subJobs[s].Children {
-										subJobs[s].Children[j].Label = subJobs[s].Children[j].TaskIndex + "-" + subJobs[s].NodeName
-									}
-								}
-							}
-						}
-						labels[subJobs[i].Label] = true
-					}
-				} else {
-					labels[subJobs[i].Label] = true
-				}
-			}
-
-			runDir := "run-" + run.StartedDate.Format(time.RFC3339)
-			runDir = strings.TrimSuffix(runDir, "Z")
-			runDir = strings.Replace(runDir, "T", "-", 1)
-			runDir = path.Join(args[0], runDir)
-			runDirPath := strings.Split(runDir, "/")
-			toMerge := ""
-			for _, dir := range runDirPath {
-				toMerge = path.Join(toMerge, dir)
-				dirInfo, err := os.Stat(toMerge)
-				dirExists := !os.IsNotExist(err) && dirInfo.IsDir()
-
-				if !dirExists {
-					err = os.Mkdir(toMerge, 0755)
-					if err != nil {
-						fmt.Println(err)
-						fmt.Println("Couldn't create a directory to store run output!")
-						os.Exit(0)
-					}
-				}
-			}
-
-			if len(nodes) == 0 {
-				for _, subJob := range subJobs {
-					getSubJobOutput(runDir, &subJob, true)
-				}
-			} else {
-				noneFound := true
-				for _, subJob := range subJobs {
-					_, labelExists := nodes[subJob.Label]
-					if labelExists {
-						nodes[subJob.Label] = NodeInfo{toFetch: true, found: true}
-					}
-					_, nameExists := nodes[subJob.Name]
-					if nameExists {
-						nodes[subJob.Name] = NodeInfo{toFetch: true, found: true}
-					}
-					_, nodeIDExists := nodes[subJob.NodeName]
-					if nodeIDExists {
-						nodes[subJob.NodeName] = NodeInfo{toFetch: true, found: true}
-					}
-					if nameExists || labelExists || nodeIDExists {
-						noneFound = false
-						getSubJobOutput(runDir, &subJob, true)
-					}
-				}
-				if noneFound {
-					fmt.Println("Couldn't find any nodes that match given name(s)!")
-				} else {
-					for nodeName, nodeInfo := range nodes {
-						if !nodeInfo.found {
-							fmt.Println("Couldn't find any sub-job named " + nodeName + "!")
-						}
-					}
-				}
-			}
+			DownloadRunOutput(&run, nodes, version, args[0])
 		}
 	},
 }
@@ -222,6 +124,112 @@ func init() {
 	DownloadCmd.Flags().StringVar(&configFile, "config", "", "YAML file to determine which nodes output(s) should be downloaded")
 	DownloadCmd.Flags().BoolVar(&allRuns, "all", false, "Download output data for all runs")
 	DownloadCmd.Flags().IntVar(&numberOfRuns, "runs", 1, "Number of recent runs which outputs should be downloaded")
+}
+
+func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, version *types.WorkflowVersionDetailed, destinationPath string) {
+	if run.Status != "COMPLETED" && run.Status != "STOPPED" && run.Status != "FAILED" {
+		fmt.Println("The workflow run hasn't been completed yet!")
+		fmt.Println("Run ID: " + run.ID + "   Status: " + run.Status)
+		return
+	}
+
+	if version != nil {
+		version = GetWorkflowVersionByID(run.WorkflowVersionInfo)
+	}
+
+	subJobs := getSubJobs(run.ID)
+	labels := make(map[string]bool)
+
+	for i := range subJobs {
+		subJobs[i].Label = version.Data.Nodes[subJobs[i].NodeName].Meta.Label
+		subJobs[i].Label = strings.ReplaceAll(subJobs[i].Label, "/", "-")
+		if labels[subJobs[i].Label] {
+			existingLabel := subJobs[i].Label
+			subJobs[i].Label = subJobs[i].NodeName
+			if labels[subJobs[i].Label] {
+				subJobs[i].Label += "-1"
+				for c := 1; c >= 1; c++ {
+					if labels[subJobs[i].Label] {
+						subJobs[i].Label = strings.TrimSuffix(subJobs[i].Label, "-"+strconv.Itoa(c))
+						subJobs[i].Label += "-" + strconv.Itoa(c+1)
+					} else {
+						labels[subJobs[i].Label] = true
+						break
+					}
+				}
+			} else {
+				for s := 0; s < i; s++ {
+					if subJobs[s].Label == existingLabel {
+						subJobs[s].Label = subJobs[s].NodeName
+						if subJobs[s].Children != nil {
+							for j := range subJobs[s].Children {
+								subJobs[s].Children[j].Label = subJobs[s].Children[j].TaskIndex + "-" + subJobs[s].NodeName
+							}
+						}
+					}
+				}
+				labels[subJobs[i].Label] = true
+			}
+		} else {
+			labels[subJobs[i].Label] = true
+		}
+	}
+
+	runDir := "run-" + run.StartedDate.Format(time.RFC3339)
+	runDir = strings.TrimSuffix(runDir, "Z")
+	runDir = strings.Replace(runDir, "T", "-", 1)
+	runDir = path.Join(destinationPath, runDir)
+	runDirPath := strings.Split(runDir, "/")
+	toMerge := ""
+	for _, dir := range runDirPath {
+		toMerge = path.Join(toMerge, dir)
+		dirInfo, err := os.Stat(toMerge)
+		dirExists := !os.IsNotExist(err) && dirInfo.IsDir()
+
+		if !dirExists {
+			err = os.Mkdir(toMerge, 0755)
+			if err != nil {
+				fmt.Println(err)
+				fmt.Println("Couldn't create a directory to store run output!")
+				os.Exit(0)
+			}
+		}
+	}
+
+	if len(nodes) == 0 {
+		for _, subJob := range subJobs {
+			getSubJobOutput(runDir, &subJob, true)
+		}
+	} else {
+		noneFound := true
+		for _, subJob := range subJobs {
+			_, labelExists := nodes[subJob.Label]
+			if labelExists {
+				nodes[subJob.Label] = NodeInfo{ToFetch: true, Found: true}
+			}
+			_, nameExists := nodes[subJob.Name]
+			if nameExists {
+				nodes[subJob.Name] = NodeInfo{ToFetch: true, Found: true}
+			}
+			_, nodeIDExists := nodes[subJob.NodeName]
+			if nodeIDExists {
+				nodes[subJob.NodeName] = NodeInfo{ToFetch: true, Found: true}
+			}
+			if nameExists || labelExists || nodeIDExists {
+				noneFound = false
+				getSubJobOutput(runDir, &subJob, true)
+			}
+		}
+		if noneFound {
+			fmt.Println("Couldn't find any nodes that match given name(s)!")
+		} else {
+			for nodeName, nodeInfo := range nodes {
+				if !nodeInfo.Found {
+					fmt.Println("Couldn't find any sub-job named " + nodeName + "!")
+				}
+			}
+		}
+	}
 }
 
 func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []types.SubJobOutput {
@@ -531,7 +539,7 @@ func getChildrenSubJobs(subJobID string) []types.SubJob {
 	client := &http.Client{}
 
 	urlReq := util.Cfg.BaseUrl + "v1/subjob/" + subJobID + "/children/"
-	urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
+	urlReq += "?page_size=" + strconv.Itoa(math.MaxInt)
 
 	req, err := http.NewRequest("GET", urlReq, nil)
 	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
