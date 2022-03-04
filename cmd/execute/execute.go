@@ -28,6 +28,7 @@ var (
 	maxMachines       types.Bees
 	availableMachines types.Bees
 	hive              *types.Hive
+	nodesToDownload   = make(map[string]download.NodeInfo, 0)
 )
 
 // ExecuteCmd represents the execute command
@@ -69,14 +70,14 @@ func readConfig(fileName string) {
 		return
 	}
 
-	bytes, err := ioutil.ReadAll(file)
+	bytesData, err := ioutil.ReadAll(file)
 	if err != nil {
 		fmt.Println("Couldn't read config!")
 		return
 	}
 
 	var config map[string]interface{}
-	err = yaml.Unmarshal(bytes, &config)
+	err = yaml.Unmarshal(bytesData, &config)
 	if err != nil {
 		fmt.Println("Couldn't unmarshal config!")
 		return
@@ -180,6 +181,20 @@ func readConfig(fileName string) {
 		}
 	} else {
 		executionMachines = maxMachines
+	}
+
+	if outputs, exists := config["outputs"]; exists {
+		outputsList := outputs.([]interface{})
+
+		for _, node := range outputsList {
+			nodeName, ok := node.(string)
+			if ok {
+				nodesToDownload[nodeName] = download.NodeInfo{ToFetch: true, Found: false}
+			} else {
+				fmt.Print("Invalid output node name: ")
+				fmt.Println(node)
+			}
+		}
 	}
 
 }
@@ -331,8 +346,6 @@ func prepareForExec(path string) *types.Workflow {
 			os.Exit(0)
 		}
 	}
-
-	fmt.Println("Workflow path: " + workflow.SpaceName + "/" + workflow.ProjectName + "/" + workflow.Name)
 
 	return workflow
 }
