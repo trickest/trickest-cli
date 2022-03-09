@@ -1,6 +1,8 @@
 package types
 
-import "time"
+import (
+	"time"
+)
 
 type WorkflowVersions struct {
 	Next     string            `json:"next"`
@@ -20,4 +22,12 @@ type WorkflowVersion struct {
 	Description  string    `json:"description"`
 	Public       bool      `json:"public"`
 	RunCount     int       `json:"run_count"`
+}
+
+type URLParameter struct {
+	URL string `yaml:"url"`
+}
+
+type FileParameter struct {
+	FileName string `yaml:"file"`
 }
