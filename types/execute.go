@@ -23,11 +23,3 @@ type WorkflowVersion struct {
 	Public       bool      `json:"public"`
 	RunCount     int       `json:"run_count"`
 }
-
-type URLParameter struct {
-	URL string `yaml:"url"`
-}
-
-type FileParameter struct {
-	FileName string `yaml:"file"`
-}

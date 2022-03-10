@@ -103,14 +103,6 @@ type Node struct {
 	WorkerConnected *string `json:"workerConnected,omitempty"`
 }
 
-type T *struct {
-	Script struct {
-		Args   []interface{} `json:"args"`
-		Image  string        `json:"image"`
-		Source string        `json:"source"`
-	} `json:"script,omitempty"`
-}
-
 type NodeInput struct {
 	Type            string      `json:"type"`
 	Order           int         `json:"order"`
