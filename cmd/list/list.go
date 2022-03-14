@@ -327,12 +327,8 @@ func ResolveObjectPath(path string) (*types.SpaceDetailed, *types.Project, *type
 		for _, proj := range space.Projects {
 			if proj.Name == pathSplit[1] {
 				project = &proj
-				proj.Workflows = GetWorkflows(proj.ID, false, "")
-				if len(pathSplit) == 2 {
-					return space, &proj, nil, true
-				} else {
-					break
-				}
+				project.Workflows = GetWorkflows(project.ID, false, "")
+				break
 			}
 		}
 	}
@@ -340,7 +336,7 @@ func ResolveObjectPath(path string) (*types.SpaceDetailed, *types.Project, *type
 	if space.Workflows != nil && len(space.Workflows) > 0 {
 		for _, wf := range space.Workflows {
 			if wf.Name == pathSplit[1] {
-				return space, nil, &wf, true
+				return space, project, &wf, true
 			}
 		}
 	}

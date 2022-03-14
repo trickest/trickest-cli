@@ -779,30 +779,7 @@ func getWorkflowVersions(workflowID string, pageSize int) []types.WorkflowVersio
 }
 
 func prepareForExec(path string) *types.Workflow {
-	path = strings.Trim(path, "/")
-
-	if !strings.Contains(path, "/") {
-		space := list.GetSpaceByName(spaceName)
-		if space == nil {
-			os.Exit(0)
-		}
-		projName := path
-
-		projectExists := false
-		for _, proj := range space.Projects {
-			if proj.Name == projName {
-				projectExists = true
-				break
-			}
-		}
-		if !projectExists {
-			fmt.Println("Creating a project " + spaceName + "/" + projName +
-				" to copy the workflow from the store...")
-			create.CreateProject(projName, "", spaceName)
-		}
-		path = projName + "/" + path
-	}
-	path = spaceName + "/" + path
+	path = spaceName + "/" + strings.Trim(path, "/")
 
 	space, project, workflow, _ := list.ResolveObjectPath(path)
 	if space == nil || project == nil {
@@ -816,6 +793,18 @@ func prepareForExec(path string) *types.Workflow {
 		if storeWorkflows != nil && len(storeWorkflows) > 0 {
 			for _, wf := range storeWorkflows {
 				if strings.ToLower(wf.Name) == strings.ToLower(wfName) {
+					projectExists := false
+					for _, proj := range space.Projects {
+						if proj.Name == wfName {
+							projectExists = true
+							break
+						}
+					}
+					if !projectExists {
+						fmt.Println("Creating a project " + spaceName + "/" + wfName +
+							" to copy the workflow from the store...")
+						create.CreateProject(wfName, "", spaceName)
+					}
 					if workflowName == "" {
 						workflowName = wf.Name
 					}
