@@ -23,3 +23,30 @@ type WorkflowVersion struct {
 	Public       bool      `json:"public"`
 	RunCount     int       `json:"run_count"`
 }
+
+type TreeNode struct {
+	NodeName     string
+	Label        string
+	Inputs       *map[string]*NodeInput
+	Printed      bool
+	HasParent    bool
+	Children     []*TreeNode
+	Status       string
+	Message      string
+	OutputStatus string
+	Duration     time.Duration
+}
+
+type CreateRun struct {
+	Bees      Bees   `json:"bees"`
+	VersionID string `json:"workflow_version_info"`
+	HiveInfo  string `json:"hive_info"`
+}
+
+type CreateRunResponse struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Bees      Bees   `json:"bees"`
+	VersionID string `json:"workflow_version_info"`
+	HiveInfo  string `json:"hive_info"`
+}

@@ -4,16 +4,22 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/gosuri/uilive"
 	"github.com/spf13/cobra"
+	"github.com/xlab/treeprint"
 	"gopkg.in/yaml.v3"
 	"io"
 	"io/ioutil"
+	"math"
 	"mime/multipart"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"text/tabwriter"
 	"time"
 	"trickest-cli/cmd/create"
 	"trickest-cli/cmd/download"
@@ -27,6 +33,7 @@ var (
 	workflowName      string
 	configFile        string
 	watch             bool
+	showParams        bool
 	executionMachines types.Bees
 	maxMachines       types.Bees
 	availableMachines types.Bees
@@ -34,6 +41,8 @@ var (
 	nodesToDownload   = make(map[string]download.NodeInfo, 0)
 	workflow          *types.Workflow
 	version           *types.WorkflowVersionDetailed
+	allNodes          map[string]*types.TreeNode
+	roots             []*types.TreeNode
 )
 
 // ExecuteCmd represents the execute command
@@ -63,9 +72,12 @@ var ExecuteCmd = &cobra.Command{
 		if configFile != "" {
 			update := readConfig(configFile)
 			if update {
-				createNewVersion(version)
+				version = createNewVersion(version)
 			}
 		}
+
+		allNodes, roots = createTrees(version)
+		createRun(version.ID, watch)
 	},
 }
 
@@ -74,7 +86,287 @@ func init() {
 	ExecuteCmd.Flags().StringVar(&workflowName, "name", "", "Workflow name")
 	ExecuteCmd.Flags().StringVar(&configFile, "config", "", "YAML file for run configuration")
 	ExecuteCmd.Flags().BoolVar(&watch, "watch", false, "Watch the execution running")
+	ExecuteCmd.Flags().BoolVar(&showParams, "show-params", false, "Show parameters in the workflow tree")
+}
 
+func watchRun(runID string, nodesToDownload map[string]download.NodeInfo) {
+	const fmtStr = "%-12s %v\n"
+	writer := uilive.New()
+	writer.Start()
+	defer writer.Stop()
+
+	mutex := &sync.Mutex{}
+
+	go func() {
+		defer mutex.Unlock()
+		signalChannel := make(chan os.Signal, 1)
+		signal.Notify(signalChannel, os.Interrupt)
+		<-signalChannel
+
+		mutex.Lock()
+		_ = writer.Flush()
+		writer.Stop()
+
+		fmt.Println("The program will exit. Would you like to stop the remote execution? (Y/N)")
+		var answer string
+		for {
+			_, _ = fmt.Scan(&answer)
+			if strings.ToLower(answer) == "y" || strings.ToLower(answer) == "yes" {
+				stopRun(runID)
+				os.Exit(0)
+			} else if strings.ToLower(answer) == "n" || strings.ToLower(answer) == "no" {
+				os.Exit(0)
+			}
+		}
+	}()
+
+	for {
+		mutex.Lock()
+		run := GetRunByID(runID)
+		if run == nil {
+			mutex.Unlock()
+			break
+		}
+
+		out := ""
+		out += fmt.Sprintf(fmtStr, "Name:", workflow.Name)
+		out += fmt.Sprintf(fmtStr, "Status:", strings.ToLower(run.Status))
+		out += fmt.Sprintf(fmtStr, "Created:", run.CreatedDate.In(time.Local).Format(time.RFC1123)+
+			" ("+time.Since(run.CreatedDate).Round(time.Second).String()+" ago)")
+		if run.Status != "PENDING" {
+			out += fmt.Sprintf(fmtStr, "Started:", run.StartedDate.In(time.Local).Format(time.RFC1123)+
+				" ("+time.Since(run.StartedDate).Round(time.Second).String()+" ago)")
+		}
+		if run.Finished {
+			out += fmt.Sprintf(fmtStr, "Finished:", run.CompletedDate.In(time.Local).Format(time.RFC1123)+
+				" ("+time.Since(run.CompletedDate).Round(time.Second).String()+" ago)")
+			out += fmt.Sprintf(fmtStr, "Duration:", (run.CompletedDate.Sub(run.StartedDate)).Round(time.Second).String())
+		}
+		if run.Status == "RUNNING" {
+			out += fmt.Sprintf(fmtStr, "Duration:", time.Since(run.StartedDate).Round(time.Second).String())
+		}
+
+		subJobs := GetSubJobs(runID)
+		for _, sj := range subJobs {
+			allNodes[sj.NodeName].Status = strings.ToLower(sj.Status)
+			allNodes[sj.NodeName].OutputStatus = strings.ReplaceAll(strings.ToLower(sj.OutputsStatus), "_", " ")
+			if sj.Finished {
+				allNodes[sj.NodeName].Duration = sj.FinishedDate.Sub(sj.StartedDate).Round(time.Second)
+			} else {
+				allNodes[sj.NodeName].Duration = time.Since(sj.StartedDate).Round(time.Second)
+			}
+		}
+
+		trees := printTrees(roots, &allNodes)
+		out += "\n" + trees
+		_, _ = fmt.Fprintln(writer, out)
+		_ = writer.Flush()
+
+		if run.Status == "COMPLETED" || run.Status == "STOPPED" || run.Status == "FAILED" {
+			if len(nodesToDownload) > 0 {
+				path := spaceName
+				if workflow.ProjectName != "" {
+					path += "/" + workflow.ProjectName
+				}
+				path += "/" + workflow.Name
+				download.DownloadRunOutput(run, nodesToDownload, version, path)
+			}
+			mutex.Unlock()
+			return
+		}
+		mutex.Unlock()
+	}
+}
+
+func createRun(versionID string, watch bool) {
+	run := types.CreateRun{
+		VersionID: versionID,
+		HiveInfo:  hive.ID,
+		Bees:      executionMachines,
+	}
+
+	buf := new(bytes.Buffer)
+
+	err := json.NewEncoder(buf).Encode(&run)
+	if err != nil {
+		fmt.Println("Error encoding create run request!")
+		os.Exit(0)
+	}
+
+	bodyData := bytes.NewReader(buf.Bytes())
+
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", util.Cfg.BaseUrl+"v1/run/", bodyData)
+	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
+	req.Header.Add("Content-Type", "application/json")
+
+	var resp *http.Response
+	resp, err = client.Do(req)
+	if err != nil {
+		fmt.Println("Error: Couldn't create run!")
+		os.Exit(0)
+	}
+
+	var bodyBytes []byte
+	bodyBytes, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error: Couldn't read response body!")
+		os.Exit(0)
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+	}
+
+	var createRunResp types.CreateRunResponse
+	err = json.Unmarshal(bodyBytes, &createRunResp)
+	if err != nil {
+		fmt.Println("Error unmarshalling create run response!")
+		os.Exit(0)
+	}
+
+	if watch {
+		watchRun(createRunResp.ID, nodesToDownload)
+	} else {
+		fmt.Println("Run successfully created! ID: " + createRunResp.ID)
+	}
+}
+
+func printTrees(roots []*types.TreeNode, allNodes *map[string]*types.TreeNode) string {
+	trees := ""
+	for _, root := range roots {
+		tree := printTree(root, nil, allNodes)
+
+		for _, node := range *allNodes {
+			node.Printed = false
+		}
+
+		writerBuffer := new(bytes.Buffer)
+		w := tabwriter.NewWriter(writerBuffer, 0, 0, 2, ' ', 0)
+		_, _ = fmt.Fprintf(w, "\tNODE\t STATUS\t DURATION\t OUTPUT\n")
+
+		treeSplit := strings.Split(tree, "\n")
+		for _, line := range treeSplit {
+			if line != "" {
+				if strings.Contains(line, "(") {
+					lineSplit := strings.Split(line, "(")
+					nodeName := strings.Trim(lineSplit[1], ")")
+					node := (*allNodes)[nodeName]
+					_, _ = fmt.Fprintf(w, "\t"+line+"\t"+node.Status+"\t"+
+						node.Duration.Round(time.Second).String()+"\t"+node.OutputStatus+"\n")
+				} else {
+					_, _ = fmt.Fprintf(w, "\t"+line+"\t\t\t\n")
+				}
+			}
+		}
+		_ = w.Flush()
+		trees += writerBuffer.String()
+	}
+
+	return trees
+}
+
+func printTree(node *types.TreeNode, branch *treeprint.Tree, allNodes *map[string]*types.TreeNode) string {
+	prefixSymbol := ""
+	switch node.Status {
+	case "pending":
+		prefixSymbol = "\u23f3 " //⏳
+	case "running":
+		prefixSymbol = "\U0001f535 " //🔵
+	case "succeeded":
+		prefixSymbol = "\u2705 " //✅
+	case "error", "failed":
+		prefixSymbol = "\u274c " //❌
+	}
+
+	printValue := prefixSymbol + node.Label + " (" + node.NodeName + ")"
+	if branch == nil {
+		tree := treeprint.NewWithRoot(printValue)
+		branch = &tree
+	} else {
+		childBranch := (*branch).AddBranch(printValue)
+		branch = &childBranch
+	}
+
+	if showParams {
+		parameters := (*branch).AddBranch("parameters")
+		for inputName, input := range *node.Inputs {
+			param := inputName + ": "
+			if input.Value != nil {
+				switch v := input.Value.(type) {
+				case string:
+					if strings.HasPrefix(v, "in/") {
+						v = getNodeNameFromConnectionID(v)
+					}
+					if strings.HasPrefix(param, "file/") || strings.HasPrefix(param, "folder/") {
+						parameters.AddNode(v)
+					} else {
+						parameters.AddNode(param + v)
+					}
+				case int:
+					parameters.AddNode(param + strconv.Itoa(v))
+				case bool:
+					parameters.AddNode(param + strconv.FormatBool(v))
+				}
+			}
+		}
+	}
+
+	for _, child := range node.Children {
+		if !(*allNodes)[node.NodeName].Printed {
+			printTree(child, branch, allNodes)
+		}
+	}
+
+	(*allNodes)[node.NodeName].Printed = true
+
+	return (*branch).String()
+}
+
+func createTrees(wfVersion *types.WorkflowVersionDetailed) (map[string]*types.TreeNode, []*types.TreeNode) {
+	allNodes = make(map[string]*types.TreeNode, 0)
+	roots = make([]*types.TreeNode, 0)
+
+	for _, node := range wfVersion.Data.Nodes {
+		allNodes[node.Name] = &types.TreeNode{
+			NodeName:     node.Name,
+			Label:        node.Meta.Label,
+			Inputs:       &node.Inputs,
+			Status:       "pending",
+			OutputStatus: "no outputs",
+			Children:     make([]*types.TreeNode, 0),
+		}
+	}
+
+	for node := range wfVersion.Data.Nodes {
+		for _, connection := range wfVersion.Data.Connections {
+			if node == getNodeNameFromConnectionID(connection.Destination.ID) {
+				child := getNodeNameFromConnectionID(connection.Source.ID)
+				if childNode, exists := allNodes[child]; exists {
+					childNode.HasParent = true
+					allNodes[node].Children = append(allNodes[node].Children, childNode)
+				}
+			}
+		}
+	}
+
+	for node := range wfVersion.Data.Nodes {
+		if !allNodes[node].HasParent {
+			roots = append(roots, allNodes[node])
+		}
+	}
+
+	return allNodes, roots
+}
+
+func getNodeNameFromConnectionID(id string) string {
+	idSplit := strings.Split(id, "/")
+	if len(idSplit) < 3 {
+		fmt.Println("Invalid source/destination ID!")
+		os.Exit(0)
+	}
+
+	return idSplit[1]
 }
 
 func readConfig(fileName string) bool {
@@ -99,7 +391,7 @@ func readConfig(fileName string) bool {
 		os.Exit(0)
 	}
 
-	if machines, exists := config["machines"]; exists {
+	if machines, exists := config["machines"]; exists && machines != nil {
 		machinesList := machines.([]interface{})
 
 		for _, m := range machinesList {
@@ -128,12 +420,13 @@ func readConfig(fileName string) bool {
 			}
 
 			var numberOfMachines *int
-			if n, number := val.(int); number {
-				if n != 0 {
-					numberOfMachines = &n
+			switch value := val.(type) {
+			case int:
+				if value != 0 {
+					numberOfMachines = &value
 				}
-			} else if s, word := val.(string); word {
-				if strings.ToLower(s) == "max" || strings.ToLower(s) == "maximum" {
+			case string:
+				if strings.ToLower(value) == "max" || strings.ToLower(value) == "maximum" {
 					if isSmall {
 						numberOfMachines = maxMachines.Small
 					} else if isMedium {
@@ -142,10 +435,10 @@ func readConfig(fileName string) bool {
 						numberOfMachines = maxMachines.Large
 					}
 				} else {
-					processInvalidMachineString(s)
+					processInvalidMachineString(value)
 				}
-			} else {
-				processInvalidMachineType(val)
+			default:
+				processInvalidMachineType(value)
 			}
 
 			if isSmall {
@@ -189,7 +482,7 @@ func readConfig(fileName string) bool {
 		executionMachines = maxMachines
 	}
 
-	if outputs, exists := config["outputs"]; exists {
+	if outputs, exists := config["outputs"]; exists && outputs != nil {
 		outputsList := outputs.([]interface{})
 
 		for _, node := range outputsList {
@@ -204,11 +497,8 @@ func readConfig(fileName string) bool {
 	}
 
 	updateNeeded := false
-	newPrimitiveNodes := make(map[string]struct {
-		Param string
-		Value interface{}
-	}, 0)
-	if inputs, exists := config["inputs"]; exists {
+	newPrimitiveNodes := make(map[string]types.PrimitiveNode, 0)
+	if inputs, exists := config["inputs"]; exists && inputs != nil {
 		inputsList := inputs.([]interface{})
 		for _, in := range inputsList {
 			input, structure := in.(map[string]interface{})
@@ -217,9 +507,10 @@ func readConfig(fileName string) bool {
 			}
 
 			for param, paramValue := range input {
-				nameSplit := strings.Split(param, ".")
+				newPNode := types.PrimitiveNode{Name: param, Value: paramValue}
+				nameSplit := strings.Split(newPNode.Name, ".")
 				if len(nameSplit) != 2 {
-					fmt.Println("Invalid input parameter: " + param)
+					fmt.Println("Invalid input parameter: " + newPNode.Name)
 					os.Exit(0)
 				}
 				paramName := nameSplit[1]
@@ -237,30 +528,31 @@ func readConfig(fileName string) bool {
 					os.Exit(0)
 				}
 
-				var paramType string
-				if _, isStr := paramValue.(string); isStr {
-					paramType = "STRING"
-				} else if intVal, isInt := paramValue.(int); isInt {
-					paramValue = strconv.Itoa(intVal)
-				} else if boolVal, isBool := paramValue.(bool); isBool {
-					paramType = "BOOLEAN"
-					paramValue = boolVal
-				} else if objectParam, isObject := paramValue.(map[string]interface{}); isObject {
-					if fName, isFile := objectParam["file"]; isFile {
-						paramType = "FILE"
-						paramValue = "trickest://file/" + uploadFile(fName.(string))
-					} else if url, isURL := objectParam["url"]; isURL {
-						paramValue = url.(string)
+				switch val := newPNode.Value.(type) {
+				case string:
+					newPNode.Type = "STRING"
+				case int:
+					newPNode.Type = "STRING"
+					newPNode.Value = strconv.Itoa(val)
+				case bool:
+					newPNode.Type = "BOOLEAN"
+					newPNode.Value = val
+				case map[string]interface{}:
+					if fName, isFile := val["file"]; isFile {
+						newPNode.Type = "FILE"
+						newPNode.Value = "trickest://file/" + uploadFile(fName.(string))
+					} else if url, isURL := val["url"]; isURL {
+						newPNode.Value = url.(string)
 						if strings.HasSuffix(url.(string), ".git") {
-							paramType = "FOLDER"
+							newPNode.Type = "FOLDER"
 						} else {
-							paramType = "FILE"
+							newPNode.Type = "FILE"
 						}
 					} else {
-						paramType = "OBJECT"
+						newPNode.Type = "OBJECT"
 					}
-				} else {
-					paramType = "UNKNOWN"
+				default:
+					newPNode.Type = "UNKNOWN"
 				}
 
 				oldParam, paramExists := node.Inputs[paramName]
@@ -274,9 +566,7 @@ func readConfig(fileName string) bool {
 				for _, connection := range version.Data.Connections {
 					if strings.HasSuffix(connection.Destination.ID, nodeName+"/"+paramName) {
 						connectionFound = true
-						primitiveNodeName := strings.TrimSuffix(connection.Source.ID, "output")
-						primitiveNodeName = strings.TrimPrefix(primitiveNodeName, "output")
-						primitiveNodeName = strings.Trim(primitiveNodeName, "/")
+						primitiveNodeName := getNodeNameFromConnectionID(connection.Source.ID)
 						primitiveNode, pNodeExists := version.Data.PrimitiveNodes[primitiveNodeName]
 						if !pNodeExists {
 							fmt.Println(primitiveNodeName + " is not a primitive node output!")
@@ -284,38 +574,24 @@ func readConfig(fileName string) bool {
 						}
 
 						savedPNode, alreadyExists := newPrimitiveNodes[primitiveNode.Name]
-						if alreadyExists && (savedPNode.Value != paramValue) {
-							fmt.Print("Inputs " + savedPNode.Param + " (")
-							fmt.Print(savedPNode.Value)
-							fmt.Print(") and " + param + " (")
-							fmt.Print(paramValue)
-							fmt.Println(") must have the same value!")
-							os.Exit(0)
+						if alreadyExists && (savedPNode.Value != newPNode.Value) {
+							processDifferentParamsForASinglePNode(savedPNode, newPNode)
 						}
 
-						newPrimitiveNodes[primitiveNode.Name] = struct {
-							Param string
-							Value interface{}
-						}{Param: param, Value: paramValue}
+						newPrimitiveNodes[primitiveNode.Name] = newPNode
 
-						if oldParam.Value != paramValue {
-							if paramType != primitiveNode.Type {
-								printType := strings.ToLower(primitiveNode.Type)
-								if printType == "string" {
-									printType += " (or integer, if a number is needed)"
-								}
-								fmt.Println(param + " should be of type " + printType + " instead of " +
-									strings.ToLower(paramType) + "!")
-								os.Exit(0)
+						if oldParam.Value != newPNode.Value {
+							if newPNode.Type != primitiveNode.Type {
+								processInvalidInputType(newPNode, *primitiveNode)
 							}
 
-							primitiveNode.Value = paramValue
-							oldParam.Value = paramValue
-							if paramType == "BOOLEAN" {
-								boolValue := paramValue.(bool)
+							primitiveNode.Value = newPNode.Value
+							oldParam.Value = newPNode.Value
+							if newPNode.Type == "BOOLEAN" {
+								boolValue := newPNode.Value.(bool)
 								primitiveNode.Label = strconv.FormatBool(boolValue)
 							} else {
-								primitiveNode.Label = paramValue.(string)
+								primitiveNode.Label = newPNode.Value.(string)
 							}
 							version.Name = nil
 							updateNeeded = true
@@ -324,7 +600,8 @@ func readConfig(fileName string) bool {
 					}
 				}
 				if !connectionFound {
-					fmt.Println(param + " is not connected to any input!")
+					fmt.Println(newPNode.Name + " is not connected to any input!")
+					os.Exit(0)
 				}
 			}
 		}
@@ -538,9 +815,7 @@ func prepareForExec(path string) *types.Workflow {
 			for _, wf := range storeWorkflows {
 				if strings.ToLower(wf.Name) == strings.ToLower(wfName) {
 					if workflowName == "" {
-						timeStamp := time.Now().Format(time.RFC3339)
-						timeStamp = strings.Replace(timeStamp, "T", "-", 1)
-						workflowName = wf.Name + "-" + timeStamp
+						workflowName = wf.Name
 					}
 					fmt.Println("Copying " + wf.Name + " from the store to " +
 						space.Name + "/" + project.Name + "/" + workflowName)
@@ -706,6 +981,25 @@ func processMaxMachinesOverflow() {
 	os.Exit(0)
 }
 
+func processDifferentParamsForASinglePNode(existingPNode, newPNode types.PrimitiveNode) {
+	fmt.Print("Inputs " + existingPNode.Name + " (")
+	fmt.Print(existingPNode.Value)
+	fmt.Print(") and " + newPNode.Name + " (")
+	fmt.Print(newPNode.Value)
+	fmt.Println(") must have the same value!")
+	os.Exit(0)
+}
+
+func processInvalidInputType(newPNode, existingPNode types.PrimitiveNode) {
+	printType := strings.ToLower(existingPNode.Type)
+	if printType == "string" {
+		printType += " (or integer, if a number is needed)"
+	}
+	fmt.Println(newPNode.Name + " should be of type " + printType + " instead of " +
+		strings.ToLower(newPNode.Type) + "!")
+	os.Exit(0)
+}
+
 func findStartingNodeSuffix(wfVersion *types.WorkflowVersionDetailed) string {
 	suffix := "-1"
 	for node := range wfVersion.Data.Nodes {
@@ -738,5 +1032,111 @@ func getAvailableMachines() {
 			available := bee.Total - bee.Running
 			availableMachines.Small = &available
 		}
+	}
+}
+
+func GetRunByID(id string) *types.Run {
+	client := &http.Client{}
+
+	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/run/"+id+"/", nil)
+	req.Header.Add("Authorization", "Token "+util.GetToken())
+	req.Header.Add("Accept", "application/json")
+
+	var resp *http.Response
+	resp, err = client.Do(req)
+	if err != nil {
+		fmt.Println("Error: Couldn't get run info.")
+		return nil
+	}
+	defer resp.Body.Close()
+
+	var bodyBytes []byte
+	bodyBytes, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println(err)
+		fmt.Println("Error: Couldn't read run info.")
+		return nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+	}
+
+	var run types.Run
+	err = json.Unmarshal(bodyBytes, &run)
+	if err != nil {
+		fmt.Println("Error unmarshalling run response!")
+		return nil
+	}
+
+	return &run
+}
+
+func GetSubJobs(runID string) []types.SubJob {
+	if runID == "" {
+		fmt.Println("Couldn't list sub-jobs, no run ID parameter specified!")
+		os.Exit(0)
+	}
+	urlReq := util.Cfg.BaseUrl + "v1/subjob/?run=" + runID
+	urlReq = urlReq + "&page_size=" + strconv.Itoa(math.MaxInt)
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", urlReq, nil)
+	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
+	req.Header.Add("Accept", "application/json")
+
+	var resp *http.Response
+	resp, err = client.Do(req)
+	if err != nil {
+		fmt.Println("Error: Couldn't get sub-jobs info!")
+		os.Exit(0)
+	}
+	defer resp.Body.Close()
+
+	var bodyBytes []byte
+	bodyBytes, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error: Couldn't read sub-jobs info.")
+		os.Exit(0)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+	}
+
+	var subJobs types.SubJobs
+	err = json.Unmarshal(bodyBytes, &subJobs)
+	if err != nil {
+		fmt.Println("Error unmarshalling sub-jobs response!")
+		os.Exit(0)
+	}
+
+	return subJobs.Results
+}
+
+func stopRun(runID string) {
+	client := &http.Client{}
+	urlReq := util.Cfg.BaseUrl + "v1/run/" + runID + "/stop/"
+	req, err := http.NewRequest("POST", urlReq, nil)
+	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
+	req.Header.Add("Accept", "application/json")
+
+	var resp *http.Response
+	resp, err = client.Do(req)
+	if err != nil {
+		fmt.Println("Error: Couldn't stop run.")
+		os.Exit(0)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusAccepted {
+		var bodyBytes []byte
+		bodyBytes, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println("Error: Couldn't read stop run response.")
+			os.Exit(0)
+		}
+
+		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
 	}
 }

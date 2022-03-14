@@ -198,6 +198,13 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, version *types
 
 	if len(nodes) == 0 {
 		for _, subJob := range subJobs {
+			for subJob.OutputsStatus == "SAVING" || subJob.OutputsStatus == "WAITING" {
+				updatedSubJob := getSubJobByID(subJob.ID)
+				if updatedSubJob == nil {
+					os.Exit(0)
+				}
+				subJob.OutputsStatus = updatedSubJob.OutputsStatus
+			}
 			getSubJobOutput(runDir, &subJob, true)
 		}
 	} else {
@@ -217,6 +224,13 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, version *types
 			}
 			if nameExists || labelExists || nodeIDExists {
 				noneFound = false
+				for subJob.OutputsStatus == "SAVING" || subJob.OutputsStatus == "WAITING" {
+					updatedSubJob := getSubJobByID(subJob.ID)
+					if updatedSubJob == nil {
+						os.Exit(0)
+					}
+					subJob.OutputsStatus = updatedSubJob.OutputsStatus
+				}
 				getSubJobOutput(runDir, &subJob, true)
 			}
 		}
@@ -572,4 +586,40 @@ func getChildrenSubJobs(subJobID string) []types.SubJob {
 	}
 
 	return subJobs.Results
+}
+
+func getSubJobByID(id string) *types.SubJob {
+	client := &http.Client{}
+
+	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/subjob/"+id+"/", nil)
+	req.Header.Add("Authorization", "Token "+util.GetToken())
+	req.Header.Add("Accept", "application/json")
+
+	var resp *http.Response
+	resp, err = client.Do(req)
+	if err != nil {
+		fmt.Println("Error: Couldn't get sub-job info.")
+		return nil
+	}
+	defer resp.Body.Close()
+
+	var bodyBytes []byte
+	bodyBytes, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error: Couldn't read sub-job info.")
+		return nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+	}
+
+	var subJob types.SubJob
+	err = json.Unmarshal(bodyBytes, &subJob)
+	if err != nil {
+		fmt.Println("Error unmarshalling sub-job response!")
+		return nil
+	}
+
+	return &subJob
 }

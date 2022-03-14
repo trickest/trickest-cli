@@ -60,16 +60,15 @@ func GetMe() *types.User {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		fmt.Println("Error: User with the specified token doesn't exist!")
-		os.Exit(0)
-	}
-
 	var bodyBytes []byte
 	bodyBytes, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println("Error: Couldn't read user info.")
 		os.Exit(0)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
 	}
 
 	var user types.User
@@ -92,7 +91,7 @@ func GetHiveInfo() *types.Hive {
 	var resp *http.Response
 	resp, err = client.Do(req)
 	if err != nil {
-		fmt.Println("Error: Couldn't get hive ID.")
+		fmt.Println("Error: Couldn't get hive info.")
 		return nil
 	}
 	defer resp.Body.Close()
@@ -100,9 +99,12 @@ func GetHiveInfo() *types.Hive {
 	var bodyBytes []byte
 	bodyBytes, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println(err)
-		fmt.Println("Error: Couldn't read hive ID.")
+		fmt.Println("Error: Couldn't read hive info.")
 		return nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
 	}
 
 	var hives types.Hives
@@ -112,8 +114,8 @@ func GetHiveInfo() *types.Hive {
 		return nil
 	}
 
-	if hives.Results == nil && len(hives.Results) != 1 {
-		fmt.Println("Couldn't obtain hive ID!")
+	if hives.Results == nil || len(hives.Results) == 0 {
+		fmt.Println("Couldn't find hive info!")
 		return nil
 	}
 
