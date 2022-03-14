@@ -74,6 +74,8 @@ var ExecuteCmd = &cobra.Command{
 			if update {
 				version = createNewVersion(version)
 			}
+		} else {
+			executionMachines = maxMachines
 		}
 
 		allNodes, roots = createTrees(version)
