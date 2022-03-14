@@ -133,6 +133,7 @@ func watchRun(runID string, nodesToDownload map[string]download.NodeInfo) {
 		out := ""
 		out += fmt.Sprintf(fmtStr, "Name:", workflow.Name)
 		out += fmt.Sprintf(fmtStr, "Status:", strings.ToLower(run.Status))
+		out += fmt.Sprintf(fmtStr, "Machines:", formatMachines(&executionMachines, true))
 		out += fmt.Sprintf(fmtStr, "Created:", run.CreatedDate.In(time.Local).Format(time.RFC1123)+
 			" ("+time.Since(run.CreatedDate).Round(time.Second).String()+" ago)")
 		if run.Status != "PENDING" {
@@ -231,6 +232,7 @@ func createRun(versionID string, watch bool) {
 		watchRun(createRunResp.ID, nodesToDownload)
 	} else {
 		fmt.Println("Run successfully created! ID: " + createRunResp.ID)
+		fmt.Print("Machines:\n " + formatMachines(&executionMachines, false))
 	}
 }
 
@@ -957,18 +959,7 @@ func processInvalidInputStructure() {
 func processMaxMachinesOverflow() {
 	fmt.Println("Invalid number or machines!")
 	fmt.Println("The maximum number of machines you can allocate for this workflow: ")
-	if maxMachines.Small != nil {
-		fmt.Print("Small: ")
-		fmt.Println(*maxMachines.Small)
-	}
-	if maxMachines.Medium != nil {
-		fmt.Print("Medium: ")
-		fmt.Println(*maxMachines.Medium)
-	}
-	if maxMachines.Large != nil {
-		fmt.Print("Large: ")
-		fmt.Println(*maxMachines.Large)
-	}
+	fmt.Println(formatMachines(&maxMachines, false))
 	os.Exit(0)
 }
 
@@ -1130,4 +1121,48 @@ func stopRun(runID string) {
 
 		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
 	}
+}
+
+func formatMachines(machines *types.Bees, inline bool) string {
+	var small, medium, large string
+	if machines.Small != nil {
+		small = "small: " + strconv.Itoa(*machines.Small)
+	}
+	if machines.Medium != nil {
+		medium = "medium: " + strconv.Itoa(*machines.Medium)
+	}
+	if machines.Large != nil {
+		large = "large: " + strconv.Itoa(*machines.Large)
+	}
+
+	out := ""
+	if inline {
+		if small != "" {
+			out = small
+		}
+		if medium != "" {
+			if small != "" {
+				out += ", "
+			}
+			out += medium
+		}
+		if large != "" {
+			if small != "" || medium != "" {
+				out += ", "
+			}
+			out += large
+		}
+	} else {
+		if small != "" {
+			out = small + "\n"
+		}
+		if medium != "" {
+			out += medium + "\n"
+		}
+		if large != "" {
+			out += large + "\n"
+		}
+	}
+
+	return out
 }
