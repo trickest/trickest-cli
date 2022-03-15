@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -293,8 +294,14 @@ func printTree(node *types.TreeNode, branch *treeprint.Tree, allNodes *map[strin
 	}
 
 	if showParams {
+		inputNames := make([]string, 0)
+		for input := range *node.Inputs {
+			inputNames = append(inputNames, input)
+		}
+		sort.Strings(inputNames)
 		parameters := (*branch).AddBranch("parameters")
-		for inputName, input := range *node.Inputs {
+		for _, inputName := range inputNames {
+			input := (*node.Inputs)[inputName]
 			param := inputName + ": "
 			if input.Value != nil {
 				switch v := input.Value.(type) {
