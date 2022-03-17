@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gosuri/uilive"
+	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/xlab/treeprint"
 	"gopkg.in/yaml.v3"
@@ -36,12 +37,9 @@ var (
 	watch             bool
 	showParams        bool
 	executionMachines types.Bees
-	maxMachines       types.Bees
 	availableMachines types.Bees
 	hive              *types.Hive
 	nodesToDownload   = make(map[string]download.NodeInfo, 0)
-	workflow          *types.Workflow
-	version           *types.WorkflowVersionDetailed
 	allNodes          map[string]*types.TreeNode
 	roots             []*types.TreeNode
 )
@@ -61,22 +59,12 @@ var ExecuteCmd = &cobra.Command{
 		if hive == nil {
 			return
 		}
-
-		workflow = prepareForExec(args[0])
-		version = getLatestWorkflowVersion(workflow)
-		if version == nil {
-			fmt.Println("Couldn't get the latest workflow version!")
-			os.Exit(0)
-		}
-		maxMachines = version.MaxMachines
 		getAvailableMachines()
-		if configFile != "" {
-			update := readConfig(configFile)
-			if update {
-				version = createNewVersion(version)
-			}
-		} else {
-			executionMachines = maxMachines
+
+		version := prepareForExec(spaceName + "/" + args[0])
+		if version == nil {
+			fmt.Println("Couldn't find or create the workflow version!")
+			os.Exit(0)
 		}
 
 		allNodes, roots = createTrees(version)
@@ -132,9 +120,10 @@ func watchRun(runID string, nodesToDownload map[string]download.NodeInfo) {
 		}
 
 		out := ""
-		out += fmt.Sprintf(fmtStr, "Name:", workflow.Name)
+		out += fmt.Sprintf(fmtStr, "Name:", run.WorkflowName)
 		out += fmt.Sprintf(fmtStr, "Status:", strings.ToLower(run.Status))
-		out += fmt.Sprintf(fmtStr, "Machines:", formatMachines(&executionMachines, true))
+		out += fmt.Sprintf(fmtStr, "Machines:", formatMachines(&executionMachines, true)+
+			" (currently available: "+formatMachines(&availableMachines, true)+")")
 		out += fmt.Sprintf(fmtStr, "Created:", run.CreatedDate.In(time.Local).Format(time.RFC1123)+
 			" ("+time.Since(run.CreatedDate).Round(time.Second).String()+" ago)")
 		if run.Status != "PENDING" {
@@ -169,11 +158,11 @@ func watchRun(runID string, nodesToDownload map[string]download.NodeInfo) {
 		if run.Status == "COMPLETED" || run.Status == "STOPPED" || run.Status == "FAILED" {
 			if len(nodesToDownload) > 0 {
 				path := spaceName
-				if workflow.ProjectName != "" {
-					path += "/" + workflow.ProjectName
+				if run.ProjectName != "" {
+					path += "/" + run.ProjectName
 				}
-				path += "/" + workflow.Name
-				download.DownloadRunOutput(run, nodesToDownload, version, path)
+				path += "/" + run.WorkflowName
+				download.DownloadRunOutput(run, nodesToDownload, nil, path)
 			}
 			mutex.Unlock()
 			return
@@ -234,6 +223,7 @@ func createRun(versionID string, watch bool) {
 	} else {
 		fmt.Println("Run successfully created! ID: " + createRunResp.ID)
 		fmt.Print("Machines:\n " + formatMachines(&executionMachines, false))
+		fmt.Print("Available:\n " + formatMachines(&availableMachines, false))
 	}
 }
 
@@ -380,7 +370,16 @@ func getNodeNameFromConnectionID(id string) string {
 	return idSplit[1]
 }
 
-func readConfig(fileName string) bool {
+func readConfig(fileName string, wfVersion *types.WorkflowVersionDetailed, tool *types.Tool) (
+	bool, *types.WorkflowVersionDetailed, map[string]*types.PrimitiveNode) {
+	if wfVersion == nil && tool == nil {
+		fmt.Println("No workflow or tool found for execution!")
+		os.Exit(0)
+	}
+	if fileName == "" {
+		return false, wfVersion, nil
+	}
+
 	file, err := os.Open(fileName)
 	if err != nil {
 		fmt.Println(err)
@@ -402,8 +401,322 @@ func readConfig(fileName string) bool {
 		os.Exit(0)
 	}
 
-	if machines, exists := config["machines"]; exists && machines != nil {
-		machinesList := machines.([]interface{})
+	if tool != nil {
+		executionMachines = *readConfigMachines(&config, true, nil)
+	} else {
+		executionMachines = *readConfigMachines(&config, false, &wfVersion.MaxMachines)
+	}
+	nodesToDownload = readConfigOutputs(&config)
+	updateNeeded, primitiveNodes := readConfigInputs(&config, wfVersion, tool)
+
+	return updateNeeded, wfVersion, primitiveNodes
+}
+
+func createToolWorkflow(wfName string, project *types.Project, tool *types.Tool, primitiveNodes map[string]*types.PrimitiveNode,
+	machine types.Bees) *types.WorkflowVersionDetailed {
+	if tool == nil {
+		fmt.Println("No tool specified, couldn't create a workflow!")
+		os.Exit(0)
+	}
+
+	node := &types.Node{
+		ID:   tool.ID,
+		Name: tool.Name + "-1",
+		Meta: struct {
+			Label       string `json:"label"`
+			Coordinates struct {
+				X float64 `json:"x"`
+				Y float64 `json:"y"`
+			} `json:"coordinates"`
+		}{Label: tool.Name, Coordinates: struct {
+			X float64 `json:"x"`
+			Y float64 `json:"y"`
+		}{X: 0, Y: 0}},
+		Type:          tool.Type,
+		Container:     tool.Container,
+		Outputs:       tool.Outputs,
+		OutputCommand: tool.OutputCommand,
+	}
+	switch {
+	case machine.Small != nil:
+		node.BeeType = "small"
+	case machine.Medium != nil:
+		node.BeeType = "medium"
+	case machine.Large != nil:
+		node.BeeType = "large"
+	}
+
+	inputs := make(map[string]*types.NodeInput, 0)
+	for _, pNode := range primitiveNodes {
+		toolInput := tool.Inputs[pNode.Name]
+		inputs[pNode.Name] = &types.NodeInput{
+			Type:        toolInput.Type,
+			Order:       toolInput.Order,
+			Command:     toolInput.Command,
+			Description: toolInput.Description,
+			Value:       pNode.Value,
+		}
+	}
+	node.Inputs = inputs
+
+	connections := make([]types.Connection, 0)
+	distance := 400
+	total := (len(primitiveNodes) - 1) * distance
+	start := -total / 2
+
+	pNodes := make([]string, 0)
+	for pn := range primitiveNodes {
+		pNodes = append(pNodes, pn)
+	}
+	sort.Strings(pNodes)
+
+	for _, p := range pNodes {
+		pNode := primitiveNodes[p]
+		pNode.Coordinates.X = node.Meta.Coordinates.X - 2*float64(distance)
+		pNode.Coordinates.Y = float64(start)
+		start += distance
+
+		connections = append(connections, types.Connection{
+			Source: struct {
+				ID string `json:"id"`
+			}{ID: "output/" + pNode.Name + "/output"},
+			Destination: struct {
+				ID string `json:"id"`
+			}{ID: "input/" + node.Name + "/" + pNode.Name},
+		})
+	}
+
+	wfExists := false
+	workflowID := ""
+	for _, wf := range project.Workflows {
+		if wf.Name == wfName {
+			wfExists = true
+			workflowID = wf.ID
+			break
+		}
+	}
+	if !wfExists {
+		fmt.Println("Creating " + wfName + " workflow...")
+		newWorkflow := create.CreateWorkflow(wfName, tool.Description, project.SpaceInfo, project.ID)
+		workflowID = newWorkflow.ID
+	}
+
+	newVersion := &types.WorkflowVersionDetailed{
+		WorkflowInfo: workflowID,
+		Name:         nil,
+		Data: struct {
+			Nodes          map[string]*types.Node          `json:"nodes"`
+			Connections    []types.Connection              `json:"connections"`
+			PrimitiveNodes map[string]*types.PrimitiveNode `json:"primitiveNodes"`
+		}{
+			Nodes: map[string]*types.Node{
+				node.Name: node,
+			},
+			Connections:    connections,
+			PrimitiveNodes: primitiveNodes,
+		},
+	}
+
+	for _, pNode := range newVersion.Data.PrimitiveNodes {
+		if pNode.Type == "FILE" && strings.HasPrefix(pNode.Value.(string), "trickest://file/") {
+			pNode.Label = uploadFile(strings.TrimPrefix(pNode.Value.(string), "trickest://file/"))
+		}
+	}
+	newVersion = createNewVersion(newVersion)
+	return newVersion
+}
+
+func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowVersionDetailed, tool *types.Tool) (
+	bool, map[string]*types.PrimitiveNode) {
+	updateNeeded := false
+	newPrimitiveNodes := make(map[string]*types.PrimitiveNode, 0)
+	if inputs, exists := (*config)["inputs"]; exists && inputs != nil {
+		inputsList, isList := inputs.([]interface{})
+		if !isList {
+			processInvalidInputStructure()
+		}
+		if tool != nil && len(inputsList) == 0 {
+			fmt.Println("You must specify input parameters when creating a tool workflow!")
+			os.Exit(0)
+		}
+		for _, in := range inputsList {
+			input, structure := in.(map[string]interface{})
+			if !structure {
+				processInvalidInputStructure()
+			}
+
+			for param, paramValue := range input {
+				newPNode := types.PrimitiveNode{Name: param, Value: paramValue}
+				if !strings.Contains(newPNode.Name, ".") {
+					if tool != nil {
+						newPNode.Name = tool.Name + "." + newPNode.Name
+					} else if wfVersion != nil && len(wfVersion.Data.Nodes) == 1 {
+						for n := range wfVersion.Data.Nodes {
+							newPNode.Name = n + "." + newPNode.Name
+						}
+					}
+				}
+				nameSplit := strings.Split(newPNode.Name, ".")
+				if len(nameSplit) != 2 {
+					fmt.Println("Invalid input parameter: " + param)
+					os.Exit(0)
+				}
+				paramName := nameSplit[1]
+				nodeName := nameSplit[0]
+
+				nodeNameSplit := strings.Split(nodeName, "-")
+				if _, e := strconv.Atoi(nodeNameSplit[len(nodeNameSplit)-1]); e != nil {
+					if wfVersion == nil {
+						newPNode.Name = paramName
+					} else {
+						nodeName += findStartingNodeSuffix(wfVersion)
+					}
+				}
+
+				switch val := newPNode.Value.(type) {
+				case string:
+					newPNode.Type = "STRING"
+					newPNode.TypeName = "STRING"
+				case int:
+					newPNode.Type = "STRING"
+					newPNode.TypeName = "STRING"
+					newPNode.Value = strconv.Itoa(val)
+				case bool:
+					newPNode.Type = "BOOLEAN"
+					newPNode.TypeName = "BOOLEAN"
+					newPNode.Value = val
+				case map[string]interface{}:
+					if fName, isFile := val["file"]; isFile {
+						newPNode.Type = "FILE"
+						newPNode.Value = "trickest://file/" + fName.(string)
+					} else if url, isURL := val["url"]; isURL {
+						newPNode.Value = url.(string)
+						if strings.HasSuffix(url.(string), ".git") {
+							newPNode.Type = "FOLDER"
+						} else {
+							newPNode.Type = "FILE"
+						}
+					} else {
+						newPNode.Type = "OBJECT"
+					}
+					newPNode.TypeName = "URL"
+				default:
+					newPNode.Type = "UNKNOWN"
+				}
+				if newPNode.Type == "BOOLEAN" {
+					boolValue := newPNode.Value.(bool)
+					newPNode.Label = strconv.FormatBool(boolValue)
+				} else {
+					newPNode.Label = newPNode.Value.(string)
+				}
+
+				if wfVersion != nil {
+					node, nodeExists := wfVersion.Data.Nodes[nodeName]
+					if !nodeExists {
+						fmt.Println("Node doesn't exist: " + nodeName)
+						os.Exit(0)
+					}
+
+					oldParam, paramExists := node.Inputs[paramName]
+					paramExists = paramExists && oldParam.Value != nil
+					if !paramExists {
+						fmt.Println("Parameter " + paramName + " doesn't exist for node " + nodeName)
+						os.Exit(0)
+					}
+
+					connectionFound := false
+					for _, connection := range wfVersion.Data.Connections {
+						if strings.HasSuffix(connection.Destination.ID, nodeName+"/"+paramName) {
+							connectionFound = true
+							primitiveNodeName := getNodeNameFromConnectionID(connection.Source.ID)
+							primitiveNode, pNodeExists := wfVersion.Data.PrimitiveNodes[primitiveNodeName]
+							if !pNodeExists {
+								fmt.Println(primitiveNodeName + " is not a primitive node output!")
+								os.Exit(0)
+							}
+
+							savedPNode, alreadyExists := newPrimitiveNodes[primitiveNode.Name]
+							if alreadyExists && (savedPNode.Value != newPNode.Value) {
+								processDifferentParamsForASinglePNode(*savedPNode, newPNode)
+							}
+
+							newPrimitiveNodes[primitiveNode.Name] = &newPNode
+
+							if oldParam.Value != newPNode.Value {
+								if newPNode.Type != primitiveNode.Type {
+									processInvalidInputType(newPNode, *primitiveNode)
+								}
+								primitiveNode.Value = newPNode.Value
+								primitiveNode.Label = newPNode.Label
+								oldParam.Value = newPNode.Value
+								wfVersion.Name = nil
+								updateNeeded = true
+							}
+							break
+						}
+					}
+					if !connectionFound {
+						fmt.Println(newPNode.Name + " is not connected to any input!")
+						os.Exit(0)
+					}
+				} else {
+					toolInput, paramExists := tool.Inputs[newPNode.Name]
+					if !paramExists {
+						fmt.Println("Input parameter " + newPNode.Name + " doesn't exist for tool named " + tool.Name + "!")
+						os.Exit(0)
+					}
+					if strings.ToLower(newPNode.Type) != strings.ToLower(toolInput.Type) {
+						fmt.Println("Input parameter " + tool.Name + "." + newPNode.Name + " should be of type " + tool.Type + " instead of " + newPNode.Type + "!")
+						os.Exit(0)
+					}
+					newPrimitiveNodes[newPNode.Name] = &newPNode
+				}
+			}
+		}
+	} else {
+		if tool != nil {
+			fmt.Println("You must specify input parameters when creating a tool workflow!")
+			os.Exit(0)
+		}
+	}
+
+	return updateNeeded, newPrimitiveNodes
+}
+
+func readConfigOutputs(config *map[string]interface{}) map[string]download.NodeInfo {
+	downloadNodes := make(map[string]download.NodeInfo)
+	if outputs, exists := (*config)["outputs"]; exists && outputs != nil {
+		outputsList, isList := outputs.([]interface{})
+		if !isList {
+			fmt.Println("Invalid outputs format! Use a list of strings.")
+		}
+
+		for _, node := range outputsList {
+			nodeName, ok := node.(string)
+			if ok {
+				downloadNodes[nodeName] = download.NodeInfo{ToFetch: true, Found: false}
+			} else {
+				fmt.Print("Invalid output node name: ")
+				fmt.Println(node)
+			}
+		}
+	}
+	return downloadNodes
+}
+
+func readConfigMachines(config *map[string]interface{}, isTool bool, maximumMachines *types.Bees) *types.Bees {
+	if !isTool && maximumMachines == nil {
+		fmt.Println("No maximum machines specified!")
+		os.Exit(0)
+	}
+
+	execMachines := &types.Bees{}
+	if machines, exists := (*config)["machines"]; exists && machines != nil {
+		machinesList, ok := machines.([]interface{})
+		if !ok {
+			fmt.Println("Invalid machines format! Use a list of machine dictionaries (small, medium, large) instead.")
+			os.Exit(0)
+		}
 
 		for _, m := range machinesList {
 			machine, structure := m.(map[string]interface{})
@@ -434,16 +747,33 @@ func readConfig(fileName string) bool {
 			switch value := val.(type) {
 			case int:
 				if value != 0 {
+					if value < 0 {
+						fmt.Println("Number of machines cannot be negative!")
+						os.Exit(0)
+					}
+					if isTool && value > 1 {
+						fmt.Println("You can specify only one machine of a single machine type for tool execution!")
+						os.Exit(0)
+					}
 					numberOfMachines = &value
 				}
 			case string:
 				if strings.ToLower(value) == "max" || strings.ToLower(value) == "maximum" {
-					if isSmall {
-						numberOfMachines = maxMachines.Small
-					} else if isMedium {
-						numberOfMachines = maxMachines.Medium
-					} else if isLarge {
-						numberOfMachines = maxMachines.Large
+					if isTool {
+						oneMachine := 1
+						if (isSmall && isMedium) || (isMedium && isLarge) || (isLarge && isSmall) {
+							fmt.Println("You can specify only one machine of a single machine type for tool execution!")
+							os.Exit(0)
+						}
+						numberOfMachines = &oneMachine
+					} else {
+						if isSmall {
+							numberOfMachines = maximumMachines.Small
+						} else if isMedium {
+							numberOfMachines = maximumMachines.Medium
+						} else if isLarge {
+							numberOfMachines = maximumMachines.Large
+						}
 					}
 				} else {
 					processInvalidMachineString(value)
@@ -453,172 +783,47 @@ func readConfig(fileName string) bool {
 			}
 
 			if isSmall {
-				executionMachines.Small = numberOfMachines
+				execMachines.Small = numberOfMachines
 			} else if isMedium {
-				executionMachines.Medium = numberOfMachines
+				execMachines.Medium = numberOfMachines
 			} else if isLarge {
-				executionMachines.Large = numberOfMachines
+				execMachines.Large = numberOfMachines
 			}
 
 		}
 
-		if (executionMachines.Small != nil && *executionMachines.Small < 0) ||
-			(executionMachines.Medium != nil && *executionMachines.Medium < 0) ||
-			(executionMachines.Large != nil && *executionMachines.Large < 0) {
-			fmt.Println("Number of machines cannot be negative!")
-			os.Exit(0)
-		}
+		if !isTool {
+			maxMachinesOverflow := false
+			if executionMachines.Small != nil {
+				if maximumMachines.Small == nil || (*executionMachines.Small > *maximumMachines.Small) {
+					maxMachinesOverflow = true
+				}
+			}
+			if executionMachines.Medium != nil {
+				if maximumMachines.Medium == nil || (*executionMachines.Medium > *maximumMachines.Medium) {
+					maxMachinesOverflow = true
+				}
+			}
+			if executionMachines.Large != nil {
+				if maximumMachines.Large == nil || (*executionMachines.Large > *maximumMachines.Large) {
+					maxMachinesOverflow = true
+				}
+			}
 
-		maxMachinesOverflow := false
-		if executionMachines.Small != nil {
-			if maxMachines.Small == nil || (*executionMachines.Small > *maxMachines.Small) {
-				maxMachinesOverflow = true
+			if maxMachinesOverflow {
+				processMaxMachinesOverflow(maximumMachines)
 			}
-		}
-		if executionMachines.Medium != nil {
-			if maxMachines.Medium == nil || (*executionMachines.Medium > *maxMachines.Medium) {
-				maxMachinesOverflow = true
-			}
-		}
-		if executionMachines.Large != nil {
-			if maxMachines.Large == nil || (*executionMachines.Large > *maxMachines.Large) {
-				maxMachinesOverflow = true
-			}
-		}
-
-		if maxMachinesOverflow {
-			processMaxMachinesOverflow()
 		}
 	} else {
-		executionMachines = maxMachines
-	}
-
-	if outputs, exists := config["outputs"]; exists && outputs != nil {
-		outputsList := outputs.([]interface{})
-
-		for _, node := range outputsList {
-			nodeName, ok := node.(string)
-			if ok {
-				nodesToDownload[nodeName] = download.NodeInfo{ToFetch: true, Found: false}
-			} else {
-				fmt.Print("Invalid output node name: ")
-				fmt.Println(node)
-			}
+		if isTool {
+			oneMachine := 1
+			return &types.Bees{Large: &oneMachine}
+		} else {
+			return maximumMachines
 		}
 	}
 
-	updateNeeded := false
-	newPrimitiveNodes := make(map[string]types.PrimitiveNode, 0)
-	if inputs, exists := config["inputs"]; exists && inputs != nil {
-		inputsList := inputs.([]interface{})
-		for _, in := range inputsList {
-			input, structure := in.(map[string]interface{})
-			if !structure {
-				processInvalidInputStructure()
-			}
-
-			for param, paramValue := range input {
-				newPNode := types.PrimitiveNode{Name: param, Value: paramValue}
-				nameSplit := strings.Split(newPNode.Name, ".")
-				if len(nameSplit) != 2 {
-					fmt.Println("Invalid input parameter: " + newPNode.Name)
-					os.Exit(0)
-				}
-				paramName := nameSplit[1]
-				nodeName := nameSplit[0]
-
-				nodeNameSplit := strings.Split(nodeName, "-")
-				if _, e := strconv.Atoi(nodeNameSplit[len(nodeNameSplit)-1]); e != nil {
-					suffix := findStartingNodeSuffix(version)
-					nodeName += suffix
-				}
-
-				node, nodeExists := version.Data.Nodes[nodeName]
-				if !nodeExists {
-					fmt.Println("Node doesn't exist: " + nodeName)
-					os.Exit(0)
-				}
-
-				switch val := newPNode.Value.(type) {
-				case string:
-					newPNode.Type = "STRING"
-				case int:
-					newPNode.Type = "STRING"
-					newPNode.Value = strconv.Itoa(val)
-				case bool:
-					newPNode.Type = "BOOLEAN"
-					newPNode.Value = val
-				case map[string]interface{}:
-					if fName, isFile := val["file"]; isFile {
-						newPNode.Type = "FILE"
-						newPNode.Value = "trickest://file/" + uploadFile(fName.(string))
-					} else if url, isURL := val["url"]; isURL {
-						newPNode.Value = url.(string)
-						if strings.HasSuffix(url.(string), ".git") {
-							newPNode.Type = "FOLDER"
-						} else {
-							newPNode.Type = "FILE"
-						}
-					} else {
-						newPNode.Type = "OBJECT"
-					}
-				default:
-					newPNode.Type = "UNKNOWN"
-				}
-
-				oldParam, paramExists := node.Inputs[paramName]
-				paramExists = paramExists && oldParam.Value != nil
-				if !paramExists {
-					fmt.Println("Parameter " + paramName + " doesn't exist for node " + nodeName)
-					os.Exit(0)
-				}
-
-				connectionFound := false
-				for _, connection := range version.Data.Connections {
-					if strings.HasSuffix(connection.Destination.ID, nodeName+"/"+paramName) {
-						connectionFound = true
-						primitiveNodeName := getNodeNameFromConnectionID(connection.Source.ID)
-						primitiveNode, pNodeExists := version.Data.PrimitiveNodes[primitiveNodeName]
-						if !pNodeExists {
-							fmt.Println(primitiveNodeName + " is not a primitive node output!")
-							os.Exit(0)
-						}
-
-						savedPNode, alreadyExists := newPrimitiveNodes[primitiveNode.Name]
-						if alreadyExists && (savedPNode.Value != newPNode.Value) {
-							processDifferentParamsForASinglePNode(savedPNode, newPNode)
-						}
-
-						newPrimitiveNodes[primitiveNode.Name] = newPNode
-
-						if oldParam.Value != newPNode.Value {
-							if newPNode.Type != primitiveNode.Type {
-								processInvalidInputType(newPNode, *primitiveNode)
-							}
-
-							primitiveNode.Value = newPNode.Value
-							oldParam.Value = newPNode.Value
-							if newPNode.Type == "BOOLEAN" {
-								boolValue := newPNode.Value.(bool)
-								primitiveNode.Label = strconv.FormatBool(boolValue)
-							} else {
-								primitiveNode.Label = newPNode.Value.(string)
-							}
-							version.Name = nil
-							updateNeeded = true
-						}
-						break
-					}
-				}
-				if !connectionFound {
-					fmt.Println(newPNode.Name + " is not connected to any input!")
-					os.Exit(0)
-				}
-			}
-		}
-	}
-
-	return updateNeeded
+	return execMachines
 }
 
 func createNewVersion(version *types.WorkflowVersionDetailed) *types.WorkflowVersionDetailed {
@@ -677,13 +882,31 @@ func uploadFile(filePath string) string {
 	}
 	defer file.Close()
 
+	fileName := filepath.Base(file.Name())
+
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	defer writer.Close()
 
-	part, err := writer.CreateFormFile("thumb", filepath.Base(file.Name()))
+	part, err := writer.CreateFormFile("thumb", fileName)
 	if err != nil {
 		fmt.Println("Error: Couldn't create form file!")
+		os.Exit(0)
+	}
+
+	fileInfo, _ := file.Stat()
+	bar := progressbar.NewOptions64(
+		fileInfo.Size(),
+		progressbar.OptionSetDescription("Uploading "+fileName+" ..."),
+		progressbar.OptionSetWidth(30),
+		progressbar.OptionShowBytes(true),
+		progressbar.OptionShowCount(),
+		progressbar.OptionOnCompletion(func() { fmt.Println() }),
+	)
+
+	_, err = io.Copy(io.MultiWriter(part, bar), file)
+	if err != nil {
+		fmt.Println("Couldn't upload " + fileName + "!")
 		os.Exit(0)
 	}
 
@@ -718,26 +941,26 @@ func uploadFile(filePath string) string {
 		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
 	}
 
-	fmt.Println(filepath.Base(file.Name()) + " successfully uploaded!")
+	fmt.Println(filepath.Base(file.Name()) + " successfully uploaded!\n")
 	return filepath.Base(file.Name())
 }
 
 func getLatestWorkflowVersion(workflow *types.Workflow) *types.WorkflowVersionDetailed {
 	if workflow == nil {
 		fmt.Println("No workflow provided, couldn't find the latest version!")
-		return nil
+		os.Exit(0)
 	}
 
 	if workflow.VersionCount == nil || *workflow.VersionCount == 0 {
 		fmt.Println("This workflow has no versions!")
-		return nil
+		os.Exit(0)
 	}
 
 	versions := getWorkflowVersions(workflow.ID, 1)
 
 	if versions == nil || len(versions) == 0 {
 		fmt.Println("Couldn't find any versions of the workflow: " + workflow.Name)
-		return nil
+		os.Exit(0)
 	}
 
 	latestVersion := download.GetWorkflowVersionByID(versions[0].ID)
@@ -748,7 +971,7 @@ func getLatestWorkflowVersion(workflow *types.Workflow) *types.WorkflowVersionDe
 func getWorkflowVersions(workflowID string, pageSize int) []types.WorkflowVersion {
 	if workflowID == "" {
 		fmt.Println("No workflow ID provided, couldn't find versions!")
-		return nil
+		os.Exit(0)
 	}
 	urlReq := util.Cfg.BaseUrl + "v1/store/workflow-version/?workflow=" + workflowID
 	urlReq += "&page_size=" + strconv.Itoa(pageSize)
@@ -762,7 +985,7 @@ func getWorkflowVersions(workflowID string, pageSize int) []types.WorkflowVersio
 	resp, err = client.Do(req)
 	if err != nil {
 		fmt.Println("Error: Couldn't get workflow versions.")
-		return nil
+		os.Exit(0)
 	}
 	defer resp.Body.Close()
 
@@ -770,7 +993,7 @@ func getWorkflowVersions(workflowID string, pageSize int) []types.WorkflowVersio
 	bodyBytes, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println("Error: Couldn't read workflow versions.")
-		return nil
+		os.Exit(0)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -781,69 +1004,111 @@ func getWorkflowVersions(workflowID string, pageSize int) []types.WorkflowVersio
 	err = json.Unmarshal(bodyBytes, &versions)
 	if err != nil {
 		fmt.Println("Error unmarshalling workflow versions response!")
-		return nil
+		os.Exit(0)
 	}
 
 	return versions.Results
 }
 
-func prepareForExec(path string) *types.Workflow {
-	path = spaceName + "/" + strings.Trim(path, "/")
+func prepareForExec(path string) *types.WorkflowVersionDetailed {
+	pathSplit := strings.Split(strings.Trim(path, "/"), "/")
+	var wfVersion *types.WorkflowVersionDetailed
+	var primitiveNodes map[string]*types.PrimitiveNode
 
 	space, project, workflow, _ := list.ResolveObjectPath(path)
-	if space == nil || project == nil {
+	if space == nil {
 		os.Exit(0)
 	}
 	if workflow == nil {
-		pathSplit := strings.Split(path, "/")
 		wfName := pathSplit[len(pathSplit)-1]
 		storeWorkflows := list.GetWorkflows("", true, wfName)
-		found := false
 		if storeWorkflows != nil && len(storeWorkflows) > 0 {
 			for _, wf := range storeWorkflows {
 				if strings.ToLower(wf.Name) == strings.ToLower(wfName) {
-					projectExists := false
-					for _, proj := range space.Projects {
-						if proj.Name == wfName {
-							projectExists = true
-							break
+					storeWfVersion := getLatestWorkflowVersion(list.GetWorkflowByID(wf.ID))
+					update := false
+					var updatedWfVersion *types.WorkflowVersionDetailed
+					if configFile == "" {
+						executionMachines = storeWfVersion.MaxMachines
+					} else {
+						update, updatedWfVersion, primitiveNodes = readConfig(configFile, storeWfVersion, nil)
+					}
+
+					if project == nil {
+						fmt.Println("Creating a project " + space.Name + "/" + wfName +
+							" to copy the workflow from the store...")
+						project = create.CreateProjectIfNotExists(space, wfName)
+						if workflowName == "" {
+							workflowName = wf.Name
 						}
 					}
-					if !projectExists {
-						fmt.Println("Creating a project " + spaceName + "/" + wfName +
-							" to copy the workflow from the store...")
-						create.CreateProject(wfName, "", spaceName)
-					}
-					if workflowName == "" {
-						workflowName = wf.Name
-					}
+
 					fmt.Println("Copying " + wf.Name + " from the store to " +
 						space.Name + "/" + project.Name + "/" + workflowName)
-
 					newWorkflowID := copyWorkflow(space.ID, project.ID, wf.ID)
 					if newWorkflowID == "" {
 						fmt.Println("Couldn't copy workflow from the store!")
 						os.Exit(0)
 					}
-					newWorkflow := list.GetWorkflowByID(newWorkflowID)
-					newWorkflow.Name = workflowName
-					updateWorkflow(newWorkflow)
-					workflow = newWorkflow
 
-					found = true
-					break
+					newWorkflow := list.GetWorkflowByID(newWorkflowID)
+					if newWorkflow.Name != workflowName {
+						newWorkflow.Name = workflowName
+						updateWorkflow(newWorkflow)
+					}
+
+					wfVersion = getLatestWorkflowVersion(newWorkflow)
+					if update && updatedWfVersion != nil {
+						for _, pNode := range primitiveNodes {
+							if pNode.Type == "FILE" && strings.HasPrefix(pNode.Value.(string), "trickest://file/") {
+								pNode.Label = uploadFile(strings.TrimPrefix(pNode.Value.(string), "trickest://file/"))
+							}
+						}
+						updatedWfVersion.WorkflowInfo = newWorkflow.ID
+						wfVersion = createNewVersion(updatedWfVersion)
+					}
+					return wfVersion
 				}
 			}
 		}
-		if !found {
-			fmt.Println("Couldn't find a workflow named " + wfName + " in the store!")
-			fmt.Println("Use \"trickest store list\" to see all available workflows, " +
+
+		if configFile == "" {
+			fmt.Println("You must provide config file to create a tool workflow!")
+			os.Exit(0)
+		}
+		tools := list.GetTools(math.MaxInt, "", wfName)
+		if tools == nil || len(tools) == 0 {
+			fmt.Println("Couldn't find a workflow or tool named " + wfName + " in the store!")
+			fmt.Println("Use \"trickest store list\" to see all available workflows and tools, " +
 				"or search the store using \"trickest store search <name/description>\"")
 			os.Exit(0)
 		}
+		_, _, primitiveNodes = readConfig(configFile, nil, &tools[0])
+
+		fmt.Println("Creating a project " + space.Name + "/" + wfName +
+			" to create " + tools[0].Name + " workflow...")
+		project = create.CreateProjectIfNotExists(space, tools[0].Name)
+		wfVersion = createToolWorkflow(workflowName, project, &tools[0], primitiveNodes, executionMachines)
+
+		return wfVersion
+	} else {
+		wfVersion = getLatestWorkflowVersion(workflow)
+		if configFile == "" {
+			executionMachines = wfVersion.MaxMachines
+		} else {
+			update, updatedWfVersion, _ := readConfig(configFile, wfVersion, nil)
+			if update {
+				for _, pNode := range primitiveNodes {
+					if pNode.Type == "FILE" && strings.HasPrefix(pNode.Value.(string), "trickest://file/") {
+						pNode.Label = uploadFile(strings.TrimPrefix(pNode.Value.(string), "trickest://file/"))
+					}
+				}
+				wfVersion = createNewVersion(updatedWfVersion)
+			}
+		}
 	}
 
-	return workflow
+	return wfVersion
 }
 
 func copyWorkflow(destinationSpaceID string, destinationProjectID string, workflowID string) string {
@@ -963,10 +1228,10 @@ func processInvalidInputStructure() {
 	os.Exit(0)
 }
 
-func processMaxMachinesOverflow() {
+func processMaxMachinesOverflow(maximumMachines *types.Bees) {
 	fmt.Println("Invalid number or machines!")
 	fmt.Println("The maximum number of machines you can allocate for this workflow: ")
-	fmt.Println(formatMachines(&maxMachines, false))
+	fmt.Println(formatMachines(maximumMachines, false))
 	os.Exit(0)
 }
 
@@ -1015,11 +1280,11 @@ func getAvailableMachines() {
 		}
 		if bee.Name == "medium" {
 			available := bee.Total - bee.Running
-			availableMachines.Small = &available
+			availableMachines.Medium = &available
 		}
 		if bee.Name == "large" {
 			available := bee.Total - bee.Running
-			availableMachines.Small = &available
+			availableMachines.Large = &available
 		}
 	}
 }

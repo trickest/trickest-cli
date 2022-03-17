@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 	"trickest-cli/cmd/list"
 	"trickest-cli/types"
@@ -89,7 +90,7 @@ func createSpace(name string, description string) {
 	fmt.Println("Space successfully created! ")
 }
 
-func CreateProject(name string, description string, spaceName string) {
+func CreateProject(name string, description string, spaceName string) *types.Project {
 	space := list.GetSpaceByName(spaceName)
 	if space == nil {
 		fmt.Println("The space \"" + spaceName + "\" doesn't exist. Would you like to create it? (Y/N)")
@@ -98,10 +99,9 @@ func CreateProject(name string, description string, spaceName string) {
 			_, _ = fmt.Scan(&answer)
 			if strings.ToLower(answer) == "y" || strings.ToLower(answer) == "yes" {
 				createSpace(spaceName, "")
-				CreateProject(name, description, spaceName)
-				return
+				return CreateProject(name, description, spaceName)
 			} else if strings.ToLower(answer) == "n" || strings.ToLower(answer) == "no" {
-				return
+				os.Exit(0)
 			}
 		}
 	}
@@ -117,7 +117,7 @@ func CreateProject(name string, description string, spaceName string) {
 	err := json.NewEncoder(buf).Encode(&project)
 	if err != nil {
 		fmt.Println("Error encoding create project request!")
-		return
+		os.Exit(0)
 	}
 
 	bodyData := bytes.NewReader(buf.Bytes())
@@ -131,14 +131,14 @@ func CreateProject(name string, description string, spaceName string) {
 	resp, err = client.Do(req)
 	if err != nil {
 		fmt.Println("Error: Couldn't create project.")
-		return
+		os.Exit(0)
 	}
 
 	var bodyBytes []byte
 	bodyBytes, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println("Error: Couldn't read response body!")
-		return
+		os.Exit(0)
 	}
 
 	if resp.StatusCode != http.StatusCreated {
@@ -146,4 +146,73 @@ func CreateProject(name string, description string, spaceName string) {
 	}
 
 	fmt.Println("Project successfully created!")
+	var newProject types.Project
+	err = json.Unmarshal(bodyBytes, &newProject)
+	if err != nil {
+		fmt.Println("Error unmarshalling create project response!")
+		os.Exit(0)
+	}
+
+	return &newProject
+}
+
+func CreateProjectIfNotExists(space *types.SpaceDetailed, projectName string) *types.Project {
+	for _, proj := range space.Projects {
+		if proj.Name == projectName {
+			return &proj
+		}
+	}
+	return CreateProject(projectName, "", space.Name)
+}
+
+func CreateWorkflow(name, description, spaceID, projectID string) *types.CreateWorkflowResponse {
+	workflow := types.CreateWorkflowRequest{
+		Name:        name,
+		Description: description,
+		SpaceID:     spaceID,
+		ProjectID:   projectID,
+	}
+
+	buf := new(bytes.Buffer)
+
+	err := json.NewEncoder(buf).Encode(&workflow)
+	if err != nil {
+		fmt.Println("Error encoding create workflow request!")
+		os.Exit(0)
+	}
+
+	bodyData := bytes.NewReader(buf.Bytes())
+
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", util.Cfg.BaseUrl+"v1/store/workflow/", bodyData)
+	req.Header.Add("Authorization", "Token "+util.GetToken())
+	req.Header.Add("Content-Type", "application/json")
+
+	var resp *http.Response
+	resp, err = client.Do(req)
+	if err != nil {
+		fmt.Println("Error: Couldn't create workflow.")
+		os.Exit(0)
+	}
+
+	var bodyBytes []byte
+	bodyBytes, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error: Couldn't read response body!")
+		os.Exit(0)
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+	}
+
+	fmt.Println("Workflow successfully created!")
+	var createWorkflowResp types.CreateWorkflowResponse
+	err = json.Unmarshal(bodyBytes, &createWorkflowResp)
+	if err != nil {
+		fmt.Println("Error unmarshalling create workflow response!")
+		os.Exit(0)
+	}
+
+	return &createWorkflowResp
 }

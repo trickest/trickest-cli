@@ -42,17 +42,19 @@ type WorkflowVersionDetailed struct {
 	RunCount     int       `json:"run_count"`
 	MaxMachines  Bees      `json:"max_machines"`
 	Data         struct {
-		Nodes       map[string]*Node `json:"nodes"`
-		Connections []struct {
-			Source struct {
-				ID string `json:"id"`
-			} `json:"source"`
-			Destination struct {
-				ID string `json:"id"`
-			} `json:"destination"`
-		} `json:"connections"`
+		Nodes          map[string]*Node          `json:"nodes"`
+		Connections    []Connection              `json:"connections"`
 		PrimitiveNodes map[string]*PrimitiveNode `json:"primitiveNodes"`
 	} `json:"data"`
+}
+
+type Connection struct {
+	Source struct {
+		ID string `json:"id"`
+	} `json:"source"`
+	Destination struct {
+		ID string `json:"id"`
+	} `json:"destination"`
 }
 
 type PrimitiveNode struct {
@@ -96,9 +98,10 @@ type Node struct {
 	} `json:"outputs"`
 	BeeType   string `json:"bee_type"`
 	Container *struct {
+		Args    []string `json:"args"`
 		Image   string   `json:"image"`
 		Command []string `json:"command"`
-	} `json:"container"`
+	} `json:"container,omitempty"`
 	OutputCommand   string  `json:"output_command"`
 	WorkerConnected *string `json:"workerConnected,omitempty"`
 }

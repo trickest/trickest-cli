@@ -362,3 +362,55 @@ func ResolveObjectPath(path string) (*types.SpaceDetailed, *types.Project, *type
 	fmt.Println("Couldn't find workflow named " + pathSplit[2] + " in " + pathSplit[0] + "/" + pathSplit[1] + "/")
 	return space, project, nil, false
 }
+
+func GetTools(pageSize int, search string, name string) []types.Tool {
+	urlReq := util.Cfg.BaseUrl + "v1/store/tool/"
+	if pageSize > 0 {
+		urlReq = urlReq + "?page_size=" + strconv.Itoa(pageSize)
+	} else {
+		urlReq = urlReq + "?page_size=" + strconv.Itoa(math.MaxInt)
+	}
+
+	if search != "" {
+		search = url.QueryEscape(search)
+		urlReq += "&search=" + search
+	}
+
+	if name != "" {
+		name = url.QueryEscape(name)
+		urlReq += "&name=" + name
+	}
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", urlReq, nil)
+	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
+	req.Header.Add("Accept", "application/json")
+
+	var resp *http.Response
+	resp, err = client.Do(req)
+	if err != nil {
+		fmt.Println("Error: Couldn't get tools info.")
+		return nil
+	}
+	defer resp.Body.Close()
+
+	var bodyBytes []byte
+	bodyBytes, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error: Couldn't read tools info.")
+		return nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+	}
+
+	var tools types.Tools
+	err = json.Unmarshal(bodyBytes, &tools)
+	if err != nil {
+		fmt.Println("Error unmarshalling tools response!")
+		return nil
+	}
+
+	return tools.Results
+}

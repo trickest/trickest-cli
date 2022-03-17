@@ -133,7 +133,7 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, version *types
 		return
 	}
 
-	if version != nil {
+	if version == nil {
 		version = GetWorkflowVersionByID(run.WorkflowVersionInfo)
 	}
 
@@ -408,9 +408,13 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []ty
 					continue
 				}
 
-				bar := progressbar.DefaultBytes(
+				bar := progressbar.NewOptions64(
 					dataResp.ContentLength,
-					"Downloading ["+subJob.Label+"] output... ",
+					progressbar.OptionSetDescription("Downloading ["+subJob.Label+"] output... "),
+					progressbar.OptionSetWidth(30),
+					progressbar.OptionShowBytes(true),
+					progressbar.OptionShowCount(),
+					progressbar.OptionOnCompletion(func() { fmt.Println() }),
 				)
 				_, err = io.Copy(io.MultiWriter(outputFile, bar), dataResp.Body)
 				if err != nil {
