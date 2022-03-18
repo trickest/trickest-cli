@@ -15,9 +15,14 @@ const (
 	BaseURL = "https://hive-api.beta.trickest.com/"
 )
 
-var Cfg = types.Config{
-	BaseUrl: BaseURL,
-}
+var (
+	Cfg = types.Config{
+		BaseUrl: BaseURL,
+	}
+	SpaceName    string
+	ProjectName  string
+	WorkflowName string
+)
 
 func GetToken() string {
 	if Cfg.User.Token == "" {

@@ -31,8 +31,7 @@ import (
 )
 
 var (
-	spaceName         string
-	workflowName      string
+	newWorkflowName   string
 	configFile        string
 	watch             bool
 	showParams        bool
@@ -50,9 +49,19 @@ var ExecuteCmd = &cobra.Command{
 	Short: "This command executes a workflow",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) == 0 {
-			fmt.Println("Workflow name or path must be specified!")
-			return
+		path := ""
+		if util.WorkflowName != "" {
+			path = util.SpaceName
+			if util.ProjectName != "" {
+				path += "/" + util.ProjectName
+			}
+			path += "/" + util.WorkflowName
+		} else {
+			if len(args) == 0 {
+				fmt.Println("Workflow name or path must be specified!")
+				return
+			}
+			path = util.SpaceName + "/" + args[0]
 		}
 
 		hive = util.GetHiveInfo()
@@ -61,7 +70,7 @@ var ExecuteCmd = &cobra.Command{
 		}
 		getAvailableMachines()
 
-		version := prepareForExec(spaceName + "/" + args[0])
+		version := prepareForExec(path)
 		if version == nil {
 			fmt.Println("Couldn't find or create the workflow version!")
 			os.Exit(0)
@@ -73,8 +82,7 @@ var ExecuteCmd = &cobra.Command{
 }
 
 func init() {
-	ExecuteCmd.Flags().StringVar(&spaceName, "space", "Playground", "Space name")
-	ExecuteCmd.Flags().StringVar(&workflowName, "name", "", "Workflow name")
+	ExecuteCmd.Flags().StringVar(&newWorkflowName, "name", "", "New workflow name (used when creating tool workflows or copying store workflows)")
 	ExecuteCmd.Flags().StringVar(&configFile, "config", "", "YAML file for run configuration")
 	ExecuteCmd.Flags().BoolVar(&watch, "watch", false, "Watch the execution running")
 	ExecuteCmd.Flags().BoolVar(&showParams, "show-params", false, "Show parameters in the workflow tree")
@@ -157,7 +165,7 @@ func watchRun(runID string, nodesToDownload map[string]download.NodeInfo) {
 
 		if run.Status == "COMPLETED" || run.Status == "STOPPED" || run.Status == "FAILED" {
 			if len(nodesToDownload) > 0 {
-				path := spaceName
+				path := run.SpaceName
 				if run.ProjectName != "" {
 					path += "/" + run.ProjectName
 				}
@@ -1038,13 +1046,13 @@ func prepareForExec(path string) *types.WorkflowVersionDetailed {
 						fmt.Println("Creating a project " + space.Name + "/" + wfName +
 							" to copy the workflow from the store...")
 						project = create.CreateProjectIfNotExists(space, wfName)
-						if workflowName == "" {
-							workflowName = wf.Name
-						}
 					}
 
+					if newWorkflowName == "" {
+						newWorkflowName = wf.Name
+					}
 					fmt.Println("Copying " + wf.Name + " from the store to " +
-						space.Name + "/" + project.Name + "/" + workflowName)
+						space.Name + "/" + project.Name + "/" + newWorkflowName)
 					newWorkflowID := copyWorkflow(space.ID, project.ID, wf.ID)
 					if newWorkflowID == "" {
 						fmt.Println("Couldn't copy workflow from the store!")
@@ -1052,8 +1060,8 @@ func prepareForExec(path string) *types.WorkflowVersionDetailed {
 					}
 
 					newWorkflow := list.GetWorkflowByID(newWorkflowID)
-					if newWorkflow.Name != workflowName {
-						newWorkflow.Name = workflowName
+					if newWorkflow.Name != newWorkflowName {
+						newWorkflow.Name = newWorkflowName
 						updateWorkflow(newWorkflow)
 					}
 
@@ -1085,10 +1093,12 @@ func prepareForExec(path string) *types.WorkflowVersionDetailed {
 		}
 		_, _, primitiveNodes = readConfig(configFile, nil, &tools[0])
 
-		fmt.Println("Creating a project " + space.Name + "/" + wfName +
-			" to create " + tools[0].Name + " workflow...")
-		project = create.CreateProjectIfNotExists(space, tools[0].Name)
-		wfVersion = createToolWorkflow(workflowName, project, &tools[0], primitiveNodes, executionMachines)
+		if project == nil {
+			fmt.Println("Creating a project " + space.Name + "/" + wfName +
+				" to create " + tools[0].Name + " workflow...")
+			project = create.CreateProjectIfNotExists(space, tools[0].Name)
+		}
+		wfVersion = createToolWorkflow(newWorkflowName, project, &tools[0], primitiveNodes, executionMachines)
 
 		return wfVersion
 	} else {
