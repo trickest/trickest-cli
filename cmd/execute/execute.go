@@ -465,6 +465,16 @@ func createToolWorkflow(wfName string, project *types.Project, tool *types.Tool,
 			Value:       pNode.Value,
 		}
 	}
+	for inputName, toolInput := range tool.Inputs {
+		if _, exists := primitiveNodes[inputName]; !exists {
+			inputs[inputName] = &types.NodeInput{
+				Type:        toolInput.Type,
+				Order:       toolInput.Order,
+				Command:     toolInput.Command,
+				Description: toolInput.Description,
+			}
+		}
+	}
 	node.Inputs = inputs
 
 	connections := make([]types.Connection, 0)
