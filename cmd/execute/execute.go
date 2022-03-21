@@ -49,19 +49,17 @@ var ExecuteCmd = &cobra.Command{
 	Short: "This command executes a workflow",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		path := ""
-		if util.WorkflowName != "" {
-			path = util.SpaceName
-			if util.ProjectName != "" {
-				path += "/" + util.ProjectName
-			}
-			path += "/" + util.WorkflowName
-		} else {
+		if util.SpaceName == "" {
+			util.SpaceName = "Playground"
+		}
+		path := util.FormatPath()
+		if path == "" || path == "Playground" {
 			if len(args) == 0 {
 				fmt.Println("Workflow name or path must be specified!")
 				return
 			}
-			path = util.SpaceName + "/" + args[0]
+			path += "/" + args[0]
+			path = strings.Trim(path, "/")
 		}
 
 		hive = util.GetHiveInfo()

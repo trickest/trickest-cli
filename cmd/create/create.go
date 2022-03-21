@@ -22,12 +22,16 @@ var CreateCmd = &cobra.Command{
 	Short: "Creates a space or a project on the Trickest platform",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) != 1 {
-			fmt.Println("You must specify the path of the object to be created!")
-			return
+		path := util.FormatPath()
+		if path == "" {
+			if len(args) == 0 {
+				fmt.Println("You must specify the object to be created!")
+				return
+			}
+			path = strings.Trim(args[0], "/")
 		}
 
-		pathSplit := strings.Split(strings.Trim(args[0], "/"), "/")
+		pathSplit := strings.Split(path, "/")
 		if len(pathSplit) > 2 {
 			fmt.Println("Only space or space/project should be specified!")
 			return
@@ -43,7 +47,6 @@ var CreateCmd = &cobra.Command{
 }
 
 func init() {
-
 	CreateCmd.PersistentFlags().StringVarP(&description, "description", "d", "", "Space description")
 }
 

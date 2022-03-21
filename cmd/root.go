@@ -29,7 +29,7 @@ func Execute() {
 
 func init() {
 	RootCmd.PersistentFlags().StringVar(&util.Cfg.User.Token, "token", "", "Trickest authentication token")
-	RootCmd.PersistentFlags().StringVar(&util.SpaceName, "space", "Playground", "Space name")
+	RootCmd.PersistentFlags().StringVar(&util.SpaceName, "space", "", "Space name")
 	RootCmd.PersistentFlags().StringVar(&util.ProjectName, "project", "", "Project name")
 	RootCmd.PersistentFlags().StringVar(&util.WorkflowName, "workflow", "", "Workflow name")
 

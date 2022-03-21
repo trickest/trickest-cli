@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/cobra"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"trickest-cli/cmd/list"
 	"trickest-cli/util"
 )
@@ -15,12 +16,16 @@ var DeleteCmd = &cobra.Command{
 	Short: "Deletes an object on the Trickest platform",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) != 1 {
-			fmt.Println("You must specify the path of the object to be deleted!")
-			return
+		path := util.FormatPath()
+		if path == "" {
+			if len(args) == 0 {
+				fmt.Println("You must specify the path of the object to be deleted!")
+				return
+			}
+			path = strings.Trim(args[0], "/")
 		}
 
-		space, project, workflow, found := list.ResolveObjectPath(args[0])
+		space, project, workflow, found := list.ResolveObjectPath(path)
 
 		if !found {
 			return

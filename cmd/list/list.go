@@ -22,7 +22,8 @@ var ListCmd = &cobra.Command{
 	Short: "Lists objects on the Trickest platform",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) == 0 {
+		path := util.FormatPath()
+		if len(args) == 0 && path == "" {
 			spaces := getSpaces("")
 
 			if spaces != nil && len(spaces) > 0 {
@@ -32,14 +33,24 @@ var ListCmd = &cobra.Command{
 			}
 			return
 		}
+		if path == "" {
+			path = strings.Trim(args[0], "/")
+		}
 
-		space, project, workflow, found := ResolveObjectPath(args[0])
-
+		space, project, workflow, found := ResolveObjectPath(path)
 		if !found {
 			return
 		}
 
 		if workflow != nil {
+			if project != nil && workflow.Name == project.Name {
+				if util.WorkflowName == "" {
+					printProject(*project)
+					if util.ProjectName != "" {
+						return
+					}
+				}
+			}
 			printWorkflow(*workflow)
 		} else if project != nil {
 			printProject(*project)
@@ -333,21 +344,26 @@ func ResolveObjectPath(path string) (*types.SpaceDetailed, *types.Project, *type
 		}
 	}
 
+	var workflow *types.Workflow
 	if space.Workflows != nil && len(space.Workflows) > 0 {
 		for _, wf := range space.Workflows {
 			if wf.Name == pathSplit[1] {
-				return space, project, &wf, true
+				workflow = &wf
+				break
 			}
 		}
 	}
 
 	if len(pathSplit) == 2 {
+		if project != nil || workflow != nil {
+			return space, project, workflow, true
+		}
 		fmt.Println("Couldn't find project or workflow named " + pathSplit[1] + " inside " +
 			pathSplit[0] + " space!")
 		return space, nil, nil, false
 	}
 
-	if project != nil && project.Workflows != nil && len(project.Workflows) > 0 {
+	if project.Workflows != nil && len(project.Workflows) > 0 {
 		for _, wf := range project.Workflows {
 			if wf.Name == pathSplit[2] {
 				fullWorkflow := GetWorkflowByID(wf.ID)

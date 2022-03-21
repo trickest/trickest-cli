@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 	"trickest-cli/types"
 )
 
@@ -23,6 +24,17 @@ var (
 	ProjectName  string
 	WorkflowName string
 )
+
+func FormatPath() string {
+	path := strings.Trim(SpaceName, "/")
+	if ProjectName != "" {
+		path += "/" + strings.Trim(ProjectName, "/")
+	}
+	if WorkflowName != "" {
+		path += "/" + strings.Trim(WorkflowName, "/")
+	}
+	return path
+}
 
 func GetToken() string {
 	if Cfg.User.Token == "" {
