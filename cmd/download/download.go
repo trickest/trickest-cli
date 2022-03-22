@@ -41,11 +41,11 @@ var DownloadCmd = &cobra.Command{
 	Use:   "download",
 	Short: "Download workflow outputs",
 	Long: `This command downloads sub-job outputs of a completed workflow run.
-Downloaded file names will consist of the sub-job name, a timestamp when the sub-job has been completed,
-and the name of the actual file stored on the platform. If there are multiple output files for a certain sub-job,
-all of them will be stored in a single directory.
+Downloaded files will be stored into space/project/workflow/run-timestamp directory. Every node will have it's own
+directory named after it's label or ID (if the label is not unique), and an optional prefix ("<num>-") if it's 
+connected to a splitter.
 
-Use basic command line arguments or a config file to specify which nodes' output you would like to fetch.
+Use raw command line arguments or a config file to specify which nodes' output you would like to fetch.
 If there is no node names specified, all outputs will be downloaded.
 
 The YAML config file should be formatted like:
@@ -54,15 +54,29 @@ The YAML config file should be formatted like:
       - bar
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) == 0 {
-			fmt.Println("Workflow path must be specified!")
-			return
-		}
-
 		nodes := make(map[string]NodeInfo, 0)
-		if len(args) > 1 {
-			for i := 1; i < len(args); i++ {
-				nodes[strings.ReplaceAll(args[i], "/", "-")] = NodeInfo{ToFetch: true, Found: false}
+
+		path := util.FormatPath()
+		if path == "" {
+			if len(args) == 0 {
+				fmt.Println("Workflow path must be specified!")
+				return
+			}
+			path = strings.Trim(args[0], "/")
+			if len(args) > 1 {
+				for i := 1; i < len(args); i++ {
+					nodes[strings.ReplaceAll(args[i], "/", "-")] = NodeInfo{ToFetch: true, Found: false}
+				}
+			}
+		} else {
+			if util.WorkflowName == "" {
+				fmt.Println("Workflow must be specified!")
+				return
+			}
+			if len(args) > 0 {
+				for i := 0; i < len(args); i++ {
+					nodes[strings.ReplaceAll(args[i], "/", "-")] = NodeInfo{ToFetch: true, Found: false}
+				}
 			}
 		}
 
@@ -91,7 +105,7 @@ The YAML config file should be formatted like:
 			}
 		}
 
-		_, _, workflow, found := list.ResolveObjectPath(args[0])
+		_, _, workflow, found := list.ResolveObjectPath(path)
 		if !found {
 			return
 		}
@@ -115,7 +129,7 @@ The YAML config file should be formatted like:
 		}
 
 		for _, run := range runs {
-			DownloadRunOutput(&run, nodes, version, args[0])
+			DownloadRunOutput(&run, nodes, version, path)
 		}
 	},
 }
