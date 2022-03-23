@@ -422,15 +422,19 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []ty
 					continue
 				}
 
-				bar := progressbar.NewOptions64(
-					dataResp.ContentLength,
-					progressbar.OptionSetDescription("Downloading ["+subJob.Label+"] output... "),
-					progressbar.OptionSetWidth(30),
-					progressbar.OptionShowBytes(true),
-					progressbar.OptionShowCount(),
-					progressbar.OptionOnCompletion(func() { fmt.Println() }),
-				)
-				_, err = io.Copy(io.MultiWriter(outputFile, bar), dataResp.Body)
+				if dataResp.ContentLength > 0 {
+					bar := progressbar.NewOptions64(
+						dataResp.ContentLength,
+						progressbar.OptionSetDescription("Downloading ["+subJob.Label+"] output... "),
+						progressbar.OptionSetWidth(30),
+						progressbar.OptionShowBytes(true),
+						progressbar.OptionShowCount(),
+						progressbar.OptionOnCompletion(func() { fmt.Println() }),
+					)
+					_, err = io.Copy(io.MultiWriter(outputFile, bar), dataResp.Body)
+				} else {
+					_, err = io.Copy(outputFile, dataResp.Body)
+				}
 				if err != nil {
 					fmt.Println("Couldn't save data!")
 					continue
@@ -438,7 +442,9 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []ty
 
 				_ = outputFile.Close()
 				_ = dataResp.Body.Close()
-				fmt.Println()
+				if dataResp.ContentLength > 0 {
+					fmt.Println()
+				}
 			}
 		}
 	}
