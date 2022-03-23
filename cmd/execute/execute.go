@@ -24,6 +24,7 @@ import (
 	"text/tabwriter"
 	"time"
 	"trickest-cli/cmd/create"
+	"trickest-cli/cmd/delete"
 	"trickest-cli/cmd/download"
 	"trickest-cli/cmd/list"
 	"trickest-cli/types"
@@ -428,8 +429,8 @@ func readConfig(fileName string, wfVersion *types.WorkflowVersionDetailed, tool 
 	return updateNeeded, wfVersion, primitiveNodes
 }
 
-func createToolWorkflow(wfName string, project *types.Project, tool *types.Tool, primitiveNodes map[string]*types.PrimitiveNode,
-	machine types.Bees) *types.WorkflowVersionDetailed {
+func createToolWorkflow(wfName string, space *types.SpaceDetailed, project *types.Project, deleteProjectOnError bool,
+	tool *types.Tool, primitiveNodes map[string]*types.PrimitiveNode, machine types.Bees) *types.WorkflowVersionDetailed {
 	if tool == nil {
 		fmt.Println("No tool specified, couldn't create a workflow!")
 		os.Exit(0)
@@ -505,16 +506,29 @@ func createToolWorkflow(wfName string, project *types.Project, tool *types.Tool,
 
 	wfExists := false
 	workflowID := ""
-	for _, wf := range project.Workflows {
-		if wf.Name == wfName {
-			wfExists = true
-			workflowID = wf.ID
-			break
+	projectID := ""
+	if project != nil {
+		projectID = project.ID
+		for _, wf := range project.Workflows {
+			if wf.Name == wfName {
+				wfExists = true
+				workflowID = wf.ID
+				break
+			}
+		}
+	} else {
+		for _, wf := range space.Workflows {
+			if wf.Name == wfName {
+				wfExists = true
+				workflowID = wf.ID
+				break
+			}
 		}
 	}
+
 	if !wfExists {
 		fmt.Println("Creating " + wfName + " workflow...")
-		newWorkflow := create.CreateWorkflow(wfName, tool.Description, project.SpaceInfo, project.ID)
+		newWorkflow := create.CreateWorkflow(wfName, tool.Description, space.ID, projectID, deleteProjectOnError)
 		workflowID = newWorkflow.ID
 	}
 
@@ -1031,6 +1045,7 @@ func prepareForExec(path string) *types.WorkflowVersionDetailed {
 	pathSplit := strings.Split(strings.Trim(path, "/"), "/")
 	var wfVersion *types.WorkflowVersionDetailed
 	var primitiveNodes map[string]*types.PrimitiveNode
+	projectCreated := false
 
 	space, project, workflow, _ := list.ResolveObjectPath(path)
 	if space == nil {
@@ -1052,17 +1067,35 @@ func prepareForExec(path string) *types.WorkflowVersionDetailed {
 					}
 
 					if project == nil {
-						fmt.Println("Creating a project " + space.Name + "/" + wfName +
-							" to copy the workflow from the store...")
-						project = create.CreateProjectIfNotExists(space, wfName)
+						fmt.Println("Would you like to create a project named " + wfName +
+							" and save the new workflow in there? (Y/N)")
+						var answer string
+						for {
+							_, _ = fmt.Scan(&answer)
+							if strings.ToLower(answer) == "y" || strings.ToLower(answer) == "yes" {
+								project = create.CreateProjectIfNotExists(space, wfName)
+								projectCreated = true
+								break
+							} else if strings.ToLower(answer) == "n" || strings.ToLower(answer) == "no" {
+								break
+							}
+						}
 					}
 
 					if newWorkflowName == "" {
 						newWorkflowName = wf.Name
 					}
-					fmt.Println("Copying " + wf.Name + " from the store to " +
-						space.Name + "/" + project.Name + "/" + newWorkflowName)
-					newWorkflowID := copyWorkflow(space.ID, project.ID, wf.ID)
+					copyDestination := space.Name
+					if project != nil {
+						copyDestination += "/" + project.Name
+					}
+					copyDestination += "/" + newWorkflowName
+					fmt.Println("Copying " + wf.Name + " from the store to " + copyDestination)
+					projID := ""
+					if project != nil {
+						projID = project.ID
+					}
+					newWorkflowID := copyWorkflow(space.ID, projID, wf.ID)
 					if newWorkflowID == "" {
 						fmt.Println("Couldn't copy workflow from the store!")
 						os.Exit(0)
@@ -1071,7 +1104,7 @@ func prepareForExec(path string) *types.WorkflowVersionDetailed {
 					newWorkflow := list.GetWorkflowByID(newWorkflowID)
 					if newWorkflow.Name != newWorkflowName {
 						newWorkflow.Name = newWorkflowName
-						updateWorkflow(newWorkflow)
+						updateWorkflow(newWorkflow, projectCreated)
 					}
 
 					wfVersion = GetLatestWorkflowVersion(newWorkflow)
@@ -1103,11 +1136,21 @@ func prepareForExec(path string) *types.WorkflowVersionDetailed {
 		_, _, primitiveNodes = readConfig(configFile, nil, &tools[0])
 
 		if project == nil {
-			fmt.Println("Creating a project " + space.Name + "/" + wfName +
-				" to create " + tools[0].Name + " workflow...")
-			project = create.CreateProjectIfNotExists(space, tools[0].Name)
+			fmt.Println("Would you like to create a project named " + wfName +
+				" and save the new workflow in there? (Y/N)")
+			var answer string
+			for {
+				_, _ = fmt.Scan(&answer)
+				if strings.ToLower(answer) == "y" || strings.ToLower(answer) == "yes" {
+					project = create.CreateProjectIfNotExists(space, tools[0].Name)
+					projectCreated = true
+					break
+				} else if strings.ToLower(answer) == "n" || strings.ToLower(answer) == "no" {
+					break
+				}
+			}
 		}
-		wfVersion = createToolWorkflow(newWorkflowName, project, &tools[0], primitiveNodes, executionMachines)
+		wfVersion = createToolWorkflow(newWorkflowName, space, project, projectCreated, &tools[0], primitiveNodes, executionMachines)
 
 		return wfVersion
 	} else {
@@ -1181,7 +1224,7 @@ func copyWorkflow(destinationSpaceID string, destinationProjectID string, workfl
 	return copyWorkflowResp.ID
 }
 
-func updateWorkflow(workflow *types.Workflow) {
+func updateWorkflow(workflow *types.Workflow, deleteProjectOnError bool) {
 	workflow.WorkflowCategory = nil
 	buf := new(bytes.Buffer)
 	err := json.NewEncoder(buf).Encode(workflow)
@@ -1211,6 +1254,9 @@ func updateWorkflow(workflow *types.Workflow) {
 			return
 		}
 
+		if deleteProjectOnError {
+			delete.DeleteProject(workflow.ProjectInfo)
+		}
 		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"trickest-cli/cmd/delete"
 	"trickest-cli/cmd/list"
 	"trickest-cli/types"
 	"trickest-cli/util"
@@ -168,7 +169,7 @@ func CreateProjectIfNotExists(space *types.SpaceDetailed, projectName string) *t
 	return CreateProject(projectName, "", space.Name)
 }
 
-func CreateWorkflow(name, description, spaceID, projectID string) *types.CreateWorkflowResponse {
+func CreateWorkflow(name, description, spaceID, projectID string, deleteProjectOnError bool) *types.CreateWorkflowResponse {
 	workflow := types.CreateWorkflowRequest{
 		Name:        name,
 		Description: description,
@@ -206,6 +207,9 @@ func CreateWorkflow(name, description, spaceID, projectID string) *types.CreateW
 	}
 
 	if resp.StatusCode != http.StatusCreated {
+		if deleteProjectOnError {
+			delete.DeleteProject(projectID)
+		}
 		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
 	}
 

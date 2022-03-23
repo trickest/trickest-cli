@@ -34,7 +34,7 @@ var DeleteCmd = &cobra.Command{
 		if workflow != nil {
 			deleteWorkflow(workflow.ID)
 		} else if project != nil {
-			deleteProject(project.ID)
+			DeleteProject(project.ID)
 			return
 		} else if space != nil {
 			deleteSpace("", space.ID)
@@ -84,7 +84,7 @@ func deleteSpace(name string, id string) {
 	}
 }
 
-func deleteProject(id string) {
+func DeleteProject(id string) {
 	client := &http.Client{}
 
 	req, err := http.NewRequest("DELETE", util.Cfg.BaseUrl+"v1/projects/"+id+"/", nil)
