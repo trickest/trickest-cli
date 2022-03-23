@@ -363,7 +363,7 @@ func ResolveObjectPath(path string) (*types.SpaceDetailed, *types.Project, *type
 		return space, nil, nil, false
 	}
 
-	if project.Workflows != nil && len(project.Workflows) > 0 {
+	if project != nil && project.Workflows != nil && len(project.Workflows) > 0 {
 		for _, wf := range project.Workflows {
 			if wf.Name == pathSplit[2] {
 				fullWorkflow := GetWorkflowByID(wf.ID)

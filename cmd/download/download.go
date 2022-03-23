@@ -115,7 +115,7 @@ The YAML config file should be formatted like:
 		if allRuns {
 			numberOfRuns = math.MaxInt
 		}
-		wfRuns := getRuns(workflow.ID, numberOfRuns)
+		wfRuns := GetRuns(workflow.ID, numberOfRuns)
 		if wfRuns != nil && len(wfRuns) > 0 {
 			runs = append(runs, wfRuns...)
 		} else {
@@ -488,7 +488,7 @@ func getSubJobs(runID string) []types.SubJob {
 	return subJobs.Results
 }
 
-func getRuns(workflowID string, pageSize int) []types.Run {
+func GetRuns(workflowID string, pageSize int) []types.Run {
 	urlReq := util.Cfg.BaseUrl + "v1/run/?vault=" + util.GetVault()
 
 	if workflowID != "" {

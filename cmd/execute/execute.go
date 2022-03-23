@@ -58,15 +58,13 @@ var ExecuteCmd = &cobra.Command{
 				fmt.Println("Workflow name or path must be specified!")
 				return
 			}
-			path += "/" + args[0]
-			path = strings.Trim(path, "/")
+			path = strings.Trim(args[0], "/")
 		}
 
 		hive = util.GetHiveInfo()
 		if hive == nil {
 			return
 		}
-		getAvailableMachines()
 
 		version := prepareForExec(path)
 		if version == nil {
@@ -74,7 +72,7 @@ var ExecuteCmd = &cobra.Command{
 			os.Exit(0)
 		}
 
-		allNodes, roots = createTrees(version)
+		allNodes, roots = CreateTrees(version)
 		createRun(version.ID, watch)
 	},
 }
@@ -86,7 +84,7 @@ func init() {
 	ExecuteCmd.Flags().BoolVar(&showParams, "show-params", false, "Show parameters in the workflow tree")
 }
 
-func watchRun(runID string, nodesToDownload map[string]download.NodeInfo) {
+func WatchRun(runID string, nodesToDownload map[string]download.NodeInfo, timestampOnly bool, machines *types.Bees) {
 	const fmtStr = "%-12s %v\n"
 	writer := uilive.New()
 	writer.Start()
@@ -94,28 +92,30 @@ func watchRun(runID string, nodesToDownload map[string]download.NodeInfo) {
 
 	mutex := &sync.Mutex{}
 
-	go func() {
-		defer mutex.Unlock()
-		signalChannel := make(chan os.Signal, 1)
-		signal.Notify(signalChannel, os.Interrupt)
-		<-signalChannel
+	if !timestampOnly {
+		go func() {
+			defer mutex.Unlock()
+			signalChannel := make(chan os.Signal, 1)
+			signal.Notify(signalChannel, os.Interrupt)
+			<-signalChannel
 
-		mutex.Lock()
-		_ = writer.Flush()
-		writer.Stop()
+			mutex.Lock()
+			_ = writer.Flush()
+			writer.Stop()
 
-		fmt.Println("The program will exit. Would you like to stop the remote execution? (Y/N)")
-		var answer string
-		for {
-			_, _ = fmt.Scan(&answer)
-			if strings.ToLower(answer) == "y" || strings.ToLower(answer) == "yes" {
-				stopRun(runID)
-				os.Exit(0)
-			} else if strings.ToLower(answer) == "n" || strings.ToLower(answer) == "no" {
-				os.Exit(0)
+			fmt.Println("The program will exit. Would you like to stop the remote execution? (Y/N)")
+			var answer string
+			for {
+				_, _ = fmt.Scan(&answer)
+				if strings.ToLower(answer) == "y" || strings.ToLower(answer) == "yes" {
+					stopRun(runID)
+					os.Exit(0)
+				} else if strings.ToLower(answer) == "n" || strings.ToLower(answer) == "no" {
+					os.Exit(0)
+				}
 			}
-		}
-	}()
+		}()
+	}
 
 	for {
 		mutex.Lock()
@@ -128,8 +128,9 @@ func watchRun(runID string, nodesToDownload map[string]download.NodeInfo) {
 		out := ""
 		out += fmt.Sprintf(fmtStr, "Name:", run.WorkflowName)
 		out += fmt.Sprintf(fmtStr, "Status:", strings.ToLower(run.Status))
-		out += fmt.Sprintf(fmtStr, "Machines:", formatMachines(&executionMachines, true)+
-			" (currently available: "+formatMachines(&availableMachines, true)+")")
+		availableBees := GetAvailableMachines()
+		out += fmt.Sprintf(fmtStr, "Machines:", FormatMachines(machines, true)+
+			" (currently available: "+FormatMachines(&availableBees, true)+")")
 		out += fmt.Sprintf(fmtStr, "Created:", run.CreatedDate.In(time.Local).Format(time.RFC1123)+
 			" ("+time.Since(run.CreatedDate).Round(time.Second).String()+" ago)")
 		if run.Status != "PENDING" {
@@ -156,10 +157,14 @@ func watchRun(runID string, nodesToDownload map[string]download.NodeInfo) {
 			}
 		}
 
-		trees := printTrees(roots, &allNodes)
+		trees := PrintTrees(roots, &allNodes, showParams, true)
 		out += "\n" + trees
 		_, _ = fmt.Fprintln(writer, out)
 		_ = writer.Flush()
+
+		if timestampOnly {
+			return
+		}
 
 		if run.Status == "COMPLETED" || run.Status == "STOPPED" || run.Status == "FAILED" {
 			if len(nodesToDownload) > 0 {
@@ -225,21 +230,26 @@ func createRun(versionID string, watch bool) {
 	}
 
 	if watch {
-		watchRun(createRunResp.ID, nodesToDownload)
+		WatchRun(createRunResp.ID, nodesToDownload, false, &executionMachines)
 	} else {
 		fmt.Println("Run successfully created! ID: " + createRunResp.ID)
-		fmt.Print("Machines:\n " + formatMachines(&executionMachines, false))
-		fmt.Print("Available:\n " + formatMachines(&availableMachines, false))
+		fmt.Print("Machines:\n " + FormatMachines(&executionMachines, false))
+		fmt.Print("Available:\n " + FormatMachines(&availableMachines, false))
 	}
 }
 
-func printTrees(roots []*types.TreeNode, allNodes *map[string]*types.TreeNode) string {
+func PrintTrees(roots []*types.TreeNode, allNodes *map[string]*types.TreeNode, showParameters bool, table bool) string {
 	trees := ""
 	for _, root := range roots {
-		tree := printTree(root, nil, allNodes)
+		tree := printTree(root, nil, allNodes, showParameters)
 
 		for _, node := range *allNodes {
 			node.Printed = false
+		}
+
+		if !table {
+			trees += tree
+			continue
 		}
 
 		writerBuffer := new(bytes.Buffer)
@@ -267,7 +277,7 @@ func printTrees(roots []*types.TreeNode, allNodes *map[string]*types.TreeNode) s
 	return trees
 }
 
-func printTree(node *types.TreeNode, branch *treeprint.Tree, allNodes *map[string]*types.TreeNode) string {
+func printTree(node *types.TreeNode, branch *treeprint.Tree, allNodes *map[string]*types.TreeNode, showParameters bool) string {
 	prefixSymbol := ""
 	switch node.Status {
 	case "pending":
@@ -289,7 +299,7 @@ func printTree(node *types.TreeNode, branch *treeprint.Tree, allNodes *map[strin
 		branch = &childBranch
 	}
 
-	if showParams {
+	if showParameters {
 		inputNames := make([]string, 0)
 		for input := range *node.Inputs {
 			inputNames = append(inputNames, input)
@@ -321,7 +331,7 @@ func printTree(node *types.TreeNode, branch *treeprint.Tree, allNodes *map[strin
 
 	for _, child := range node.Children {
 		if !(*allNodes)[node.NodeName].Printed {
-			printTree(child, branch, allNodes)
+			printTree(child, branch, allNodes, showParameters)
 		}
 	}
 
@@ -330,7 +340,7 @@ func printTree(node *types.TreeNode, branch *treeprint.Tree, allNodes *map[strin
 	return (*branch).String()
 }
 
-func createTrees(wfVersion *types.WorkflowVersionDetailed) (map[string]*types.TreeNode, []*types.TreeNode) {
+func CreateTrees(wfVersion *types.WorkflowVersionDetailed) (map[string]*types.TreeNode, []*types.TreeNode) {
 	allNodes = make(map[string]*types.TreeNode, 0)
 	roots = make([]*types.TreeNode, 0)
 
@@ -952,7 +962,7 @@ func uploadFile(filePath string) string {
 	return filepath.Base(file.Name())
 }
 
-func getLatestWorkflowVersion(workflow *types.Workflow) *types.WorkflowVersionDetailed {
+func GetLatestWorkflowVersion(workflow *types.Workflow) *types.WorkflowVersionDetailed {
 	if workflow == nil {
 		fmt.Println("No workflow provided, couldn't find the latest version!")
 		os.Exit(0)
@@ -1032,7 +1042,7 @@ func prepareForExec(path string) *types.WorkflowVersionDetailed {
 		if storeWorkflows != nil && len(storeWorkflows) > 0 {
 			for _, wf := range storeWorkflows {
 				if strings.ToLower(wf.Name) == strings.ToLower(wfName) {
-					storeWfVersion := getLatestWorkflowVersion(list.GetWorkflowByID(wf.ID))
+					storeWfVersion := GetLatestWorkflowVersion(list.GetWorkflowByID(wf.ID))
 					update := false
 					var updatedWfVersion *types.WorkflowVersionDetailed
 					if configFile == "" {
@@ -1064,7 +1074,7 @@ func prepareForExec(path string) *types.WorkflowVersionDetailed {
 						updateWorkflow(newWorkflow)
 					}
 
-					wfVersion = getLatestWorkflowVersion(newWorkflow)
+					wfVersion = GetLatestWorkflowVersion(newWorkflow)
 					if update && updatedWfVersion != nil {
 						for _, pNode := range primitiveNodes {
 							if pNode.Type == "FILE" && strings.HasPrefix(pNode.Value.(string), "trickest://file/") {
@@ -1101,7 +1111,7 @@ func prepareForExec(path string) *types.WorkflowVersionDetailed {
 
 		return wfVersion
 	} else {
-		wfVersion = getLatestWorkflowVersion(workflow)
+		wfVersion = GetLatestWorkflowVersion(workflow)
 		if configFile == "" {
 			executionMachines = wfVersion.MaxMachines
 		} else {
@@ -1240,7 +1250,7 @@ func processInvalidInputStructure() {
 func processMaxMachinesOverflow(maximumMachines *types.Bees) {
 	fmt.Println("Invalid number or machines!")
 	fmt.Println("The maximum number of machines you can allocate for this workflow: ")
-	fmt.Println(formatMachines(maximumMachines, false))
+	fmt.Println(FormatMachines(maximumMachines, false))
 	os.Exit(0)
 }
 
@@ -1281,21 +1291,24 @@ func findStartingNodeSuffix(wfVersion *types.WorkflowVersionDetailed) string {
 	return suffix
 }
 
-func getAvailableMachines() {
-	for _, bee := range hive.Bees {
+func GetAvailableMachines() types.Bees {
+	hiveInfo := util.GetHiveInfo()
+	availableBees := types.Bees{}
+	for _, bee := range hiveInfo.Bees {
 		if bee.Name == "small" {
 			available := bee.Total - bee.Running
-			availableMachines.Small = &available
+			availableBees.Small = &available
 		}
 		if bee.Name == "medium" {
 			available := bee.Total - bee.Running
-			availableMachines.Medium = &available
+			availableBees.Medium = &available
 		}
 		if bee.Name == "large" {
 			available := bee.Total - bee.Running
-			availableMachines.Large = &available
+			availableBees.Large = &available
 		}
 	}
+	return availableBees
 }
 
 func GetRunByID(id string) *types.Run {
@@ -1404,7 +1417,7 @@ func stopRun(runID string) {
 	}
 }
 
-func formatMachines(machines *types.Bees, inline bool) string {
+func FormatMachines(machines *types.Bees, inline bool) string {
 	var small, medium, large string
 	if machines.Small != nil {
 		small = "small: " + strconv.Itoa(*machines.Small)
