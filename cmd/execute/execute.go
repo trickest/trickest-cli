@@ -60,6 +60,11 @@ var ExecuteCmd = &cobra.Command{
 				return
 			}
 			path = strings.Trim(args[0], "/")
+		} else {
+			if len(args) > 0 {
+				fmt.Println("Please use either path or flag syntax for the platform objects.")
+				return
+			}
 		}
 
 		hive = util.GetHiveInfo()
