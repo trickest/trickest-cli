@@ -2,21 +2,15 @@ package execute
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"github.com/gosuri/uilive"
-	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/xlab/treeprint"
 	"gopkg.in/yaml.v3"
-	"io"
 	"io/ioutil"
 	"math"
-	"mime/multipart"
-	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -24,7 +18,6 @@ import (
 	"text/tabwriter"
 	"time"
 	"trickest-cli/cmd/create"
-	"trickest-cli/cmd/delete"
 	"trickest-cli/cmd/download"
 	"trickest-cli/cmd/list"
 	"trickest-cli/types"
@@ -37,7 +30,6 @@ var (
 	watch             bool
 	showParams        bool
 	executionMachines types.Bees
-	availableMachines types.Bees
 	hive              *types.Hive
 	nodesToDownload   = make(map[string]download.NodeInfo, 0)
 	allNodes          map[string]*types.TreeNode
@@ -79,7 +71,7 @@ var ExecuteCmd = &cobra.Command{
 		}
 
 		allNodes, roots = CreateTrees(version)
-		createRun(version.ID, watch)
+		createRun(version.ID, watch, &executionMachines)
 	},
 }
 
@@ -185,62 +177,6 @@ func WatchRun(runID string, nodesToDownload map[string]download.NodeInfo, timest
 			return
 		}
 		mutex.Unlock()
-	}
-}
-
-func createRun(versionID string, watch bool) {
-	run := types.CreateRun{
-		VersionID: versionID,
-		HiveInfo:  hive.ID,
-		Bees:      executionMachines,
-	}
-
-	buf := new(bytes.Buffer)
-
-	err := json.NewEncoder(buf).Encode(&run)
-	if err != nil {
-		fmt.Println("Error encoding create run request!")
-		os.Exit(0)
-	}
-
-	bodyData := bytes.NewReader(buf.Bytes())
-
-	client := &http.Client{}
-	req, err := http.NewRequest("POST", util.Cfg.BaseUrl+"v1/run/", bodyData)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Content-Type", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't create run!")
-		os.Exit(0)
-	}
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read response body!")
-		os.Exit(0)
-	}
-
-	if resp.StatusCode != http.StatusCreated {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
-	}
-
-	var createRunResp types.CreateRunResponse
-	err = json.Unmarshal(bodyBytes, &createRunResp)
-	if err != nil {
-		fmt.Println("Error unmarshalling create run response!")
-		os.Exit(0)
-	}
-
-	if watch {
-		WatchRun(createRunResp.ID, nodesToDownload, false, &executionMachines)
-	} else {
-		fmt.Println("Run successfully created! ID: " + createRunResp.ID)
-		fmt.Print("Machines:\n " + FormatMachines(&executionMachines, false))
-		fmt.Print("Available:\n " + FormatMachines(&availableMachines, false))
 	}
 }
 
@@ -382,58 +318,6 @@ func CreateTrees(wfVersion *types.WorkflowVersionDetailed) (map[string]*types.Tr
 	return allNodes, roots
 }
 
-func getNodeNameFromConnectionID(id string) string {
-	idSplit := strings.Split(id, "/")
-	if len(idSplit) < 3 {
-		fmt.Println("Invalid source/destination ID!")
-		os.Exit(0)
-	}
-
-	return idSplit[1]
-}
-
-func readConfig(fileName string, wfVersion *types.WorkflowVersionDetailed, tool *types.Tool) (
-	bool, *types.WorkflowVersionDetailed, map[string]*types.PrimitiveNode) {
-	if wfVersion == nil && tool == nil {
-		fmt.Println("No workflow or tool found for execution!")
-		os.Exit(0)
-	}
-	if fileName == "" {
-		return false, wfVersion, nil
-	}
-
-	file, err := os.Open(fileName)
-	if err != nil {
-		fmt.Println(err)
-		fmt.Println("Couldn't open config file!")
-		os.Exit(0)
-	}
-	defer file.Close()
-
-	bytesData, err := ioutil.ReadAll(file)
-	if err != nil {
-		fmt.Println("Couldn't read config!")
-		os.Exit(0)
-	}
-
-	var config map[string]interface{}
-	err = yaml.Unmarshal(bytesData, &config)
-	if err != nil {
-		fmt.Println("Couldn't unmarshal config!")
-		os.Exit(0)
-	}
-
-	if tool != nil {
-		executionMachines = *readConfigMachines(&config, true, nil)
-	} else {
-		executionMachines = *readConfigMachines(&config, false, &wfVersion.MaxMachines)
-	}
-	nodesToDownload = readConfigOutputs(&config)
-	updateNeeded, primitiveNodes := readConfigInputs(&config, wfVersion, tool)
-
-	return updateNeeded, wfVersion, primitiveNodes
-}
-
 func createToolWorkflow(wfName string, space *types.SpaceDetailed, project *types.Project, deleteProjectOnError bool,
 	tool *types.Tool, primitiveNodes map[string]*types.PrimitiveNode, machine types.Bees) *types.WorkflowVersionDetailed {
 	if tool == nil {
@@ -560,6 +444,180 @@ func createToolWorkflow(wfName string, space *types.SpaceDetailed, project *type
 	}
 	newVersion = createNewVersion(newVersion)
 	return newVersion
+}
+
+func prepareForExec(path string) *types.WorkflowVersionDetailed {
+	pathSplit := strings.Split(strings.Trim(path, "/"), "/")
+	var wfVersion *types.WorkflowVersionDetailed
+	var primitiveNodes map[string]*types.PrimitiveNode
+	projectCreated := false
+
+	space, project, workflow, _ := list.ResolveObjectPath(path)
+	if space == nil {
+		os.Exit(0)
+	}
+	if workflow == nil {
+		wfName := pathSplit[len(pathSplit)-1]
+		storeWorkflows := list.GetWorkflows("", true, wfName)
+		if storeWorkflows != nil && len(storeWorkflows) > 0 {
+			for _, wf := range storeWorkflows {
+				if strings.ToLower(wf.Name) == strings.ToLower(wfName) {
+					storeWfVersion := GetLatestWorkflowVersion(list.GetWorkflowByID(wf.ID))
+					update := false
+					var updatedWfVersion *types.WorkflowVersionDetailed
+					if configFile == "" {
+						executionMachines = storeWfVersion.MaxMachines
+					} else {
+						update, updatedWfVersion, primitiveNodes = readConfig(configFile, storeWfVersion, nil)
+					}
+
+					if project == nil {
+						fmt.Println("Would you like to create a project named " + wfName +
+							" and save the new workflow in there? (Y/N)")
+						var answer string
+						for {
+							_, _ = fmt.Scan(&answer)
+							if strings.ToLower(answer) == "y" || strings.ToLower(answer) == "yes" {
+								project = create.CreateProjectIfNotExists(space, wfName)
+								projectCreated = true
+								break
+							} else if strings.ToLower(answer) == "n" || strings.ToLower(answer) == "no" {
+								break
+							}
+						}
+					}
+
+					if newWorkflowName == "" {
+						newWorkflowName = wf.Name
+					}
+					copyDestination := space.Name
+					if project != nil {
+						copyDestination += "/" + project.Name
+					}
+					copyDestination += "/" + newWorkflowName
+					fmt.Println("Copying " + wf.Name + " from the store to " + copyDestination)
+					projID := ""
+					if project != nil {
+						projID = project.ID
+					}
+					newWorkflowID := copyWorkflow(space.ID, projID, wf.ID)
+					if newWorkflowID == "" {
+						fmt.Println("Couldn't copy workflow from the store!")
+						os.Exit(0)
+					}
+
+					newWorkflow := list.GetWorkflowByID(newWorkflowID)
+					if newWorkflow.Name != newWorkflowName {
+						newWorkflow.Name = newWorkflowName
+						updateWorkflow(newWorkflow, projectCreated)
+					}
+
+					wfVersion = GetLatestWorkflowVersion(newWorkflow)
+					if update && updatedWfVersion != nil {
+						for _, pNode := range primitiveNodes {
+							if pNode.Type == "FILE" && strings.HasPrefix(pNode.Value.(string), "trickest://file/") {
+								pNode.Label = uploadFile(strings.TrimPrefix(pNode.Value.(string), "trickest://file/"))
+							}
+						}
+						updatedWfVersion.WorkflowInfo = newWorkflow.ID
+						wfVersion = createNewVersion(updatedWfVersion)
+					}
+					return wfVersion
+				}
+			}
+		}
+
+		if configFile == "" {
+			fmt.Println("You must provide config file to create a tool workflow!")
+			os.Exit(0)
+		}
+		tools := list.GetTools(math.MaxInt, "", wfName)
+		if tools == nil || len(tools) == 0 {
+			fmt.Println("Couldn't find a workflow or tool named " + wfName + " in the store!")
+			fmt.Println("Use \"trickest store list\" to see all available workflows and tools, " +
+				"or search the store using \"trickest store search <name/description>\"")
+			os.Exit(0)
+		}
+		_, _, primitiveNodes = readConfig(configFile, nil, &tools[0])
+
+		if project == nil {
+			fmt.Println("Would you like to create a project named " + wfName +
+				" and save the new workflow in there? (Y/N)")
+			var answer string
+			for {
+				_, _ = fmt.Scan(&answer)
+				if strings.ToLower(answer) == "y" || strings.ToLower(answer) == "yes" {
+					project = create.CreateProjectIfNotExists(space, tools[0].Name)
+					projectCreated = true
+					break
+				} else if strings.ToLower(answer) == "n" || strings.ToLower(answer) == "no" {
+					break
+				}
+			}
+		}
+		wfVersion = createToolWorkflow(newWorkflowName, space, project, projectCreated, &tools[0], primitiveNodes, executionMachines)
+
+		return wfVersion
+	} else {
+		wfVersion = GetLatestWorkflowVersion(workflow)
+		if configFile == "" {
+			executionMachines = wfVersion.MaxMachines
+		} else {
+			update, updatedWfVersion, _ := readConfig(configFile, wfVersion, nil)
+			if update {
+				for _, pNode := range primitiveNodes {
+					if pNode.Type == "FILE" && strings.HasPrefix(pNode.Value.(string), "trickest://file/") {
+						pNode.Label = uploadFile(strings.TrimPrefix(pNode.Value.(string), "trickest://file/"))
+					}
+				}
+				wfVersion = createNewVersion(updatedWfVersion)
+			}
+		}
+	}
+
+	return wfVersion
+}
+
+func readConfig(fileName string, wfVersion *types.WorkflowVersionDetailed, tool *types.Tool) (
+	bool, *types.WorkflowVersionDetailed, map[string]*types.PrimitiveNode) {
+	if wfVersion == nil && tool == nil {
+		fmt.Println("No workflow or tool found for execution!")
+		os.Exit(0)
+	}
+	if fileName == "" {
+		return false, wfVersion, nil
+	}
+
+	file, err := os.Open(fileName)
+	if err != nil {
+		fmt.Println(err)
+		fmt.Println("Couldn't open config file!")
+		os.Exit(0)
+	}
+	defer file.Close()
+
+	bytesData, err := ioutil.ReadAll(file)
+	if err != nil {
+		fmt.Println("Couldn't read config!")
+		os.Exit(0)
+	}
+
+	var config map[string]interface{}
+	err = yaml.Unmarshal(bytesData, &config)
+	if err != nil {
+		fmt.Println("Couldn't unmarshal config!")
+		os.Exit(0)
+	}
+
+	if tool != nil {
+		executionMachines = *readConfigMachines(&config, true, nil)
+	} else {
+		executionMachines = *readConfigMachines(&config, false, &wfVersion.MaxMachines)
+	}
+	nodesToDownload = readConfigOutputs(&config)
+	updateNeeded, primitiveNodes := readConfigInputs(&config, wfVersion, tool)
+
+	return updateNeeded, wfVersion, primitiveNodes
 }
 
 func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowVersionDetailed, tool *types.Tool) (
@@ -860,654 +918,4 @@ func readConfigMachines(config *map[string]interface{}, isTool bool, maximumMach
 	}
 
 	return execMachines
-}
-
-func createNewVersion(version *types.WorkflowVersionDetailed) *types.WorkflowVersionDetailed {
-	buf := new(bytes.Buffer)
-
-	err := json.NewEncoder(buf).Encode(version)
-	if err != nil {
-		fmt.Println("Error encoding create version request!")
-		os.Exit(0)
-	}
-
-	bodyData := bytes.NewReader(buf.Bytes())
-
-	client := &http.Client{}
-	urlReq := util.Cfg.BaseUrl + "v1/store/workflow-version/"
-	req, err := http.NewRequest("POST", urlReq, bodyData)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Content-Type", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't get create version response.")
-		os.Exit(0)
-	}
-	defer resp.Body.Close()
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read create version response.")
-		os.Exit(0)
-	}
-
-	if resp.StatusCode != http.StatusCreated {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
-	}
-
-	var newVersionInfo types.WorkflowVersion
-	err = json.Unmarshal(bodyBytes, &newVersionInfo)
-	if err != nil {
-		fmt.Println("Error unmarshalling create version response!")
-		return nil
-	}
-
-	newVersion := download.GetWorkflowVersionByID(newVersionInfo.ID)
-	return newVersion
-}
-
-func uploadFile(filePath string) string {
-	file, err := os.Open(filePath)
-	if err != nil {
-		fmt.Println(err)
-		fmt.Println("Couldn't open file!")
-		os.Exit(0)
-	}
-	defer file.Close()
-
-	fileName := filepath.Base(file.Name())
-
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	defer writer.Close()
-
-	part, err := writer.CreateFormFile("thumb", fileName)
-	if err != nil {
-		fmt.Println("Error: Couldn't create form file!")
-		os.Exit(0)
-	}
-
-	fileInfo, _ := file.Stat()
-	bar := progressbar.NewOptions64(
-		fileInfo.Size(),
-		progressbar.OptionSetDescription("Uploading "+fileName+" ..."),
-		progressbar.OptionSetWidth(30),
-		progressbar.OptionShowBytes(true),
-		progressbar.OptionShowCount(),
-		progressbar.OptionOnCompletion(func() { fmt.Println() }),
-	)
-
-	_, err = io.Copy(io.MultiWriter(part, bar), file)
-	if err != nil {
-		fmt.Println("Couldn't upload " + fileName + "!")
-		os.Exit(0)
-	}
-
-	_, err = io.Copy(part, file)
-	if err != nil {
-		fmt.Println("Error: Couldn't copy data from file!")
-		os.Exit(0)
-	}
-
-	_, _ = part.Write([]byte("\n--" + writer.Boundary() + "--"))
-
-	client := &http.Client{}
-	req, err := http.NewRequest("POST", util.Cfg.BaseUrl+"v1/file/", body)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Content-Type", writer.FormDataContentType())
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't upload file!")
-		os.Exit(0)
-	}
-
-	if resp.StatusCode != http.StatusCreated {
-		var bodyBytes []byte
-		bodyBytes, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Println("Error: Couldn't read response body!")
-			os.Exit(0)
-		}
-
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
-	}
-
-	fmt.Println(filepath.Base(file.Name()) + " successfully uploaded!\n")
-	return filepath.Base(file.Name())
-}
-
-func GetLatestWorkflowVersion(workflow *types.Workflow) *types.WorkflowVersionDetailed {
-	if workflow == nil {
-		fmt.Println("No workflow provided, couldn't find the latest version!")
-		os.Exit(0)
-	}
-
-	if workflow.VersionCount == nil || *workflow.VersionCount == 0 {
-		fmt.Println("This workflow has no versions!")
-		os.Exit(0)
-	}
-
-	versions := getWorkflowVersions(workflow.ID, 1)
-
-	if versions == nil || len(versions) == 0 {
-		fmt.Println("Couldn't find any versions of the workflow: " + workflow.Name)
-		os.Exit(0)
-	}
-
-	latestVersion := download.GetWorkflowVersionByID(versions[0].ID)
-
-	return latestVersion
-}
-
-func getWorkflowVersions(workflowID string, pageSize int) []types.WorkflowVersion {
-	if workflowID == "" {
-		fmt.Println("No workflow ID provided, couldn't find versions!")
-		os.Exit(0)
-	}
-	urlReq := util.Cfg.BaseUrl + "v1/store/workflow-version/?workflow=" + workflowID
-	urlReq += "&page_size=" + strconv.Itoa(pageSize)
-
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", urlReq, nil)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't get workflow versions.")
-		os.Exit(0)
-	}
-	defer resp.Body.Close()
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read workflow versions.")
-		os.Exit(0)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
-	}
-
-	var versions types.WorkflowVersions
-	err = json.Unmarshal(bodyBytes, &versions)
-	if err != nil {
-		fmt.Println("Error unmarshalling workflow versions response!")
-		os.Exit(0)
-	}
-
-	return versions.Results
-}
-
-func prepareForExec(path string) *types.WorkflowVersionDetailed {
-	pathSplit := strings.Split(strings.Trim(path, "/"), "/")
-	var wfVersion *types.WorkflowVersionDetailed
-	var primitiveNodes map[string]*types.PrimitiveNode
-	projectCreated := false
-
-	space, project, workflow, _ := list.ResolveObjectPath(path)
-	if space == nil {
-		os.Exit(0)
-	}
-	if workflow == nil {
-		wfName := pathSplit[len(pathSplit)-1]
-		storeWorkflows := list.GetWorkflows("", true, wfName)
-		if storeWorkflows != nil && len(storeWorkflows) > 0 {
-			for _, wf := range storeWorkflows {
-				if strings.ToLower(wf.Name) == strings.ToLower(wfName) {
-					storeWfVersion := GetLatestWorkflowVersion(list.GetWorkflowByID(wf.ID))
-					update := false
-					var updatedWfVersion *types.WorkflowVersionDetailed
-					if configFile == "" {
-						executionMachines = storeWfVersion.MaxMachines
-					} else {
-						update, updatedWfVersion, primitiveNodes = readConfig(configFile, storeWfVersion, nil)
-					}
-
-					if project == nil {
-						fmt.Println("Would you like to create a project named " + wfName +
-							" and save the new workflow in there? (Y/N)")
-						var answer string
-						for {
-							_, _ = fmt.Scan(&answer)
-							if strings.ToLower(answer) == "y" || strings.ToLower(answer) == "yes" {
-								project = create.CreateProjectIfNotExists(space, wfName)
-								projectCreated = true
-								break
-							} else if strings.ToLower(answer) == "n" || strings.ToLower(answer) == "no" {
-								break
-							}
-						}
-					}
-
-					if newWorkflowName == "" {
-						newWorkflowName = wf.Name
-					}
-					copyDestination := space.Name
-					if project != nil {
-						copyDestination += "/" + project.Name
-					}
-					copyDestination += "/" + newWorkflowName
-					fmt.Println("Copying " + wf.Name + " from the store to " + copyDestination)
-					projID := ""
-					if project != nil {
-						projID = project.ID
-					}
-					newWorkflowID := copyWorkflow(space.ID, projID, wf.ID)
-					if newWorkflowID == "" {
-						fmt.Println("Couldn't copy workflow from the store!")
-						os.Exit(0)
-					}
-
-					newWorkflow := list.GetWorkflowByID(newWorkflowID)
-					if newWorkflow.Name != newWorkflowName {
-						newWorkflow.Name = newWorkflowName
-						updateWorkflow(newWorkflow, projectCreated)
-					}
-
-					wfVersion = GetLatestWorkflowVersion(newWorkflow)
-					if update && updatedWfVersion != nil {
-						for _, pNode := range primitiveNodes {
-							if pNode.Type == "FILE" && strings.HasPrefix(pNode.Value.(string), "trickest://file/") {
-								pNode.Label = uploadFile(strings.TrimPrefix(pNode.Value.(string), "trickest://file/"))
-							}
-						}
-						updatedWfVersion.WorkflowInfo = newWorkflow.ID
-						wfVersion = createNewVersion(updatedWfVersion)
-					}
-					return wfVersion
-				}
-			}
-		}
-
-		if configFile == "" {
-			fmt.Println("You must provide config file to create a tool workflow!")
-			os.Exit(0)
-		}
-		tools := list.GetTools(math.MaxInt, "", wfName)
-		if tools == nil || len(tools) == 0 {
-			fmt.Println("Couldn't find a workflow or tool named " + wfName + " in the store!")
-			fmt.Println("Use \"trickest store list\" to see all available workflows and tools, " +
-				"or search the store using \"trickest store search <name/description>\"")
-			os.Exit(0)
-		}
-		_, _, primitiveNodes = readConfig(configFile, nil, &tools[0])
-
-		if project == nil {
-			fmt.Println("Would you like to create a project named " + wfName +
-				" and save the new workflow in there? (Y/N)")
-			var answer string
-			for {
-				_, _ = fmt.Scan(&answer)
-				if strings.ToLower(answer) == "y" || strings.ToLower(answer) == "yes" {
-					project = create.CreateProjectIfNotExists(space, tools[0].Name)
-					projectCreated = true
-					break
-				} else if strings.ToLower(answer) == "n" || strings.ToLower(answer) == "no" {
-					break
-				}
-			}
-		}
-		wfVersion = createToolWorkflow(newWorkflowName, space, project, projectCreated, &tools[0], primitiveNodes, executionMachines)
-
-		return wfVersion
-	} else {
-		wfVersion = GetLatestWorkflowVersion(workflow)
-		if configFile == "" {
-			executionMachines = wfVersion.MaxMachines
-		} else {
-			update, updatedWfVersion, _ := readConfig(configFile, wfVersion, nil)
-			if update {
-				for _, pNode := range primitiveNodes {
-					if pNode.Type == "FILE" && strings.HasPrefix(pNode.Value.(string), "trickest://file/") {
-						pNode.Label = uploadFile(strings.TrimPrefix(pNode.Value.(string), "trickest://file/"))
-					}
-				}
-				wfVersion = createNewVersion(updatedWfVersion)
-			}
-		}
-	}
-
-	return wfVersion
-}
-
-func copyWorkflow(destinationSpaceID string, destinationProjectID string, workflowID string) string {
-	copyWf := types.CopyWorkflowRequest{
-		SpaceID:   destinationSpaceID,
-		ProjectID: destinationProjectID,
-	}
-
-	buf := new(bytes.Buffer)
-
-	err := json.NewEncoder(buf).Encode(&copyWf)
-	if err != nil {
-		fmt.Println("Error encoding copy workflow request!")
-		return ""
-	}
-
-	bodyData := bytes.NewReader(buf.Bytes())
-
-	client := &http.Client{}
-	req, err := http.NewRequest("POST", util.Cfg.BaseUrl+"v1/store/workflow/"+workflowID+"/copy/", bodyData)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Content-Type", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't copy workflow.")
-		return ""
-	}
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read response body!")
-		return ""
-	}
-
-	if resp.StatusCode != http.StatusCreated {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
-	}
-
-	fmt.Println("Workflow copied successfully!")
-	var copyWorkflowResp types.CopyWorkflowResponse
-	err = json.Unmarshal(bodyBytes, &copyWorkflowResp)
-	if err != nil {
-		fmt.Println("Error unmarshalling copy workflow response!")
-		return ""
-	}
-
-	return copyWorkflowResp.ID
-}
-
-func updateWorkflow(workflow *types.Workflow, deleteProjectOnError bool) {
-	workflow.WorkflowCategory = nil
-	buf := new(bytes.Buffer)
-	err := json.NewEncoder(buf).Encode(workflow)
-	if err != nil {
-		fmt.Println("Error encoding update workflow request!")
-		return
-	}
-	bodyData := bytes.NewReader(buf.Bytes())
-
-	client := &http.Client{}
-	req, err := http.NewRequest("PATCH", util.Cfg.BaseUrl+"v1/store/workflow/"+workflow.ID+"/", bodyData)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Content-Type", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't update workflow.")
-		return
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		var bodyBytes []byte
-		bodyBytes, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Println("Error: Couldn't read response body!")
-			return
-		}
-
-		if deleteProjectOnError {
-			delete.DeleteProject(workflow.ProjectInfo)
-		}
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
-	}
-}
-
-func processInvalidMachineString(s string) {
-	fmt.Println("Invalid machine qualifier: " + s)
-	fmt.Println("Try using max or maximum instead.")
-	os.Exit(0)
-}
-
-func processInvalidMachineType(data interface{}) {
-	fmt.Print("Invalid machine qualifier:")
-	fmt.Println(data)
-	fmt.Println("Try using a number or max/maximum instead.")
-	os.Exit(0)
-}
-
-func processInvalidMachineStructure() {
-	fmt.Println("Machines should be specified using the following format:")
-	fmt.Println("machines:")
-	fmt.Println(" 	- <machine-type>: <quantity>")
-	fmt.Println("Machine type can be small, medium or large. Quantity is a number >= than 0 or max/maximum.")
-	os.Exit(0)
-}
-
-func processInvalidInputStructure() {
-	fmt.Println("Inputs should be specified using the following format:")
-	fmt.Println("inputs:")
-	fmt.Println(" 	- <tool_name>[-<number>].<parameter_name>: <value>")
-	fmt.Println("<value> can be:")
-	fmt.Println(" - raw value")
-	fmt.Println(" - file: <file-name> (a local file that will be uploaded to the platform)")
-	fmt.Println(" - url: <url> (for files and folders (git repos) stored somewhere on the web)")
-	os.Exit(0)
-}
-
-func processMaxMachinesOverflow(maximumMachines *types.Bees) {
-	fmt.Println("Invalid number or machines!")
-	fmt.Println("The maximum number of machines you can allocate for this workflow: ")
-	fmt.Println(FormatMachines(maximumMachines, false))
-	os.Exit(0)
-}
-
-func processDifferentParamsForASinglePNode(existingPNode, newPNode types.PrimitiveNode) {
-	fmt.Print("Inputs " + existingPNode.Name + " (")
-	fmt.Print(existingPNode.Value)
-	fmt.Print(") and " + newPNode.Name + " (")
-	fmt.Print(newPNode.Value)
-	fmt.Println(") must have the same value!")
-	os.Exit(0)
-}
-
-func processInvalidInputType(newPNode, existingPNode types.PrimitiveNode) {
-	printType := strings.ToLower(existingPNode.Type)
-	if printType == "string" {
-		printType += " (or integer, if a number is needed)"
-	}
-	fmt.Println(newPNode.Name + " should be of type " + printType + " instead of " +
-		strings.ToLower(newPNode.Type) + "!")
-	os.Exit(0)
-}
-
-func findStartingNodeSuffix(wfVersion *types.WorkflowVersionDetailed) string {
-	suffix := "-1"
-	for node := range wfVersion.Data.Nodes {
-		if strings.HasSuffix(node, "-0") {
-			suffix = "-0"
-			return suffix
-		}
-	}
-	for pNode := range wfVersion.Data.PrimitiveNodes {
-		if strings.HasSuffix(pNode, "-0") {
-			suffix = "-0"
-			break
-		}
-	}
-
-	return suffix
-}
-
-func GetAvailableMachines() types.Bees {
-	hiveInfo := util.GetHiveInfo()
-	availableBees := types.Bees{}
-	for _, bee := range hiveInfo.Bees {
-		if bee.Name == "small" {
-			available := bee.Total - bee.Running
-			availableBees.Small = &available
-		}
-		if bee.Name == "medium" {
-			available := bee.Total - bee.Running
-			availableBees.Medium = &available
-		}
-		if bee.Name == "large" {
-			available := bee.Total - bee.Running
-			availableBees.Large = &available
-		}
-	}
-	return availableBees
-}
-
-func GetRunByID(id string) *types.Run {
-	client := &http.Client{}
-
-	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/run/"+id+"/", nil)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't get run info.")
-		return nil
-	}
-	defer resp.Body.Close()
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err)
-		fmt.Println("Error: Couldn't read run info.")
-		return nil
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
-	}
-
-	var run types.Run
-	err = json.Unmarshal(bodyBytes, &run)
-	if err != nil {
-		fmt.Println("Error unmarshalling run response!")
-		return nil
-	}
-
-	return &run
-}
-
-func GetSubJobs(runID string) []types.SubJob {
-	if runID == "" {
-		fmt.Println("Couldn't list sub-jobs, no run ID parameter specified!")
-		os.Exit(0)
-	}
-	urlReq := util.Cfg.BaseUrl + "v1/subjob/?run=" + runID
-	urlReq = urlReq + "&page_size=" + strconv.Itoa(math.MaxInt)
-
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", urlReq, nil)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't get sub-jobs info!")
-		os.Exit(0)
-	}
-	defer resp.Body.Close()
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read sub-jobs info.")
-		os.Exit(0)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
-	}
-
-	var subJobs types.SubJobs
-	err = json.Unmarshal(bodyBytes, &subJobs)
-	if err != nil {
-		fmt.Println("Error unmarshalling sub-jobs response!")
-		os.Exit(0)
-	}
-
-	return subJobs.Results
-}
-
-func stopRun(runID string) {
-	client := &http.Client{}
-	urlReq := util.Cfg.BaseUrl + "v1/run/" + runID + "/stop/"
-	req, err := http.NewRequest("POST", urlReq, nil)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't stop run.")
-		os.Exit(0)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusAccepted {
-		var bodyBytes []byte
-		bodyBytes, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Println("Error: Couldn't read stop run response.")
-			os.Exit(0)
-		}
-
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
-	}
-}
-
-func FormatMachines(machines *types.Bees, inline bool) string {
-	var small, medium, large string
-	if machines.Small != nil {
-		small = "small: " + strconv.Itoa(*machines.Small)
-	}
-	if machines.Medium != nil {
-		medium = "medium: " + strconv.Itoa(*machines.Medium)
-	}
-	if machines.Large != nil {
-		large = "large: " + strconv.Itoa(*machines.Large)
-	}
-
-	out := ""
-	if inline {
-		if small != "" {
-			out = small
-		}
-		if medium != "" {
-			if small != "" {
-				out += ", "
-			}
-			out += medium
-		}
-		if large != "" {
-			if small != "" || medium != "" {
-				out += ", "
-			}
-			out += large
-		}
-	} else {
-		if small != "" {
-			out = small + "\n"
-		}
-		if medium != "" {
-			out += medium + "\n"
-		}
-		if large != "" {
-			out += large + "\n"
-		}
-	}
-
-	return out
 }
