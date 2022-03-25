@@ -11,6 +11,10 @@ import (
 	"trickest-cli/util"
 )
 
+var (
+	watch bool
+)
+
 // GetCmd represents the get command
 var GetCmd = &cobra.Command{
 	Use:   "get",
@@ -45,7 +49,7 @@ var GetCmd = &cobra.Command{
 				fmt.Println("Couldn't get latest run!")
 				return
 			}
-			execute.WatchRun(runs[0].ID, map[string]download.NodeInfo{}, true, &runs[0].Bees)
+			execute.WatchRun(runs[0].ID, map[string]download.NodeInfo{}, !watch, &runs[0].Bees)
 			return
 		} else {
 			const fmtStr = "%-15s %v\n"
@@ -69,5 +73,5 @@ var GetCmd = &cobra.Command{
 }
 
 func init() {
-
+	GetCmd.Flags().BoolVar(&watch, "watch", false, "Watch the workflow execution if it's still running")
 }
