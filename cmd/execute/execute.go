@@ -2,6 +2,7 @@ package execute
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/gosuri/uilive"
 	"github.com/spf13/cobra"
@@ -34,6 +35,7 @@ var (
 	nodesToDownload   = make(map[string]download.NodeInfo, 0)
 	allNodes          map[string]*types.TreeNode
 	roots             []*types.TreeNode
+	workflowYAML      string
 )
 
 // ExecuteCmd represents the execute command
@@ -63,8 +65,12 @@ var ExecuteCmd = &cobra.Command{
 		if hive == nil {
 			return
 		}
-
-		version := prepareForExec(path)
+		var version *types.WorkflowVersionDetailed
+		if workflowYAML != "" {
+			version = readWorkflowYAMLandCreateVersion(workflowYAML, newWorkflowName, path)
+		} else {
+			version = prepareForExec(path)
+		}
 		if version == nil {
 			fmt.Println("Couldn't find or create the workflow version!")
 			os.Exit(0)
@@ -80,6 +86,462 @@ func init() {
 	ExecuteCmd.Flags().StringVar(&configFile, "config", "", "YAML file for run configuration")
 	ExecuteCmd.Flags().BoolVar(&watch, "watch", false, "Watch the execution running")
 	ExecuteCmd.Flags().BoolVar(&showParams, "show-params", false, "Show parameters in the workflow tree")
+	ExecuteCmd.Flags().StringVar(&workflowYAML, "file", "", "Workflow YAML file to execute")
+}
+
+func getToolOrScriptFromYAMLNode(node types.WorkflowYAMLNode) (*types.Tool, *types.Script) {
+	var tool *types.Tool
+	var script *types.Script
+	idSplit := strings.Split(node.ID, "-")
+	if len(idSplit) == 1 {
+		fmt.Println("Invalid node ID format: " + node.ID)
+		os.Exit(0)
+	}
+	storeName := strings.TrimSuffix(node.ID, "-"+idSplit[len(idSplit)-1])
+
+	if node.Script == nil {
+		tools := list.GetTools(1, "", storeName)
+		if tools == nil || len(tools) == 0 {
+			fmt.Println("Couldn't find a tool named " + storeName + " in the store!")
+			fmt.Println("Use \"trickest store list\" to see all available workflows and tools, " +
+				"or search the store using \"trickest store search <name/description>\"")
+			os.Exit(0)
+		}
+		tool = &tools[0]
+	} else {
+		script = getScriptByName(storeName)
+		if script == nil {
+			os.Exit(0)
+		}
+	}
+
+	return tool, script
+}
+
+func nodeExists(nodes []types.WorkflowYAMLNode, id string) bool {
+	for _, node := range nodes {
+		if node.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path string) *types.WorkflowVersionDetailed {
+	file, err := os.Open(fileName)
+	if err != nil {
+		fmt.Println(err)
+		fmt.Println("Couldn't open workflow file!")
+		os.Exit(0)
+	}
+	defer file.Close()
+
+	bytesData, err := ioutil.ReadAll(file)
+	if err != nil {
+		fmt.Println("Couldn't read workflow file!")
+		os.Exit(0)
+	}
+
+	var wfNodes []types.WorkflowYAMLNode
+	err = yaml.Unmarshal(bytesData, &wfNodes)
+	if err != nil {
+		fmt.Println("Couldn't unmarshal workflow YAML!")
+		os.Exit(0)
+	}
+
+	space, project, workflow, _ := list.ResolveObjectPath(path, true)
+	if space == nil {
+		fmt.Println("Space " + strings.Split(path, "/")[0] + " doesn't exist!")
+		os.Exit(0)
+	}
+
+	nodes := make(map[string]*types.Node, 0)
+	connections := make([]types.Connection, 0)
+	primitiveNodes := make(map[string]*types.PrimitiveNode, 0)
+
+	stringInputsCnt := 0
+	booleanInputsCnt := 0
+	httpInputCnt := 0
+	gitInputCnt := 0
+
+	for _, node := range wfNodes {
+		tool, script := getToolOrScriptFromYAMLNode(node)
+
+		newNode := &types.Node{
+			Name: node.ID,
+			Meta: struct {
+				Label       string `json:"label"`
+				Coordinates struct {
+					X float64 `json:"x"`
+					Y float64 `json:"y"`
+				} `json:"coordinates"`
+			}{Label: node.Name, Coordinates: struct {
+				X float64 `json:"x"`
+				Y float64 `json:"y"`
+			}{X: 0, Y: 0}},
+		}
+
+		machine := strings.ToLower(node.Machine)
+		if machine == "" {
+			machine = "large"
+		}
+		if node.Machine != "small" && node.Machine != "medium" && node.Machine != "large" {
+			fmt.Println(node)
+			fmt.Println("Invalid machine type!")
+			os.Exit(0)
+		}
+		newNode.BeeType = machine
+
+		if script != nil {
+			newNode.ID = script.ID
+			newNode.Script = &script.Script
+			newNode.Type = script.Type
+			newNode.Outputs = struct {
+				Folder *struct {
+					Type  string `json:"type"`
+					Order int    `json:"order"`
+				} `json:"folder,omitempty"`
+				File *struct {
+					Type  string `json:"type"`
+					Order int    `json:"order"`
+				} `json:"file,omitempty"`
+			}{
+				Folder: &struct {
+					Type  string `json:"type"`
+					Order int    `json:"order"`
+				}{
+					Type:  script.Outputs.Folder.Type,
+					Order: 0,
+				},
+				File: &struct {
+					Type  string `json:"type"`
+					Order int    `json:"order"`
+				}{
+					Type:  script.Outputs.File.Type,
+					Order: 0,
+				},
+			}
+			multi := true
+			newNode.Inputs = map[string]*types.NodeInput{
+				"file": {
+					Type:  "FILE",
+					Order: 0,
+					Multi: &multi,
+				},
+				"folder": {
+					Type:  "FOLDER",
+					Order: 0,
+					Multi: &multi,
+				},
+			}
+
+			inputs, ok := node.Inputs.([]interface{})
+			if !ok {
+				fmt.Println("Invalid inputs format: ")
+				fmt.Println(node)
+				os.Exit(0)
+			}
+			for _, value := range inputs {
+				newPNode := types.PrimitiveNode{
+					Coordinates: struct {
+						X float64 `json:"x"`
+						Y float64 `json:"y"`
+					}{0, 0},
+				}
+				switch val := value.(type) {
+				case string:
+					if strings.Contains(val, ".") {
+						if strings.HasPrefix(val, "http") {
+							if strings.HasSuffix(val, ".git") {
+								newPNode.Type = "FOLDER"
+								gitInputCnt++
+								newPNode.Name = "git-input-" + strconv.Itoa(gitInputCnt)
+							} else {
+								newPNode.Type = "FILE"
+								httpInputCnt++
+								newPNode.Name = "http-input-" + strconv.Itoa(httpInputCnt)
+							}
+							newPNode.Value = val
+						} else {
+							newPNode.Type = "FILE"
+							httpInputCnt++
+							newPNode.Name = "http-input-" + strconv.Itoa(httpInputCnt)
+							newPNode.Value = "trickest://file/" + val
+						}
+						newPNode.TypeName = "URL"
+						pathSplit := strings.Split(val, "/")
+						newPNode.Label = pathSplit[len(pathSplit)-1]
+					} else {
+						if !nodeExists(wfNodes, val) {
+							if _, err = os.Stat(val); errors.Is(err, os.ErrNotExist) {
+								fmt.Println("A node with the given ID (" + val + ") doesn't exists in the workflow yaml!")
+								fmt.Println("A file named " + val + " doesn't exist!")
+								os.Exit(0)
+							} else {
+								newPNode.Type = "FILE"
+								httpInputCnt++
+								newPNode.Name = "http-input-" + strconv.Itoa(httpInputCnt)
+								newPNode.Value = "trickest://file/" + val
+								newPNode.TypeName = "URL"
+							}
+						} else {
+							break //input from an existing node
+							//todo folder inputs for scripts (from node outputs)
+						}
+					}
+				default:
+					fmt.Println(node)
+					fmt.Println("Unknown type for script input! Use node ID, file or folder.")
+					os.Exit(0)
+				}
+				connection := types.Connection{
+					Source: struct {
+						ID string `json:"id"`
+					}{},
+					Destination: struct {
+						ID string `json:"id"`
+					}{},
+				}
+				inputName := "file/"
+				inputValue := "in/"
+				if newPNode.Name != "" {
+					connection.Source.ID = "output/" + newPNode.Name + "/output"
+					inputName += newPNode.Name
+					inputValue += newPNode.Name + "/" + newPNode.Label
+					primitiveNodes[newPNode.Name] = &newPNode
+				} else {
+					sourceNodeID := value.(string)
+					connection.Source.ID = "output/" + sourceNodeID + "/file"
+					inputName += sourceNodeID
+					inputValue += sourceNodeID + "/output.txt"
+				}
+				connection.Destination.ID = "input/" + node.ID + "/" + inputName
+				connections = append(connections, connection)
+				in, exists := newNode.Inputs[inputName]
+				if exists {
+					fmt.Println("Input with the same name already exists!")
+					fmt.Println("Name: " + inputName)
+					fmt.Println("Values: ")
+					fmt.Println(value)
+					fmt.Println(in.Value)
+					os.Exit(0)
+				}
+				newNode.Inputs[inputName] = &types.NodeInput{
+					Type:  "FILE",
+					Order: 0,
+					Value: inputValue,
+				}
+			}
+		} else {
+			newNode.ID = tool.ID
+			newNode.Type = tool.Type
+			newNode.Container = tool.Container
+			newNode.Outputs = tool.Outputs
+			newNode.OutputCommand = tool.OutputCommand
+			newNode.Inputs = make(map[string]*types.NodeInput, 0)
+
+			inputs, ok := node.Inputs.(map[string]interface{})
+			if !ok {
+				fmt.Println("Invalid inputs format: ")
+				fmt.Println(node)
+				os.Exit(0)
+			}
+			for name, value := range inputs {
+				toolInput, exists := tool.Inputs[name]
+				if !exists {
+					fmt.Println("Input parameter named " + name + " doesn't exist for " + tool.Name + "!")
+					os.Exit(0)
+				}
+
+				newPNode := types.PrimitiveNode{
+					Coordinates: struct {
+						X float64 `json:"x"`
+						Y float64 `json:"y"`
+					}{0, 0},
+				}
+
+				switch val := value.(type) {
+				case string:
+					if toolInput.Type == "FILE" {
+						if nodeExists(wfNodes, val) {
+							connections = append(connections, types.Connection{
+								Source: struct {
+									ID string `json:"id"`
+								}{
+									ID: "output/" + val + "/file",
+								},
+								Destination: struct {
+									ID string `json:"id"`
+								}{
+									ID: "input/" + node.ID + "/" + name,
+								},
+							})
+							newNode.Inputs[name] = &types.NodeInput{
+								Type:        toolInput.Type,
+								Order:       0,
+								Value:       "in/" + node.ID + "/output.txt",
+								Command:     &toolInput.Command,
+								Description: &toolInput.Description,
+							}
+							continue
+						} else {
+							newPNode.Type = "FILE"
+							httpInputCnt++
+							newPNode.Name = "http-input-" + strconv.Itoa(httpInputCnt)
+							if strings.HasPrefix(val, "http") {
+								newPNode.Value = val
+							} else {
+								newPNode.Value = "trickest://file/" + val
+							}
+						}
+						pathSplit := strings.Split(val, "/")
+						newPNode.Label = pathSplit[len(pathSplit)-1]
+						newPNode.TypeName = "URL"
+					} else if toolInput.Type == "FOLDER" {
+						if nodeExists(wfNodes, val) {
+							connections = append(connections, types.Connection{
+								Source: struct {
+									ID string `json:"id"`
+								}{
+									ID: "output/" + val + "/folder",
+								},
+								Destination: struct {
+									ID string `json:"id"`
+								}{
+									ID: "input/" + node.ID + "/" + name,
+								},
+							})
+							newNode.Inputs[name] = &types.NodeInput{
+								Type:        toolInput.Type,
+								Order:       0,
+								Value:       "in/" + val + "/",
+								Command:     &toolInput.Command,
+								Description: &toolInput.Description,
+							}
+							continue
+						} else {
+							if strings.HasSuffix(val, ".git") {
+								newPNode.Type = "FOLDER"
+								gitInputCnt++
+								newPNode.Name = "git-input-" + strconv.Itoa(gitInputCnt)
+							} else {
+								fmt.Println(name + " input parameter for " + tool.Name +
+									" is a folder, use git repository (URL with .git extension) instead of " + val)
+								os.Exit(0)
+							}
+						}
+					} else {
+						newPNode.Label = val
+						newPNode.Value = val
+						stringInputsCnt++
+						newPNode.Name = "string-input-" + strconv.Itoa(stringInputsCnt)
+						newPNode.Type = "STRING"
+						newPNode.TypeName = "STRING"
+					}
+				case int:
+					stringInputsCnt++
+					newPNode.Name = "string-input-" + strconv.Itoa(stringInputsCnt)
+					newPNode.Type = "STRING"
+					newPNode.TypeName = "STRING"
+					newPNode.Value = strconv.Itoa(val)
+					newPNode.Label = strconv.Itoa(val)
+				case bool:
+					booleanInputsCnt++
+					newPNode.Name = "boolean-input-" + strconv.Itoa(booleanInputsCnt)
+					newPNode.Type = "BOOLEAN"
+					newPNode.TypeName = "BOOLEAN"
+					newPNode.Value = val
+					newPNode.Label = strconv.FormatBool(val)
+				default:
+					fmt.Println(node)
+					fmt.Println("Unknown type for tool input!")
+					os.Exit(0)
+				}
+
+				in, exists := newNode.Inputs[name]
+				if exists {
+					fmt.Println("Input with the same name already exists!")
+					fmt.Println("Name: " + name)
+					fmt.Println("Values: ")
+					fmt.Println(value)
+					fmt.Println(in.Value)
+					os.Exit(0)
+				}
+				newNode.Inputs[name] = &types.NodeInput{
+					Type:        newPNode.Type,
+					Order:       0,
+					Command:     &toolInput.Command,
+					Description: &toolInput.Description,
+				}
+				if newPNode.Type == "FILE" {
+					newNode.Inputs[name].Value = "in/" + newPNode.Name + "/" + newPNode.Label
+				} else if newPNode.Type == "FOLDER" {
+					newNode.Inputs[name].Value = "in/" + newPNode.Name + "/"
+				} else {
+					newNode.Inputs[name].Value = newPNode.Value
+				}
+				primitiveNodes[newPNode.Name] = &newPNode
+				connections = append(connections, types.Connection{
+					Source: struct {
+						ID string `json:"id"`
+					}{
+						ID: "output/" + newPNode.Name + "/output",
+					},
+					Destination: struct {
+						ID string `json:"id"`
+					}{
+						ID: "input/" + node.ID + "/" + name,
+					},
+				})
+			}
+		}
+		for name, input := range tool.Inputs {
+			if _, exists := newNode.Inputs[name]; !exists {
+				command := input.Command
+				description := input.Description
+				newNode.Inputs[name] = &types.NodeInput{
+					Type:        input.Type,
+					Order:       0,
+					Command:     &command,
+					Description: &description,
+				}
+			}
+		}
+		nodes[node.ID] = newNode
+	}
+
+	workflowID := ""
+	if workflow == nil {
+		projectID := ""
+		if project != nil {
+			projectID = project.ID
+		}
+		newWorkflow := create.CreateWorkflow(workflowName, "", space.ID, projectID, true)
+		workflowID = newWorkflow.ID
+	} else {
+		workflowID = workflow.ID
+	}
+	version := &types.WorkflowVersionDetailed{
+		WorkflowInfo: workflowID,
+		Name:         nil,
+		Data: struct {
+			Nodes          map[string]*types.Node          `json:"nodes"`
+			Connections    []types.Connection              `json:"connections"`
+			PrimitiveNodes map[string]*types.PrimitiveNode `json:"primitiveNodes"`
+		}{
+			Nodes:          nodes,
+			Connections:    connections,
+			PrimitiveNodes: primitiveNodes,
+		},
+	}
+	for _, pNode := range version.Data.PrimitiveNodes {
+		if pNode.Type == "FILE" && strings.HasPrefix(pNode.Value.(string), "trickest://file/") {
+			uploadFile(strings.TrimPrefix(pNode.Value.(string), "trickest://file/"))
+		}
+	}
+	version = createNewVersion(version)
+	executionMachines = version.MaxMachines
+	return version
 }
 
 func WatchRun(runID string, nodesToDownload map[string]download.NodeInfo, timestampOnly bool, machines *types.Bees) {
@@ -357,8 +819,8 @@ func createToolWorkflow(wfName string, space *types.SpaceDetailed, project *type
 		inputs[inputName] = &types.NodeInput{
 			Type:        toolInput.Type,
 			Order:       toolInput.Order,
-			Command:     toolInput.Command,
-			Description: toolInput.Description,
+			Command:     &toolInput.Command,
+			Description: &toolInput.Description,
 		}
 		if pNode, exists := primitiveNodes[inputName]; exists {
 			inputs[inputName].Value = pNode.Value
@@ -452,7 +914,7 @@ func prepareForExec(path string) *types.WorkflowVersionDetailed {
 	var primitiveNodes map[string]*types.PrimitiveNode
 	projectCreated := false
 
-	space, project, workflow, _ := list.ResolveObjectPath(path)
+	space, project, workflow, _ := list.ResolveObjectPath(path, false)
 	if space == nil {
 		os.Exit(0)
 	}
@@ -683,6 +1145,8 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 					if fName, isFile := val["file"]; isFile {
 						newPNode.Type = "FILE"
 						newPNode.Value = "trickest://file/" + fName.(string)
+						pathSplit := strings.Split(fName.(string), "/")
+						newPNode.Label = pathSplit[len(pathSplit)-1]
 					} else if url, isURL := val["url"]; isURL {
 						newPNode.Value = url.(string)
 						if strings.HasSuffix(url.(string), ".git") {
@@ -690,6 +1154,8 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 						} else {
 							newPNode.Type = "FILE"
 						}
+						pathSplit := strings.Split(fName.(string), "/")
+						newPNode.Label = pathSplit[len(pathSplit)-1]
 					} else {
 						newPNode.Type = "OBJECT"
 					}

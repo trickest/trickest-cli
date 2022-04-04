@@ -98,7 +98,7 @@ type Node struct {
 	} `json:"outputs"`
 	BeeType   string `json:"bee_type"`
 	Container *struct {
-		Args    []string `json:"args"`
+		Args    []string `json:"args,omitempty"`
 		Image   string   `json:"image"`
 		Command []string `json:"command"`
 	} `json:"container,omitempty"`
@@ -110,8 +110,8 @@ type NodeInput struct {
 	Type            string      `json:"type"`
 	Order           int         `json:"order"`
 	Value           interface{} `json:"value,omitempty"`
-	Command         string      `json:"command,omitempty"`
-	Description     string      `json:"description,omitempty"`
+	Command         *string     `json:"command,omitempty"`
+	Description     *string     `json:"description,omitempty"`
 	WorkerConnected *bool       `json:"workerConnected,omitempty"`
 	Multi           *bool       `json:"multi,omitempty"`
 }

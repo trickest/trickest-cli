@@ -105,7 +105,7 @@ The YAML config file should be formatted like:
 			}
 		}
 
-		_, _, workflow, found := list.ResolveObjectPath(path)
+		_, _, workflow, found := list.ResolveObjectPath(path, false)
 		if !found {
 			return
 		}
@@ -289,7 +289,7 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []ty
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	}
 
 	var subJobOutputs types.SubJobOutputs
@@ -481,7 +481,7 @@ func getSubJobs(runID string) []types.SubJob {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	}
 
 	var subJobs types.SubJobs
@@ -528,7 +528,7 @@ func GetRuns(workflowID string, pageSize int) []types.Run {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	}
 
 	var runs types.Runs
@@ -599,7 +599,7 @@ func getChildrenSubJobs(subJobID string) []types.SubJob {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	}
 
 	var subJobs types.SubJobs
@@ -635,7 +635,7 @@ func getSubJobByID(id string) *types.SubJob {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	}
 
 	var subJob types.SubJob

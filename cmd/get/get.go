@@ -35,7 +35,7 @@ var GetCmd = &cobra.Command{
 			}
 		}
 
-		_, _, workflow, found := list.ResolveObjectPath(path)
+		_, _, workflow, found := list.ResolveObjectPath(path, false)
 		if !found {
 			return
 		}

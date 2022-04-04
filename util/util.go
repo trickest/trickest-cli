@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"trickest-cli/types"
 )
@@ -85,7 +86,7 @@ func GetMe() *types.User {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		ProcessUnexpectedResponse(resp)
 	}
 
 	var user types.User
@@ -121,7 +122,7 @@ func GetHiveInfo() *types.Hive {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		ProcessUnexpectedResponse(resp)
 	}
 
 	var hives types.Hives
@@ -139,14 +140,21 @@ func GetHiveInfo() *types.Hive {
 	return &hives.Results[0]
 }
 
-func ProcessUnexpectedResponse(responseBody []byte, statusCode int) {
-	if statusCode >= http.StatusInternalServerError {
+func ProcessUnexpectedResponse(resp *http.Response) {
+	fmt.Println(resp.Request.Method + " " + resp.Request.URL.Path + " " + strconv.Itoa(resp.StatusCode))
+	if resp.StatusCode >= http.StatusInternalServerError {
 		fmt.Println("Sorry, something went wrong!")
 		os.Exit(0)
 	}
 
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error: Couldn't read unexpected response.")
+		os.Exit(0)
+	}
+
 	var response UnexpectedResponse
-	err := json.Unmarshal(responseBody, &response)
+	err = json.Unmarshal(bodyBytes, &response)
 	if err != nil {
 		fmt.Println("Sorry, something went wrong!")
 		os.Exit(0)

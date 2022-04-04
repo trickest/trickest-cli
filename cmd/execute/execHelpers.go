@@ -10,6 +10,7 @@ import (
 	"math"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -19,6 +20,58 @@ import (
 	"trickest-cli/types"
 	"trickest-cli/util"
 )
+
+func getScriptByName(name string) *types.Script {
+	scripts := getScripts(name)
+	if scripts == nil || len(scripts) == 0 {
+		fmt.Println("No scripts found with the given name: " + name)
+		return nil
+	}
+	return &scripts[0]
+}
+
+func getScripts(name string) []types.Script {
+	urlReq := util.Cfg.BaseUrl + "v1/store/script/"
+
+	if name != "" {
+		name = url.QueryEscape(name)
+		urlReq = urlReq + "&name=" + name
+	}
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", urlReq, nil)
+	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
+	req.Header.Add("Accept", "application/json")
+
+	var resp *http.Response
+	resp, err = client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		fmt.Println("Error: Couldn't get scripts.")
+		return nil
+	}
+	defer resp.Body.Close()
+
+	var bodyBytes []byte
+	bodyBytes, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error: Couldn't read scripts response.")
+		return nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		util.ProcessUnexpectedResponse(resp)
+	}
+
+	var scripts types.Scripts
+	err = json.Unmarshal(bodyBytes, &scripts)
+	if err != nil {
+		fmt.Println("Error unmarshalling scripts response!")
+		return nil
+	}
+
+	return scripts.Results
+}
 
 func createRun(versionID string, watch bool, machines *types.Bees) {
 	run := types.CreateRun{
@@ -57,7 +110,7 @@ func createRun(versionID string, watch bool, machines *types.Bees) {
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	}
 
 	var createRunResp types.CreateRunResponse
@@ -72,8 +125,8 @@ func createRun(versionID string, watch bool, machines *types.Bees) {
 	} else {
 		availableBees := GetAvailableMachines()
 		fmt.Println("Run successfully created! ID: " + createRunResp.ID)
-		fmt.Print("Machines:\n " + FormatMachines(machines, false))
-		fmt.Print("Available:\n " + FormatMachines(&availableBees, false))
+		fmt.Print("Machines:\n" + FormatMachines(machines, false))
+		fmt.Print("Available:\n" + FormatMachines(&availableBees, false))
 	}
 }
 
@@ -110,7 +163,7 @@ func createNewVersion(version *types.WorkflowVersionDetailed) *types.WorkflowVer
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	}
 
 	var newVersionInfo types.WorkflowVersion
@@ -182,14 +235,7 @@ func uploadFile(filePath string) string {
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		var bodyBytes []byte
-		bodyBytes, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Println("Error: Couldn't read response body!")
-			os.Exit(0)
-		}
-
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	}
 
 	fmt.Println(filepath.Base(file.Name()) + " successfully uploaded!\n")
@@ -248,7 +294,7 @@ func getWorkflowVersions(workflowID string, pageSize int) []types.WorkflowVersio
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	}
 
 	var versions types.WorkflowVersions
@@ -298,7 +344,7 @@ func copyWorkflow(destinationSpaceID string, destinationProjectID string, workfl
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	}
 
 	fmt.Println("Workflow copied successfully!")
@@ -335,17 +381,10 @@ func updateWorkflow(workflow *types.Workflow, deleteProjectOnError bool) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		var bodyBytes []byte
-		bodyBytes, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Println("Error: Couldn't read response body!")
-			return
-		}
-
 		if deleteProjectOnError {
 			delete.DeleteProject(workflow.ProjectInfo)
 		}
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	}
 }
 
@@ -469,7 +508,7 @@ func GetRunByID(id string) *types.Run {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	}
 
 	var run types.Run
@@ -511,7 +550,7 @@ func GetSubJobs(runID string) []types.SubJob {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	}
 
 	var subJobs types.SubJobs
@@ -540,14 +579,7 @@ func stopRun(runID string) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusAccepted {
-		var bodyBytes []byte
-		bodyBytes, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Println("Error: Couldn't read stop run response.")
-			os.Exit(0)
-		}
-
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	}
 }
 
@@ -582,10 +614,10 @@ func FormatMachines(machines *types.Bees, inline bool) string {
 		}
 	} else {
 		if small != "" {
-			out = small + "\n"
+			out = " " + small + "\n "
 		}
 		if medium != "" {
-			out += medium + "\n"
+			out += medium + "\n "
 		}
 		if large != "" {
 			out += large + "\n"

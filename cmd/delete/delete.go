@@ -3,7 +3,6 @@ package delete
 import (
 	"fmt"
 	"github.com/spf13/cobra"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"trickest-cli/cmd/list"
@@ -30,7 +29,7 @@ var DeleteCmd = &cobra.Command{
 			}
 		}
 
-		space, project, workflow, found := list.ResolveObjectPath(path)
+		space, project, workflow, found := list.ResolveObjectPath(path, false)
 
 		if !found {
 			return
@@ -76,14 +75,7 @@ func deleteSpace(name string, id string) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
-		var bodyBytes []byte
-		bodyBytes, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Println("Error: Couldn't read delete space response.")
-			return
-		}
-
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	} else {
 		fmt.Println("Space deleted successfully!")
 	}
@@ -105,14 +97,7 @@ func DeleteProject(id string) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
-		var bodyBytes []byte
-		bodyBytes, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Println("Error: Couldn't read delete project response.")
-			return
-		}
-
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	} else {
 		fmt.Println("Project deleted successfully!")
 	}
@@ -134,14 +119,7 @@ func deleteWorkflow(id string) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
-		var bodyBytes []byte
-		bodyBytes, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Println("Error: Couldn't read delete workflow response.")
-			return
-		}
-
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	} else {
 		fmt.Println("Workflow deleted successfully!")
 	}

@@ -84,16 +84,8 @@ func createSpace(name string, description string) {
 		fmt.Println("Error: Couldn't create space.")
 		return
 	}
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read response body!")
-		return
-	}
-
 	if resp.StatusCode != http.StatusCreated {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	}
 
 	fmt.Println("Space successfully created! ")
@@ -151,7 +143,7 @@ func CreateProject(name string, description string, spaceName string) *types.Pro
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	}
 
 	fmt.Println("Project successfully created!")
@@ -212,10 +204,10 @@ func CreateWorkflow(name, description, spaceID, projectID string, deleteProjectO
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		if deleteProjectOnError {
+		if deleteProjectOnError && projectID != "" {
 			delete.DeleteProject(projectID)
 		}
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	}
 
 	fmt.Println("Workflow successfully created!")

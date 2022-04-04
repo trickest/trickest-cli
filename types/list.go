@@ -189,7 +189,7 @@ type Tool struct {
 	Type      string               `json:"type"`
 	Inputs    map[string]ToolInput `json:"inputs"`
 	Container *struct {
-		Args    []string `json:"args"`
+		Args    []string `json:"args,omitempty"`
 		Image   string   `json:"image"`
 		Command []string `json:"command"`
 	} `json:"container,omitempty"`
