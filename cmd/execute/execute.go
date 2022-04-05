@@ -494,16 +494,16 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 					},
 				})
 			}
-		}
-		for name, input := range tool.Inputs {
-			if _, exists := newNode.Inputs[name]; !exists {
-				command := input.Command
-				description := input.Description
-				newNode.Inputs[name] = &types.NodeInput{
-					Type:        input.Type,
-					Order:       0,
-					Command:     &command,
-					Description: &description,
+			for name, input := range tool.Inputs {
+				if _, exists := newNode.Inputs[name]; !exists {
+					command := input.Command
+					description := input.Description
+					newNode.Inputs[name] = &types.NodeInput{
+						Type:        input.Type,
+						Order:       0,
+						Command:     &command,
+						Description: &description,
+					}
 				}
 			}
 		}

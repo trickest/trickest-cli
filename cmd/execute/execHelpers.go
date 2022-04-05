@@ -22,7 +22,7 @@ import (
 )
 
 func getScriptByName(name string) *types.Script {
-	scripts := getScripts(name)
+	scripts := getScripts(1, "", name)
 	if scripts == nil || len(scripts) == 0 {
 		fmt.Println("No scripts found with the given name: " + name)
 		return nil
@@ -30,12 +30,22 @@ func getScriptByName(name string) *types.Script {
 	return &scripts[0]
 }
 
-func getScripts(name string) []types.Script {
+func getScripts(pageSize int, search string, name string) []types.Script {
 	urlReq := util.Cfg.BaseUrl + "v1/store/script/"
+	if pageSize > 0 {
+		urlReq = urlReq + "?page_size=" + strconv.Itoa(pageSize)
+	} else {
+		urlReq = urlReq + "?page_size=" + strconv.Itoa(math.MaxInt)
+	}
+
+	if search != "" {
+		search = url.QueryEscape(search)
+		urlReq += "&search=" + search
+	}
 
 	if name != "" {
 		name = url.QueryEscape(name)
-		urlReq = urlReq + "&name=" + name
+		urlReq += "&name=" + name
 	}
 
 	client := &http.Client{}
