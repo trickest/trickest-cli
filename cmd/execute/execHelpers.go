@@ -224,12 +224,6 @@ func uploadFile(filePath string) string {
 		os.Exit(0)
 	}
 
-	_, err = io.Copy(part, file)
-	if err != nil {
-		fmt.Println("Error: Couldn't copy data from file!")
-		os.Exit(0)
-	}
-
 	_, _ = part.Write([]byte("\n--" + writer.Boundary() + "--"))
 
 	client := &http.Client{}
