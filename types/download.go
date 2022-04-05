@@ -102,7 +102,7 @@ type Node struct {
 		Image   string   `json:"image"`
 		Command []string `json:"command"`
 	} `json:"container,omitempty"`
-	OutputCommand   string  `json:"output_command"`
+	OutputCommand   *string `json:"output_command,omitempty"`
 	WorkerConnected *string `json:"workerConnected,omitempty"`
 }
 

@@ -337,7 +337,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 			newNode.Type = tool.Type
 			newNode.Container = tool.Container
 			newNode.Outputs = tool.Outputs
-			newNode.OutputCommand = tool.OutputCommand
+			newNode.OutputCommand = &tool.OutputCommand
 			newNode.Inputs = make(map[string]*types.NodeInput, 0)
 
 			inputs, ok := node.Inputs.(map[string]interface{})
@@ -803,7 +803,7 @@ func createToolWorkflow(wfName string, space *types.SpaceDetailed, project *type
 		Type:          tool.Type,
 		Container:     tool.Container,
 		Outputs:       tool.Outputs,
-		OutputCommand: tool.OutputCommand,
+		OutputCommand: &tool.OutputCommand,
 	}
 	switch {
 	case machine.Small != nil:
