@@ -43,12 +43,12 @@ var GetCmd = &cobra.Command{
 		version := execute.GetLatestWorkflowVersion(workflow)
 		allNodes, roots := execute.CreateTrees(version)
 
-		if version.RunCount > 0 {
-			runs := download.GetRuns(version.WorkflowInfo, 1)
-			if runs == nil || len(runs) == 0 {
-				fmt.Println("Couldn't get latest run!")
-				return
-			}
+		runs := download.GetRuns(version.WorkflowInfo, 1)
+		if runs == nil || len(runs) == 0 {
+			fmt.Println("This workflow hasn't been run yet.")
+			return
+		}
+		if runs != nil && len(runs) > 0 {
 			execute.WatchRun(runs[0].ID, map[string]download.NodeInfo{}, !watch, &runs[0].Bees)
 			return
 		} else {
