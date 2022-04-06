@@ -21,6 +21,47 @@ import (
 	"trickest-cli/util"
 )
 
+func getSplitter() *types.Splitter {
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/store/splitter/", nil)
+	req.Header.Add("Authorization", "Token "+util.GetToken())
+	req.Header.Add("Accept", "application/json")
+
+	var resp *http.Response
+	resp, err = client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		fmt.Println("Error: Couldn't get splitter.")
+		return nil
+	}
+	defer resp.Body.Close()
+
+	var bodyBytes []byte
+	bodyBytes, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error: Couldn't read splitter response.")
+		return nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		util.ProcessUnexpectedResponse(resp)
+	}
+
+	var splitters types.SplitterResponse
+	err = json.Unmarshal(bodyBytes, &splitters)
+	if err != nil {
+		fmt.Println("Error unmarshalling splitter response!")
+		return nil
+	}
+
+	if splitters.Results == nil || len(splitters.Results) == 0 {
+		fmt.Println("Couldn't find any splitter!")
+		os.Exit(0)
+	}
+
+	return &splitters.Results[0]
+}
+
 func getScriptByName(name string) *types.Script {
 	scripts := getScripts(1, "", name)
 	if scripts == nil || len(scripts) == 0 {

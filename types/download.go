@@ -95,6 +95,9 @@ type Node struct {
 			Type  string `json:"type"`
 			Order int    `json:"order"`
 		} `json:"file,omitempty"`
+		Output *struct {
+			Type string `json:"type"`
+		} `json:"output,omitempty"`
 	} `json:"outputs"`
 	BeeType   string `json:"bee_type"`
 	Container *struct {

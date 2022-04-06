@@ -100,3 +100,33 @@ type Script struct {
 		Source string        `json:"source"`
 	} `json:"script"`
 }
+
+type SplitterResponse struct {
+	Next     string     `json:"next"`
+	Previous string     `json:"previous"`
+	Page     int        `json:"page"`
+	Last     int        `json:"last"`
+	Count    int        `json:"count"`
+	Results  []Splitter `json:"results"`
+}
+
+type Splitter struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	VaultInfo   string `json:"vault_info"`
+	Author      string `json:"author"`
+	AuthorInfo  int    `json:"author_info"`
+	Type        string `json:"type"`
+	Inputs      struct {
+		Multiple struct {
+			Type  string `json:"type"`
+			Multi bool   `json:"multi"`
+		} `json:"multiple"`
+	} `json:"inputs"`
+	Outputs struct {
+		Output struct {
+			Type string `json:"type"`
+		} `json:"output"`
+	} `json:"outputs"`
+}

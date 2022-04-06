@@ -77,7 +77,7 @@ var ExecuteCmd = &cobra.Command{
 		}
 
 		allNodes, roots = CreateTrees(version)
-		createRun(version.ID, watch, &executionMachines)
+		//createRun(version.ID, watch, &executionMachines)
 	},
 }
 
@@ -89,9 +89,10 @@ func init() {
 	ExecuteCmd.Flags().StringVar(&workflowYAML, "file", "", "Workflow YAML file to execute")
 }
 
-func getToolOrScriptFromYAMLNode(node types.WorkflowYAMLNode) (*types.Tool, *types.Script) {
+func getToolScriptORsplitterFromYAMLNode(node types.WorkflowYAMLNode) (*types.Tool, *types.Script, *types.Splitter) {
 	var tool *types.Tool
 	var script *types.Script
+	var splitter *types.Splitter
 	idSplit := strings.Split(node.ID, "-")
 	if len(idSplit) == 1 {
 		fmt.Println("Invalid node ID format: " + node.ID)
@@ -102,12 +103,16 @@ func getToolOrScriptFromYAMLNode(node types.WorkflowYAMLNode) (*types.Tool, *typ
 	if node.Script == nil {
 		tools := list.GetTools(1, "", storeName)
 		if tools == nil || len(tools) == 0 {
-			fmt.Println("Couldn't find a tool named " + storeName + " in the store!")
-			fmt.Println("Use \"trickest store list\" to see all available workflows and tools, " +
-				"or search the store using \"trickest store search <name/description>\"")
-			os.Exit(0)
+			splitter = getSplitter()
+			if splitter == nil {
+				fmt.Println("Couldn't find a tool named " + storeName + " in the store!")
+				fmt.Println("Use \"trickest store list\" to see all available workflows and tools, " +
+					"or search the store using \"trickest store search <name/description>\"")
+				os.Exit(0)
+			}
+		} else {
+			tool = &tools[0]
 		}
-		tool = &tools[0]
 	} else {
 		script = getScriptByName(storeName)
 		if script == nil {
@@ -115,7 +120,7 @@ func getToolOrScriptFromYAMLNode(node types.WorkflowYAMLNode) (*types.Tool, *typ
 		}
 	}
 
-	return tool, script
+	return tool, script, splitter
 }
 
 func nodeExists(nodes []types.WorkflowYAMLNode, id string) bool {
@@ -125,6 +130,30 @@ func nodeExists(nodes []types.WorkflowYAMLNode, id string) bool {
 		}
 	}
 	return false
+}
+
+func setConnectedSplitters(version *types.WorkflowVersionDetailed, splitterIDs map[string]string) {
+	if splitterIDs == nil {
+		splitterIDs = make(map[string]string, 0)
+		for _, node := range version.Data.Nodes {
+			if strings.HasPrefix(node.ID, "file-splitter") {
+				splitterIDs[node.ID] = node.ID
+			}
+		}
+		setConnectedSplitters(version, splitterIDs)
+	} else {
+		for nodeID, splitterID := range splitterIDs {
+			for _, connection := range version.Data.Connections {
+				if strings.Contains(connection.Source.ID, nodeID) && !strings.Contains(connection.Source.ID, "/folder") {
+					destinationNodeID := getNodeNameFromConnectionID(connection.Destination.ID)
+					version.Data.Nodes[destinationNodeID].WorkerConnected = &splitterID
+					splitterIDs[destinationNodeID] = splitterID
+					setConnectedSplitters(version, splitterIDs)
+					return
+				}
+			}
+		}
+	}
 }
 
 func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path string) *types.WorkflowVersionDetailed {
@@ -165,7 +194,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 	gitInputCnt := 0
 
 	for _, node := range wfNodes {
-		tool, script := getToolOrScriptFromYAMLNode(node)
+		tool, script, splitter := getToolScriptORsplitterFromYAMLNode(node)
 
 		newNode := &types.Node{
 			Name: node.ID,
@@ -196,7 +225,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 			newNode.ID = script.ID
 			newNode.Script = &script.Script
 			newNode.Type = script.Type
-			newNode.Outputs = struct {
+			outputs := struct {
 				Folder *struct {
 					Type  string `json:"type"`
 					Order int    `json:"order"`
@@ -221,6 +250,8 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 					Order: 0,
 				},
 			}
+			newNode.Outputs.File = outputs.File
+			newNode.Outputs.Folder = outputs.Folder
 			multi := true
 			newNode.Inputs = map[string]*types.NodeInput{
 				"file": {
@@ -332,11 +363,12 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 					Value: inputValue,
 				}
 			}
-		} else {
+		} else if tool != nil {
 			newNode.ID = tool.ID
 			newNode.Type = tool.Type
 			newNode.Container = tool.Container
-			newNode.Outputs = tool.Outputs
+			newNode.Outputs.File = tool.Outputs.File
+			newNode.Outputs.Folder = tool.Outputs.Folder
 			newNode.OutputCommand = &tool.OutputCommand
 			newNode.Inputs = make(map[string]*types.NodeInput, 0)
 
@@ -379,9 +411,17 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 							newNode.Inputs[name] = &types.NodeInput{
 								Type:        toolInput.Type,
 								Order:       0,
-								Value:       "in/" + node.ID + "/output.txt",
-								Command:     &toolInput.Command,
 								Description: &toolInput.Description,
+							}
+							if toolInput.Command != "" {
+								newNode.Inputs[name].Command = &toolInput.Command
+							}
+							if strings.HasPrefix(val, "file-splitter-") {
+								workerConnected := true
+								newNode.Inputs[name].Value = "in/" + val + ":item"
+								newNode.Inputs[name].WorkerConnected = &workerConnected
+							} else {
+								newNode.Inputs[name].Value = "in/" + val + "/output.txt"
 							}
 							continue
 						} else {
@@ -414,9 +454,15 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 							newNode.Inputs[name] = &types.NodeInput{
 								Type:        toolInput.Type,
 								Order:       0,
-								Value:       "in/" + val + "/",
 								Command:     &toolInput.Command,
 								Description: &toolInput.Description,
+							}
+							if strings.HasPrefix(val, "file-splitter-") {
+								workerConnected := true
+								newNode.Inputs[name].Value = "in/" + val + ":item"
+								newNode.Inputs[name].WorkerConnected = &workerConnected
+							} else {
+								newNode.Inputs[name].Value = "in/" + val + "/"
 							}
 							continue
 						} else {
@@ -431,12 +477,37 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 							}
 						}
 					} else {
-						newPNode.Label = val
-						newPNode.Value = val
-						stringInputsCnt++
-						newPNode.Name = "string-input-" + strconv.Itoa(stringInputsCnt)
-						newPNode.Type = "STRING"
-						newPNode.TypeName = "STRING"
+						if nodeExists(wfNodes, val) {
+							connections = append(connections, types.Connection{
+								Source: struct {
+									ID string `json:"id"`
+								}{
+									ID: "output/" + val + "/output",
+								},
+								Destination: struct {
+									ID string `json:"id"`
+								}{
+									ID: "input/" + node.ID + "/" + name,
+								},
+							})
+							workerConnected := true
+							newNode.Inputs[name] = &types.NodeInput{
+								Type:            toolInput.Type,
+								Order:           0,
+								Value:           "in/" + val + ":item",
+								Command:         &toolInput.Command,
+								Description:     &toolInput.Description,
+								WorkerConnected: &workerConnected,
+							}
+							continue
+						} else {
+							newPNode.Label = val
+							newPNode.Value = val
+							stringInputsCnt++
+							newPNode.Name = "string-input-" + strconv.Itoa(stringInputsCnt)
+							newPNode.Type = "STRING"
+							newPNode.TypeName = "STRING"
+						}
 					}
 				case int:
 					stringInputsCnt++
@@ -506,6 +577,52 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 					}
 				}
 			}
+		} else if splitter != nil {
+			newNode.ID = splitter.ID
+			newNode.Type = splitter.Type
+			newNode.Outputs.Output = &splitter.Outputs.Output
+			newNode.Inputs = make(map[string]*types.NodeInput, 0)
+			inputs, ok := node.Inputs.([]interface{})
+			if !ok {
+				fmt.Println("Invalid inputs format: ")
+				fmt.Println(node)
+				os.Exit(0)
+			}
+			for _, value := range inputs {
+				switch val := value.(type) {
+				case string:
+					connections = append(connections, types.Connection{
+						Source: struct {
+							ID string `json:"id"`
+						}{
+							ID: "output/" + val + "/file",
+						},
+						Destination: struct {
+							ID string `json:"id"`
+						}{
+							ID: "input/" + node.ID + "/multiple/" + val,
+						},
+					})
+					multi := true
+					newNode.Inputs = map[string]*types.NodeInput{
+						"multiple": {
+							Type:  "FILE",
+							Order: 0,
+							Multi: &multi,
+						},
+					}
+					newNode.Inputs["multiple/"+val] = &types.NodeInput{
+						Type:  "FILE",
+						Order: 0,
+						Value: "in/" + val + "output.txt",
+					}
+					newNode.Outputs.Output = &splitter.Outputs.Output
+				default:
+					fmt.Println(node)
+					fmt.Println("Unknown type for file splitter! Use node ID instead.")
+					os.Exit(0)
+				}
+			}
 		}
 		nodes[node.ID] = newNode
 	}
@@ -539,6 +656,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 			uploadFile(strings.TrimPrefix(pNode.Value.(string), "trickest://file/"))
 		}
 	}
+	setConnectedSplitters(version, nil)
 	version = createNewVersion(version)
 	executionMachines = version.MaxMachines
 	return version
@@ -802,9 +920,10 @@ func createToolWorkflow(wfName string, space *types.SpaceDetailed, project *type
 		}{X: 0, Y: 0}},
 		Type:          tool.Type,
 		Container:     tool.Container,
-		Outputs:       tool.Outputs,
 		OutputCommand: &tool.OutputCommand,
 	}
+	node.Outputs.Folder = tool.Outputs.Folder
+	node.Outputs.File = tool.Outputs.File
 	switch {
 	case machine.Small != nil:
 		node.BeeType = "small"
