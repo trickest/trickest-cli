@@ -85,7 +85,7 @@ It can be supplied as a flag `--token` or an environment variable `TRICKEST_TOKE
 
 ### Dynamics
 
-The flag supplied as a flag will be checked **first** and take priority if both are present.
+The `TRICKEST_TOKEN` supplied as a flag will be checked **first** and take priority if both are present.
 
 ## List
 
@@ -97,16 +97,65 @@ The flag supplied as a flag will be checked **first** and take priority if both 
 
 ### Spaces
 
-`trickest list "<SPACE NAME>"` or ```trickest list --space "<SPACE NAME>"``` will list the content of space along with its projects and workflows.
+`trickest list "<SPACE_NAME>"` or ```trickest list --space "<SPACE_NAME>"``` will list the content of space along with its projects and workflows.
 
 ![Trickest Client - List](images/list-space.png "Trickest Client - List Space")
 
 ### Projects   
 
 
-`trickest list "<SPACE NAME>/<PROJECT_NAME>"` or ```trickest list --space "<SPACE NAME>" --project "<PROJECT NAME>"``` will list all workflows in the project supplied.
+`trickest list "<SPACE_NAME>/<PROJECT_NAME>"` or ```trickest list --space "<SPACE_NAME>" --project "<PROJECT_NAME>"``` will list all workflows in the project supplied.
 
 ![Trickest Client - List](images/list-project.png "Trickest Client - List Project")
 
 Keep in mind that when passing values that have spaces they need be inside of double quotes (eg. "Alpine Testing")
 
+## Create
+
+### Space
+
+`trickest create "<SPACE_NAME>"` or `trickest create --space "<SPACE_NAME>"` will create new space.
+
+### Project
+
+`trickest create "<SPACE_NAME>/<PROJECT_NAME>"` or `trickest create --space "<SPACE_NAME>" --project "<PROJECT_NAME>"`  will create new space and project.
+
+### Workflow   
+
+
+`trickest create "<SPACE_NAME>/<PROJECT_NAME>/<WORKFLOW_NAME>"` or ```trickest create --space "<SPACE_NAME>" --project "<PROJECT_NAME>" --workflow "<WORKFLOW_NAME>"``` will list all workflows in the project supplied.
+
+## Delete
+
+### Space
+
+`trickest delete "<SPACE_NAME>"` or `trickest delete --space "<SPACE_NAME>"` will delete supplied space.
+
+### Project
+
+`trickest delete "<SPACE_NAME>/<PROJECT_NAME>"` or `trickest delete --space "<SPACE_NAME>" --project "<PROJECT_NAME>"`  will delete the space and project supplied
+
+### Workflow   
+
+
+`trickest delete "<SPACE_NAME>/<PROJECT_NAME>/<WORKFLOW_NAME>"` or ```trickest delete --space "<SPACE_NAME>" --project "<PROJECT_NAME>" --workflow "<WORKFLOW_NAME>"``` will delete workflow in the project and/or space supplied.
+
+## Store
+
+### Platform
+
+[Trickest Store](https://trickest.io/dashboard/store) is a collection of all workflows, tools and scripts available on the platform. 
+
+If you are interested in contributing, viewing and executing the workflows and the tools with the `trickest-cli` you can check also our [workflows repository.](https://github.com/trickest/workflows)
+
+#### Workflows
+
+`trickest store workflows` will list all of public workflows available on the store.
+
+![Trickest Store - List Workflows](images/store-workflows.png "Trickest Store - List Workflows")
+
+#### Tools
+
+`trickest store tools` will list all of public tools available on the store.
+
+![Trickest Store - List Tools](images/store-tools.png "Trickest Store - List Tools")
