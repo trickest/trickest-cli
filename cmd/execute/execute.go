@@ -123,6 +123,44 @@ func getToolScriptORsplitterFromYAMLNode(node types.WorkflowYAMLNode) (*types.To
 	return tool, script, splitter
 }
 
+func setConnectedSplitters(version *types.WorkflowVersionDetailed, splitterIDs *map[string]string) {
+	if splitterIDs == nil {
+		tempMap := make(map[string]string, 0)
+		splitterIDs = &tempMap
+		for _, node := range version.Data.Nodes {
+			if strings.HasPrefix(node.Name, "file-splitter") {
+				(*splitterIDs)[node.Name] = node.Name
+				continue
+			}
+			if node.WorkerConnected != nil {
+				(*splitterIDs)[node.Name] = *node.WorkerConnected
+			}
+		}
+		setConnectedSplitters(version, splitterIDs)
+	} else {
+		newConnectionFound := false
+		for nodeName, splitterID := range *splitterIDs {
+			for _, connection := range version.Data.Connections {
+				if strings.Contains(connection.Source.ID, nodeName) {
+					destinationNodeID := getNodeNameFromConnectionID(connection.Destination.ID)
+					_, exists := (*splitterIDs)[destinationNodeID]
+					if strings.HasPrefix(destinationNodeID, "file-splitter-") ||
+						(strings.Contains(connection.Destination.ID, "folder") &&
+							version.Data.Nodes[destinationNodeID].Script != nil) || exists {
+						continue
+					}
+					version.Data.Nodes[destinationNodeID].WorkerConnected = &splitterID
+					(*splitterIDs)[destinationNodeID] = splitterID
+					newConnectionFound = true
+				}
+			}
+		}
+		if newConnectionFound {
+			setConnectedSplitters(version, splitterIDs)
+		}
+	}
+}
+
 func nodeExists(nodes []types.WorkflowYAMLNode, id string) bool {
 	for _, node := range nodes {
 		if node.ID == id {
@@ -396,7 +434,6 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 								workerConnected := true
 								newNode.Inputs[name].Value = "in/" + val + ":item"
 								newNode.Inputs[name].WorkerConnected = &workerConnected
-								newNode.WorkerConnected = &val
 							} else {
 								newNode.Inputs[name].Value = "in/" + val + "/output.txt"
 							}
@@ -438,7 +475,6 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 								workerConnected := true
 								newNode.Inputs[name].Value = "in/" + val + ":item"
 								newNode.Inputs[name].WorkerConnected = &workerConnected
-								newNode.WorkerConnected = &val
 							} else {
 								newNode.Inputs[name].Value = "in/" + val + "/"
 							}
@@ -477,7 +513,6 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 								Description:     &toolInput.Description,
 								WorkerConnected: &workerConnected,
 							}
-							newNode.WorkerConnected = &val
 							continue
 						} else {
 							newPNode.Label = val
@@ -635,6 +670,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 			uploadFile(strings.TrimPrefix(pNode.Value.(string), "trickest://file/"))
 		}
 	}
+	setConnectedSplitters(version, nil)
 	version = createNewVersion(version)
 	executionMachines = version.MaxMachines
 	return version
