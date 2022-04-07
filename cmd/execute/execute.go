@@ -77,7 +77,7 @@ var ExecuteCmd = &cobra.Command{
 		}
 
 		allNodes, roots = CreateTrees(version)
-		//createRun(version.ID, watch, &executionMachines)
+		createRun(version.ID, watch, &executionMachines)
 	},
 }
 
