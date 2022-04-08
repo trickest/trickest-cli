@@ -594,7 +594,14 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 		} else if splitter != nil {
 			newNode.ID = splitter.ID
 			newNode.Type = splitter.Type
-			newNode.Outputs.Output = &splitter.Outputs.Output
+			order := 0
+			newNode.Outputs.Output = &struct {
+				Type  string `json:"type"`
+				Order *int   `json:"order,omitempty"`
+			}{
+				Type:  splitter.Outputs.Output.Type,
+				Order: &order,
+			}
 			newNode.Inputs = make(map[string]*types.NodeInput, 0)
 			inputs, ok := node.Inputs.([]interface{})
 			if !ok {
@@ -605,35 +612,79 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 			for _, value := range inputs {
 				switch val := value.(type) {
 				case string:
-					connections = append(connections, types.Connection{
-						Source: struct {
-							ID string `json:"id"`
-						}{
-							ID: "output/" + val + "/file",
-						},
-						Destination: struct {
-							ID string `json:"id"`
-						}{
-							ID: "input/" + node.ID + "/multiple/" + val,
-						},
-					})
-					multi := true
-					newNode.Inputs = map[string]*types.NodeInput{
-						"multiple": {
+					if nodeExists(wfNodes, val) {
+						connections = append(connections, types.Connection{
+							Source: struct {
+								ID string `json:"id"`
+							}{
+								ID: "output/" + val + "/file",
+							},
+							Destination: struct {
+								ID string `json:"id"`
+							}{
+								ID: "input/" + node.ID + "/multiple/" + val,
+							},
+						})
+						multi := true
+						newNode.Inputs = map[string]*types.NodeInput{
+							"multiple": {
+								Type:  "FILE",
+								Order: 0,
+								Multi: &multi,
+							},
+						}
+						newNode.Inputs["multiple/"+val] = &types.NodeInput{
 							Type:  "FILE",
 							Order: 0,
-							Multi: &multi,
-						},
+							Value: "in/" + val + "output.txt",
+						}
+					} else {
+						if _, err = os.Stat(val); errors.Is(err, os.ErrNotExist) {
+							fmt.Println("A node with the given ID (" + val + ") doesn't exists in the workflow yaml!")
+							fmt.Println("A file named " + val + " doesn't exist!")
+							os.Exit(0)
+						} else {
+							httpInputCnt++
+							newPNode := types.PrimitiveNode{
+								Name:     "http-input-" + strconv.Itoa(httpInputCnt),
+								Type:     "FILE",
+								Label:    val,
+								Value:    "trickest://file/" + val,
+								TypeName: "URL",
+								Coordinates: struct {
+									X float64 `json:"x"`
+									Y float64 `json:"y"`
+								}{0, 0},
+							}
+							primitiveNodes[newPNode.Name] = &newPNode
+							multi := true
+							newNode.Inputs["multiple"] = &types.NodeInput{
+								Type:  "FILE",
+								Order: 0,
+								Multi: &multi,
+							}
+							newNode.Inputs["multiple/"+newPNode.Name] = &types.NodeInput{
+								Type:  "FILE",
+								Order: 0,
+								Value: "in/" + newPNode.Name + "/" + val,
+							}
+							connections = append(connections, types.Connection{
+								Source: struct {
+									ID string `json:"id"`
+								}{
+									ID: "output/" + newPNode.Name + "/output",
+								},
+								Destination: struct {
+									ID string `json:"id"`
+								}{
+									ID: "input/" + node.ID + "/multiple/" + newPNode.Name,
+								},
+							})
+						}
 					}
-					newNode.Inputs["multiple/"+val] = &types.NodeInput{
-						Type:  "FILE",
-						Order: 0,
-						Value: "in/" + val + "output.txt",
-					}
-					newNode.Outputs.Output = &splitter.Outputs.Output
 				default:
 					fmt.Println(node)
-					fmt.Println("Unknown type for file splitter! Use node ID instead.")
+					fmt.Println("Unknown type for file splitter! Use node ID or file instead.")
 					os.Exit(0)
 				}
 			}

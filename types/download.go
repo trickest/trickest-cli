@@ -96,7 +96,8 @@ type Node struct {
 			Order int    `json:"order"`
 		} `json:"file,omitempty"`
 		Output *struct {
-			Type string `json:"type"`
+			Type  string `json:"type"`
+			Order *int   `json:"order,omitempty"`
 		} `json:"output,omitempty"`
 	} `json:"outputs"`
 	BeeType   string `json:"bee_type"`

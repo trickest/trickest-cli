@@ -126,7 +126,8 @@ type Splitter struct {
 	} `json:"inputs"`
 	Outputs struct {
 		Output struct {
-			Type string `json:"type"`
+			Type  string `json:"type"`
+			Order *int   `json:"order,omitempty"`
 		} `json:"output"`
 	} `json:"outputs"`
 }
