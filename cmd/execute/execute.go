@@ -724,6 +724,15 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 	setConnectedSplitters(version, nil)
 	version = createNewVersion(version)
 	executionMachines = version.MaxMachines
+	if executionMachines.Small != nil {
+		*executionMachines.Small = 1
+	}
+	if executionMachines.Medium != nil {
+		*executionMachines.Medium = 1
+	}
+	if executionMachines.Large != nil {
+		*executionMachines.Large = 1
+	}
 	return version
 }
 
