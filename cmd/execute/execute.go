@@ -786,12 +786,16 @@ func WatchRun(runID string, nodesToDownload map[string]download.NodeInfo, timest
 		out += fmt.Sprintf(fmtStr, "Created:", run.CreatedDate.In(time.Local).Format(time.RFC1123)+
 			" ("+time.Since(run.CreatedDate).Round(time.Second).String()+" ago)")
 		if run.Status != "PENDING" {
-			out += fmt.Sprintf(fmtStr, "Started:", run.StartedDate.In(time.Local).Format(time.RFC1123)+
-				" ("+time.Since(run.StartedDate).Round(time.Second).String()+" ago)")
+			if !run.StartedDate.IsZero() {
+				out += fmt.Sprintf(fmtStr, "Started:", run.StartedDate.In(time.Local).Format(time.RFC1123)+
+					" ("+time.Since(run.StartedDate).Round(time.Second).String()+" ago)")
+			}
 		}
 		if run.Finished {
-			out += fmt.Sprintf(fmtStr, "Finished:", run.CompletedDate.In(time.Local).Format(time.RFC1123)+
-				" ("+time.Since(run.CompletedDate).Round(time.Second).String()+" ago)")
+			if !run.CompletedDate.IsZero() {
+				out += fmt.Sprintf(fmtStr, "Finished:", run.CompletedDate.In(time.Local).Format(time.RFC1123)+
+					" ("+time.Since(run.CompletedDate).Round(time.Second).String()+" ago)")
+			}
 			out += fmt.Sprintf(fmtStr, "Duration:", (run.CompletedDate.Sub(run.StartedDate)).Round(time.Second).String())
 		}
 		if run.Status == "RUNNING" {
