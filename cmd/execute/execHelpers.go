@@ -177,7 +177,7 @@ func createRun(versionID string, watch bool, machines *types.Bees) {
 		availableBees := GetAvailableMachines()
 		fmt.Println("Run successfully created! ID: " + createRunResp.ID)
 		fmt.Print("Machines:\n" + FormatMachines(machines, false))
-		fmt.Print("Available:\n" + FormatMachines(&availableBees, false))
+		fmt.Print("\nAvailable:\n" + FormatMachines(&availableBees, false))
 	}
 }
 

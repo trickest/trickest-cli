@@ -210,7 +210,7 @@ func CreateWorkflow(name, description, spaceID, projectID string, deleteProjectO
 		util.ProcessUnexpectedResponse(resp)
 	}
 
-	fmt.Println("Workflow successfully created!")
+	fmt.Print("Workflow successfully created!\n\n")
 	var createWorkflowResp types.CreateWorkflowResponse
 	err = json.Unmarshal(bodyBytes, &createWorkflowResp)
 	if err != nil {

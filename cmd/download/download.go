@@ -429,7 +429,7 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []ty
 						progressbar.OptionSetWidth(30),
 						progressbar.OptionShowBytes(true),
 						progressbar.OptionShowCount(),
-						progressbar.OptionOnCompletion(func() { fmt.Println() }),
+						progressbar.OptionOnCompletion(func() { fmt.Print("\n\n") }),
 					)
 					_, err = io.Copy(io.MultiWriter(outputFile, bar), dataResp.Body)
 				} else {
