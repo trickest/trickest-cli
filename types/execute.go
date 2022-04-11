@@ -35,6 +35,7 @@ type TreeNode struct {
 	Message      string
 	OutputStatus string
 	Duration     time.Duration
+	Height       int
 }
 
 type CreateRun struct {

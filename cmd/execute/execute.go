@@ -76,7 +76,7 @@ var ExecuteCmd = &cobra.Command{
 			os.Exit(0)
 		}
 
-		allNodes, roots = CreateTrees(version)
+		allNodes, roots = CreateTrees(version, false)
 		createRun(version.ID, watch, &executionMachines)
 	},
 }
@@ -636,7 +636,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 						newNode.Inputs["multiple/"+val] = &types.NodeInput{
 							Type:  "FILE",
 							Order: 0,
-							Value: "in/" + val + "output.txt",
+							Value: "in/" + val + "/output.txt",
 						}
 					} else {
 						if _, err = os.Stat(val); errors.Is(err, os.ErrNotExist) {
@@ -722,6 +722,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 		}
 	}
 	setConnectedSplitters(version, nil)
+	generateNodesCoordinates(version)
 	version = createNewVersion(version)
 	executionMachines = version.MaxMachines
 	if executionMachines.Small != nil {
@@ -913,7 +914,13 @@ func printTree(node *types.TreeNode, branch *treeprint.Tree, allNodes *map[strin
 				switch v := input.Value.(type) {
 				case string:
 					if strings.HasPrefix(v, "in/") {
-						v = getNodeNameFromConnectionID(v)
+						if strings.Contains(v, "/file-splitter-") {
+							v = strings.TrimPrefix(v, "/in")
+							v = strings.TrimSuffix(v, ":item")
+						} else {
+							fmt.Println(v)
+							v = getNodeNameFromConnectionID(v)
+						}
 					}
 					if strings.HasPrefix(param, "file/") || strings.HasPrefix(param, "folder/") {
 						parameters.AddNode(v)
@@ -940,7 +947,7 @@ func printTree(node *types.TreeNode, branch *treeprint.Tree, allNodes *map[strin
 	return (*branch).String()
 }
 
-func CreateTrees(wfVersion *types.WorkflowVersionDetailed) (map[string]*types.TreeNode, []*types.TreeNode) {
+func CreateTrees(wfVersion *types.WorkflowVersionDetailed, includePrimitiveNodes bool) (map[string]*types.TreeNode, []*types.TreeNode) {
 	allNodes = make(map[string]*types.TreeNode, 0)
 	roots = make([]*types.TreeNode, 0)
 
@@ -952,6 +959,15 @@ func CreateTrees(wfVersion *types.WorkflowVersionDetailed) (map[string]*types.Tr
 			Status:       "pending",
 			OutputStatus: "no outputs",
 			Children:     make([]*types.TreeNode, 0),
+		}
+	}
+
+	if includePrimitiveNodes {
+		for _, node := range wfVersion.Data.PrimitiveNodes {
+			allNodes[node.Name] = &types.TreeNode{
+				NodeName: node.Name,
+				Label:    node.Label,
+			}
 		}
 	}
 
