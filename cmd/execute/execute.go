@@ -36,6 +36,8 @@ var (
 	allNodes          map[string]*types.TreeNode
 	roots             []*types.TreeNode
 	workflowYAML      string
+	minMachines       bool
+	maxMachines       bool
 )
 
 // ExecuteCmd represents the execute command
@@ -77,6 +79,21 @@ var ExecuteCmd = &cobra.Command{
 		}
 
 		allNodes, roots = CreateTrees(version, false)
+		if minMachines {
+			executionMachines = version.MaxMachines
+			if executionMachines.Small != nil {
+				*executionMachines.Small = 1
+			}
+			if executionMachines.Medium != nil {
+				*executionMachines.Medium = 1
+			}
+			if executionMachines.Large != nil {
+				*executionMachines.Large = 1
+			}
+		}
+		if maxMachines {
+			executionMachines = version.MaxMachines
+		}
 		createRun(version.ID, watch, &executionMachines)
 	},
 }
@@ -87,6 +104,8 @@ func init() {
 	ExecuteCmd.Flags().BoolVar(&watch, "watch", false, "Watch the execution running")
 	ExecuteCmd.Flags().BoolVar(&showParams, "show-params", false, "Show parameters in the workflow tree")
 	ExecuteCmd.Flags().StringVar(&workflowYAML, "file", "", "Workflow YAML file to execute")
+	ExecuteCmd.Flags().BoolVar(&minMachines, "min", false, "Use minimum number of machines for workflow execution")
+	ExecuteCmd.Flags().BoolVar(&maxMachines, "max", false, "Use maximum number of machines for workflow execution")
 }
 
 func getToolScriptORsplitterFromYAMLNode(node types.WorkflowYAMLNode) (*types.Tool, *types.Script, *types.Splitter) {
@@ -724,16 +743,6 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 	setConnectedSplitters(version, nil)
 	generateNodesCoordinates(version)
 	version = createNewVersion(version)
-	executionMachines = version.MaxMachines
-	if executionMachines.Small != nil {
-		*executionMachines.Small = 1
-	}
-	if executionMachines.Medium != nil {
-		*executionMachines.Medium = 1
-	}
-	if executionMachines.Large != nil {
-		*executionMachines.Large = 1
-	}
 	return version
 }
 
