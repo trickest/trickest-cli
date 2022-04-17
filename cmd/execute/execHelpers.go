@@ -449,19 +449,20 @@ func processInvalidMachineType(data interface{}) {
 func processInvalidMachineStructure() {
 	fmt.Println("Machines should be specified using the following format:")
 	fmt.Println("machines:")
-	fmt.Println(" 	- <machine-type>: <quantity>")
-	fmt.Println("Machine type can be small, medium or large. Quantity is a number >= than 0 or max/maximum.")
+	fmt.Println("   <machine-type>: <quantity>")
+	fmt.Println("   ...")
+	fmt.Println("\nMachine type can be small, medium or large. Quantity is a number >= than 0 or max/maximum.")
 	os.Exit(0)
 }
 
 func processInvalidInputStructure() {
 	fmt.Println("Inputs should be specified using the following format:")
 	fmt.Println("inputs:")
-	fmt.Println(" 	- <tool_name>[-<number>].<parameter_name>: <value>")
+	fmt.Println(" 	<tool_name>[-<number>].<parameter_name>: <value>")
 	fmt.Println("<value> can be:")
 	fmt.Println(" - raw value")
-	fmt.Println(" - file: <file-name> (a local file that will be uploaded to the platform)")
-	fmt.Println(" - url: <url> (for files and folders (git repos) stored somewhere on the web)")
+	fmt.Println(" - <file-name> (a local file that will be uploaded to the platform)")
+	fmt.Println(" - <url> (for files and folders (git repos) stored somewhere on the web)")
 	os.Exit(0)
 }
 
@@ -489,24 +490,6 @@ func processInvalidInputType(newPNode, existingPNode types.PrimitiveNode) {
 	fmt.Println(newPNode.Name + " should be of type " + printType + " instead of " +
 		strings.ToLower(newPNode.Type) + "!")
 	os.Exit(0)
-}
-
-func findStartingNodeSuffix(wfVersion *types.WorkflowVersionDetailed) string {
-	suffix := "-1"
-	for node := range wfVersion.Data.Nodes {
-		if strings.HasSuffix(node, "-0") {
-			suffix = "-0"
-			return suffix
-		}
-	}
-	for pNode := range wfVersion.Data.PrimitiveNodes {
-		if strings.HasSuffix(pNode, "-0") {
-			suffix = "-0"
-			break
-		}
-	}
-
-	return suffix
 }
 
 func GetAvailableMachines() types.Bees {

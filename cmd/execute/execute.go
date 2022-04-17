@@ -90,7 +90,7 @@ var ExecuteCmd = &cobra.Command{
 				*executionMachines.Large = 1
 			}
 		}
-		createRun(version.ID, watch, &executionMachines)
+		//createRun(version.ID, watch, &executionMachines)
 	},
 }
 
@@ -103,7 +103,7 @@ func init() {
 	ExecuteCmd.Flags().BoolVar(&maxMachines, "max", false, "Use maximum number of machines for workflow execution")
 }
 
-func getToolScriptORsplitterFromYAMLNode(node types.WorkflowYAMLNode) (*types.Tool, *types.Script, *types.Splitter) {
+func getToolScriptOrSplitterFromYAMLNode(node types.WorkflowYAMLNode) (*types.Tool, *types.Script, *types.Splitter) {
 	var tool *types.Tool
 	var script *types.Script
 	var splitter *types.Splitter
@@ -222,7 +222,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 	gitInputCnt := 0
 
 	for _, node := range wfNodes {
-		tool, script, splitter := getToolScriptORsplitterFromYAMLNode(node)
+		tool, script, splitter := getToolScriptOrSplitterFromYAMLNode(node)
 
 		newNode := &types.Node{
 			Name: node.ID,
@@ -435,7 +435,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 							}
 						default:
 							fmt.Println(node)
-							fmt.Println("Unknown type for script folder input! Use node ID or git repo url.")
+							fmt.Println("Unknown type for script folder input! Use node ID or git repo URL.")
 							os.Exit(0)
 						}
 						connection := types.Connection{
@@ -779,6 +779,10 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 		projectID := ""
 		if project != nil {
 			projectID = project.ID
+		}
+		if workflowName == "" {
+			fmt.Println("Use --name flag when trying to create a new workflow.")
+			os.Exit(0)
 		}
 		newWorkflow := create.CreateWorkflow(workflowName, "", space.ID, projectID, true)
 		workflowID = newWorkflow.ID
@@ -1310,9 +1314,9 @@ func prepareForExec(path string) *types.WorkflowVersionDetailed {
 		if configFile == "" {
 			executionMachines = wfVersion.MaxMachines
 		} else {
-			update, updatedWfVersion, _ := readConfig(configFile, wfVersion, nil)
+			update, updatedWfVersion, newPrimitiveNodes := readConfig(configFile, wfVersion, nil)
 			if update {
-				for _, pNode := range primitiveNodes {
+				for _, pNode := range newPrimitiveNodes {
 					if pNode.Type == "FILE" && strings.HasPrefix(pNode.Value.(string), "trickest://file/") {
 						pNode.Label = uploadFile(strings.TrimPrefix(pNode.Value.(string), "trickest://file/"))
 					}
@@ -1323,6 +1327,48 @@ func prepareForExec(path string) *types.WorkflowVersionDetailed {
 	}
 
 	return wfVersion
+}
+
+func getNodeByName(name string, version *types.WorkflowVersionDetailed) *types.Node {
+	var node *types.Node
+	nodeName := name
+	nameSplit := strings.Split(name, "-")
+	_, err := strconv.Atoi(nameSplit[len(nameSplit)-1])
+	if len(nameSplit) == 1 || (len(nameSplit) > 1 && err != nil) {
+		nodeName += "-1"
+	}
+	var ok bool
+	node, ok = version.Data.Nodes[nodeName]
+	if !ok {
+		labelCnt := 0
+		toolNodeFound := false
+		for id, n := range version.Data.Nodes {
+			if n.Meta.Label == name {
+				if n.Script != nil || strings.HasPrefix(id, "file-splitter") {
+					node = n
+					labelCnt++
+					ok = true
+				} else {
+					toolNodeFound = true
+				}
+			}
+		}
+		if !ok {
+			if toolNodeFound {
+				fmt.Println("Incomplete input name for a tool node: " + name)
+				fmt.Println("Use " + name + ".<parameter-name> instead.")
+				os.Exit(0)
+			}
+			fmt.Println("Node doesn't exist: " + name)
+			os.Exit(0)
+		}
+		if labelCnt > 1 {
+			fmt.Println("Multiple nodes with the same label (" + name + "), use node IDs instead!")
+			os.Exit(0)
+		}
+	}
+
+	return node
 }
 
 func readConfig(fileName string, wfVersion *types.WorkflowVersionDetailed, tool *types.Tool) (
@@ -1372,7 +1418,7 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 	updateNeeded := false
 	newPrimitiveNodes := make(map[string]*types.PrimitiveNode, 0)
 	if inputs, exists := (*config)["inputs"]; exists && inputs != nil {
-		inputsList, isList := inputs.([]interface{})
+		inputsList, isList := inputs.(map[string]interface{})
 		if !isList {
 			processInvalidInputStructure()
 		}
@@ -1380,142 +1426,255 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 			fmt.Println("You must specify input parameters when creating a tool workflow!")
 			os.Exit(0)
 		}
-		for _, in := range inputsList {
-			input, structure := in.(map[string]interface{})
-			if !structure {
-				processInvalidInputStructure()
-			}
+		stringInputsCnt := 0
+		booleanInputsCnt := 0
+		httpInputCnt := 0
+		gitInputCnt := 0
 
-			for param, paramValue := range input {
-				newPNode := types.PrimitiveNode{Name: param, Value: paramValue}
-				if !strings.Contains(newPNode.Name, ".") {
-					if tool != nil {
-						newPNode.Name = tool.Name + "." + newPNode.Name
-					} else if wfVersion != nil && len(wfVersion.Data.Nodes) == 1 {
-						for n := range wfVersion.Data.Nodes {
-							newPNode.Name = n + "." + newPNode.Name
-						}
+		for param, paramValue := range inputsList {
+			var node *types.Node
+			var paramName, nodeName string
+			newPNode := types.PrimitiveNode{Name: "", Value: paramValue}
+			if !strings.Contains(param, ".") {
+				if tool != nil {
+					paramName = param
+					nodeName = tool.ID
+				} else if wfVersion != nil {
+					node = getNodeByName(param, wfVersion)
+					if node.Script == nil && !strings.HasPrefix(node.ID, "file-splitter") {
+						fmt.Println(param)
+						fmt.Println("Node is not a script or a file splitter, use tool.param-name syntax instead!")
+						os.Exit(0)
 					}
-				}
-				nameSplit := strings.Split(newPNode.Name, ".")
-				if len(nameSplit) != 2 {
-					fmt.Println("Invalid input parameter: " + param)
+					nodeName = node.ID
+				} else {
+					fmt.Println("No version or tool specified, can't read config inputs!")
 					os.Exit(0)
 				}
-				paramName := nameSplit[1]
-				nodeName := nameSplit[0]
-
-				nodeNameSplit := strings.Split(nodeName, "-")
-				if _, e := strconv.Atoi(nodeNameSplit[len(nodeNameSplit)-1]); e != nil {
-					if wfVersion == nil {
-						newPNode.Name = paramName
-					} else {
-						nodeName += findStartingNodeSuffix(wfVersion)
-					}
+			} else {
+				nameSplit := strings.Split(param, ".")
+				if len(nameSplit) != 2 {
+					fmt.Println("Invalid input parameter: " + param)
+					fmt.Println("Use name or ID for scripts/splitter or (name or ID).param-name for tools.")
+					os.Exit(0)
 				}
+				paramName = nameSplit[1]
+				if wfVersion != nil {
+					node = getNodeByName(nameSplit[0], wfVersion)
+					if node.Script != nil {
+						fmt.Println(param)
+						fmt.Println("Node is a script, use the following syntax:")
+						fmt.Println("<script name or ID>:")
+						fmt.Println("   [file:")
+						fmt.Println("      - <file name or URL>")
+						fmt.Println("      ...\n   ]")
+						fmt.Println("   [folder:")
+						fmt.Println("      - <git repo URL>")
+						fmt.Println("      ...\n   ]")
+						os.Exit(0)
+					}
+					if strings.HasPrefix(node.ID, "file-splitter") {
+						fmt.Println(param)
+						fmt.Println("Node is a file splitter, use the following syntax:")
+						fmt.Println("<splitter name or ID>:")
+						fmt.Println("   file:")
+						fmt.Println("      - <file name or URL>")
+						fmt.Println("      ...")
+						os.Exit(0)
+					}
+					nodeName = node.Name
+				} else {
+					nodeName = tool.Name + "-1"
+				}
+			}
 
-				switch val := newPNode.Value.(type) {
-				case string:
+			inputType := ""
+			if tool != nil {
+				toolInput, paramExists := tool.Inputs[paramName]
+				if !paramExists {
+					fmt.Println("Input parameter " + paramName + " doesn't exist for tool named " + tool.Name + "!")
+					os.Exit(0)
+				}
+				inputType = toolInput.Type
+			} else {
+				oldParam, paramExists := node.Inputs[paramName]
+				paramExists = paramExists && oldParam.Value != nil
+				if !paramExists {
+					fmt.Println("Parameter " + paramName + " doesn't exist for node " + nodeName)
+					os.Exit(0)
+				}
+				inputType = oldParam.Type
+			}
+
+			switch val := newPNode.Value.(type) {
+			case string:
+				switch inputType {
+				case "STRING":
 					newPNode.Type = "STRING"
 					newPNode.TypeName = "STRING"
-				case int:
-					newPNode.Type = "STRING"
-					newPNode.TypeName = "STRING"
-					newPNode.Value = strconv.Itoa(val)
-				case bool:
-					newPNode.Type = "BOOLEAN"
-					newPNode.TypeName = "BOOLEAN"
-					newPNode.Value = val
-				case map[string]interface{}:
-					if fName, isFile := val["file"]; isFile {
-						newPNode.Type = "FILE"
-						newPNode.Value = "trickest://file/" + fName.(string)
-						pathSplit := strings.Split(fName.(string), "/")
-						newPNode.Label = pathSplit[len(pathSplit)-1]
-					} else if url, isURL := val["url"]; isURL {
-						newPNode.Value = url.(string)
-						if strings.HasSuffix(url.(string), ".git") {
-							newPNode.Type = "FOLDER"
-						} else {
-							newPNode.Type = "FILE"
-						}
-						pathSplit := strings.Split(fName.(string), "/")
-						newPNode.Label = pathSplit[len(pathSplit)-1]
+					stringInputsCnt++
+					newPNode.Name = "string-input-" + strconv.Itoa(stringInputsCnt)
+				case "FILE":
+					if strings.HasPrefix(val, "http") {
+						newPNode.Value = val
 					} else {
-						newPNode.Type = "OBJECT"
+						if _, err := os.Stat(val); errors.Is(err, os.ErrNotExist) {
+							fmt.Println("A file named " + val + " doesn't exist!")
+							os.Exit(0)
+						}
+						newPNode.Value = "trickest://file/" + val
 					}
 					newPNode.TypeName = "URL"
-				default:
-					newPNode.Type = "UNKNOWN"
-				}
-				if newPNode.Type == "BOOLEAN" {
-					boolValue := newPNode.Value.(bool)
-					newPNode.Label = strconv.FormatBool(boolValue)
-				} else {
-					newPNode.Label = newPNode.Value.(string)
-				}
-
-				if wfVersion != nil {
-					node, nodeExists := wfVersion.Data.Nodes[nodeName]
-					if !nodeExists {
-						fmt.Println("Node doesn't exist: " + nodeName)
-						os.Exit(0)
+					httpInputCnt++
+					newPNode.Name = "http-input-" + strconv.Itoa(httpInputCnt)
+				case "FOLDER":
+					if strings.HasPrefix(val, "http") && strings.HasSuffix(val, ".git") {
+						newPNode.Value = val
+					} else {
+						fmt.Println("Folder input must be a complete repo URL with .git extension!")
 					}
-
-					oldParam, paramExists := node.Inputs[paramName]
-					paramExists = paramExists && oldParam.Value != nil
-					if !paramExists {
-						fmt.Println("Parameter " + paramName + " doesn't exist for node " + nodeName)
-						os.Exit(0)
-					}
-
-					connectionFound := false
-					for _, connection := range wfVersion.Data.Connections {
-						if strings.HasSuffix(connection.Destination.ID, nodeName+"/"+paramName) {
-							connectionFound = true
-							primitiveNodeName := getNodeNameFromConnectionID(connection.Source.ID)
-							primitiveNode, pNodeExists := wfVersion.Data.PrimitiveNodes[primitiveNodeName]
-							if !pNodeExists {
-								fmt.Println(primitiveNodeName + " is not a primitive node output!")
-								os.Exit(0)
-							}
-
-							savedPNode, alreadyExists := newPrimitiveNodes[primitiveNode.Name]
-							if alreadyExists && (savedPNode.Value != newPNode.Value) {
-								processDifferentParamsForASinglePNode(*savedPNode, newPNode)
-							}
-
-							newPrimitiveNodes[primitiveNode.Name] = &newPNode
-
-							if oldParam.Value != newPNode.Value {
-								if newPNode.Type != primitiveNode.Type {
-									processInvalidInputType(newPNode, *primitiveNode)
+					newPNode.TypeName = "GIT"
+					gitInputCnt++
+					newPNode.Name = "git-input-" + strconv.Itoa(gitInputCnt)
+				}
+				newPNode.Type = inputType
+			case int:
+				newPNode.Type = inputType
+				newPNode.TypeName = inputType
+				stringInputsCnt++
+				newPNode.Name = "string-input-" + strconv.Itoa(stringInputsCnt)
+				newPNode.Value = strconv.Itoa(val)
+			case bool:
+				newPNode.Type = inputType
+				newPNode.TypeName = inputType
+				booleanInputsCnt++
+				newPNode.Name = "boolean-input-" + strconv.Itoa(booleanInputsCnt)
+				newPNode.Value = val
+			case map[string]interface{}:
+				if node == nil || (node.Script == nil && !strings.HasPrefix(node.ID, "file-splitter")) {
+					fmt.Println("Invalid input type! Object inputs are used for scripts and splitters.")
+					os.Exit(0)
+				}
+				inputFound := false
+				filesVal, filesExist := val["file"]
+				if !filesExist {
+					filesVal, filesExist = val["files"]
+				}
+				if filesExist {
+					inputFound = true
+					files := filesVal.([]interface{})
+					for _, value := range files {
+						switch file := value.(type) {
+						case string:
+							if strings.HasPrefix(file, "http") {
+								newPNode.Value = file
+							} else {
+								if _, err := os.Stat(file); errors.Is(err, os.ErrNotExist) {
+									fmt.Println("A file named " + file + " doesn't exist!")
+									os.Exit(0)
 								}
-								primitiveNode.Value = newPNode.Value
-								primitiveNode.Label = newPNode.Label
-								oldParam.Value = newPNode.Value
-								wfVersion.Name = nil
-								updateNeeded = true
+								newPNode.Value = "trickest://file/" + file
 							}
-							break
+							newPNode.Type = "FILE"
+							httpInputCnt++
+							newPNode.Name = "http-input-" + strconv.Itoa(httpInputCnt)
+							newPNode.TypeName = "URL"
+						default:
+							fmt.Println(file)
+							fmt.Println("Unknown type for script file input! Use file name or URL.")
+							os.Exit(0)
 						}
 					}
-					if !connectionFound {
-						fmt.Println(newPNode.Name + " is not connected to any input!")
-						os.Exit(0)
-					}
-				} else {
-					toolInput, paramExists := tool.Inputs[newPNode.Name]
-					if !paramExists {
-						fmt.Println("Input parameter " + newPNode.Name + " doesn't exist for tool named " + tool.Name + "!")
-						os.Exit(0)
-					}
-					if strings.ToLower(newPNode.Type) != strings.ToLower(toolInput.Type) {
-						fmt.Println("Input parameter " + tool.Name + "." + newPNode.Name + " should be of type " + tool.Type + " instead of " + newPNode.Type + "!")
-						os.Exit(0)
-					}
-					newPrimitiveNodes[newPNode.Name] = &newPNode
 				}
+				if node.Script != nil {
+					foldersVal, foldersExist := val["folder"]
+					if !foldersExist {
+						foldersVal, foldersExist = val["folders"]
+					}
+					if foldersExist {
+						inputFound = true
+						folders := foldersVal.([]interface{})
+						for _, value := range folders {
+							switch folder := value.(type) {
+							case string:
+								if strings.HasPrefix(folder, "http") && strings.HasSuffix(folder, ".git") {
+									newPNode.Value = val
+								} else {
+									fmt.Println("Folder input must be a complete repo URL with .git extension!")
+								}
+								newPNode.Type = "FOLDER"
+								gitInputCnt++
+								newPNode.Name = "git-input-" + strconv.Itoa(gitInputCnt)
+								newPNode.TypeName = "GIT"
+							default:
+								fmt.Println(folder)
+								fmt.Println("Unknown type for script folder input! Use git repo URL.")
+								os.Exit(0)
+							}
+						}
+					}
+				}
+				if !inputFound {
+					newPNode.Type = "OBJECT"
+				}
+			default:
+				newPNode.Type = "UNKNOWN"
+			}
+			if newPNode.Type == "BOOLEAN" {
+				boolValue := newPNode.Value.(bool)
+				newPNode.Label = strconv.FormatBool(boolValue)
+			} else if newPNode.TypeName == "URL" {
+				pathSplit := strings.Split(newPNode.Value.(string), "/")
+				newPNode.Label = pathSplit[len(pathSplit)-1]
+			} else {
+				newPNode.Label = newPNode.Value.(string)
+			}
+
+			if wfVersion != nil {
+				oldParam := node.Inputs[paramName]
+				connectionFound := false
+				for _, connection := range wfVersion.Data.Connections {
+					if strings.HasSuffix(connection.Destination.ID, nodeName+"/"+paramName) {
+						connectionFound = true
+						primitiveNodeName := getNodeNameFromConnectionID(connection.Source.ID)
+						primitiveNode, pNodeExists := wfVersion.Data.PrimitiveNodes[primitiveNodeName]
+						if !pNodeExists {
+							fmt.Println(primitiveNodeName + " is not a primitive node output!")
+							os.Exit(0)
+						}
+
+						savedPNode, alreadyExists := newPrimitiveNodes[primitiveNode.Name]
+						if alreadyExists && (savedPNode.Value != newPNode.Value) {
+							processDifferentParamsForASinglePNode(*savedPNode, newPNode)
+						}
+
+						newPrimitiveNodes[primitiveNode.Name] = &newPNode
+
+						if oldParam.Value != newPNode.Value ||
+							(newPNode.Type == "FILE" && strings.HasPrefix(newPNode.Value.(string), "trickest://file/")) {
+							if newPNode.Type != primitiveNode.Type {
+								processInvalidInputType(newPNode, *primitiveNode)
+							}
+							primitiveNode.Value = newPNode.Value
+							primitiveNode.Label = newPNode.Label
+							oldParam.Value = newPNode.Value
+							wfVersion.Name = nil
+							updateNeeded = true
+						}
+						break
+					}
+				}
+				if !connectionFound {
+					fmt.Println(nodeName + " is not connected to any input!")
+					os.Exit(0)
+				}
+			} else {
+				if strings.ToLower(newPNode.Type) != strings.ToLower(inputType) {
+					fmt.Println("Input parameter " + tool.Name + "." + paramName + " should be of type " +
+						tool.Type + " instead of " + newPNode.Type + "!")
+					os.Exit(0)
+				}
+				newPrimitiveNodes[newPNode.Name] = &newPNode
 			}
 		}
 	} else {
@@ -1557,35 +1716,21 @@ func readConfigMachines(config *map[string]interface{}, isTool bool, maximumMach
 
 	execMachines := &types.Bees{}
 	if machines, exists := (*config)["machines"]; exists && machines != nil {
-		machinesList, ok := machines.([]interface{})
+		machinesList, ok := machines.(map[string]interface{})
 		if !ok {
-			fmt.Println("Invalid machines format! Use a list of machine dictionaries (small, medium, large) instead.")
-			os.Exit(0)
+			processInvalidMachineStructure()
 		}
 
-		for _, m := range machinesList {
-			machine, structure := m.(map[string]interface{})
-			if !structure {
-				processInvalidMachineStructure()
-			}
-
-			small, isSmall := machine["small"]
-			medium, isMedium := machine["medium"]
-			large, isLarge := machine["large"]
+		for name, val := range machinesList {
+			isSmall := strings.ToLower(name) == "small"
+			isMedium := strings.ToLower(name) == "medium"
+			isLarge := strings.ToLower(name) == "large"
 
 			if !isSmall && !isMedium && !isLarge {
 				fmt.Print("Unrecognized machine: ")
-				fmt.Println(machine)
+				fmt.Print(name + ": ")
+				fmt.Println(val)
 				os.Exit(0)
-			}
-
-			var val interface{}
-			if isSmall {
-				val = small
-			} else if isMedium {
-				val = medium
-			} else if isLarge {
-				val = large
 			}
 
 			var numberOfMachines *int
@@ -1603,7 +1748,7 @@ func readConfigMachines(config *map[string]interface{}, isTool bool, maximumMach
 					numberOfMachines = &value
 				}
 			case string:
-				if strings.ToLower(value) == "max" || strings.ToLower(value) == "maximum" {
+				if strings.ToLower(value) == "max" || strings.ToLower(value) == "maximum" || maxMachines {
 					if isTool {
 						oneMachine := 1
 						if (isSmall && isMedium) || (isMedium && isLarge) || (isLarge && isSmall) {
@@ -1662,9 +1807,26 @@ func readConfigMachines(config *map[string]interface{}, isTool bool, maximumMach
 	} else {
 		if isTool {
 			oneMachine := 1
-			return &types.Bees{Large: &oneMachine}
+			if maxMachines {
+				return &types.Bees{Large: &oneMachine}
+			} else {
+				return &types.Bees{Small: &oneMachine}
+			}
 		} else {
-			return maximumMachines
+			if maxMachines {
+				return maximumMachines
+			} else {
+				execMachines = maximumMachines
+				if execMachines.Small != nil {
+					*execMachines.Small = 1
+				}
+				if execMachines.Medium != nil {
+					*execMachines.Medium = 1
+				}
+				if execMachines.Large != nil {
+					*execMachines.Large = 1
+				}
+			}
 		}
 	}
 
