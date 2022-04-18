@@ -1442,7 +1442,7 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 			if !strings.Contains(param, ".") {
 				if tool != nil {
 					paramName = param
-					nodeName = tool.ID
+					nodeName = tool.Name + "-1"
 				} else if wfVersion != nil {
 					node = getNodeByName(param, wfVersion)
 					if node.Script == nil && !strings.HasPrefix(node.Name, "file-splitter") {
@@ -1587,6 +1587,18 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 							httpInputCnt++
 							newPNode.Name = "http-input-" + strconv.Itoa(httpInputCnt)
 							newPNode.TypeName = "URL"
+							pathSplit := strings.Split(newPNode.Value.(string), "/")
+							newPNode.Label = pathSplit[len(pathSplit)-1]
+							if wfVersion != nil {
+								updateNeeded = addPrimitiveNodeFromConfig(wfVersion, &newPrimitiveNodes, newPNode, node, paramName)
+							} else {
+								if strings.ToLower(newPNode.Type) != strings.ToLower(inputType) {
+									fmt.Println("Input parameter " + tool.Name + "." + paramName + " should be of type " +
+										tool.Type + " instead of " + newPNode.Type + "!")
+									os.Exit(0)
+								}
+								newPrimitiveNodes[newPNode.Name] = &newPNode
+							}
 						default:
 							fmt.Println(file)
 							fmt.Println("Unknown type for script file input! Use file name or URL.")
@@ -1614,6 +1626,18 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 								gitInputCnt++
 								newPNode.Name = "git-input-" + strconv.Itoa(gitInputCnt)
 								newPNode.TypeName = "GIT"
+								pathSplit := strings.Split(newPNode.Value.(string), "/")
+								newPNode.Label = pathSplit[len(pathSplit)-1]
+								if wfVersion != nil {
+									updateNeeded = addPrimitiveNodeFromConfig(wfVersion, &newPrimitiveNodes, newPNode, node, paramName)
+								} else {
+									if strings.ToLower(newPNode.Type) != strings.ToLower(inputType) {
+										fmt.Println("Input parameter " + tool.Name + "." + paramName + " should be of type " +
+											tool.Type + " instead of " + newPNode.Type + "!")
+										os.Exit(0)
+									}
+									newPrimitiveNodes[newPNode.Name] = &newPNode
+								}
 							default:
 								fmt.Println(folder)
 								fmt.Println("Unknown type for script folder input! Use git repo URL.")
@@ -1623,8 +1647,10 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 					}
 				}
 				if !inputFound {
-					newPNode.Type = "OBJECT"
+					fmt.Println(val)
+					fmt.Println("Invalid input object structure!")
 				}
+				continue
 			default:
 				newPNode.Type = "UNKNOWN"
 			}
@@ -1639,54 +1665,7 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 			}
 
 			if wfVersion != nil {
-				oldParam := node.Inputs[paramName]
-				connectionFound := false
-				pNodeExists := false
-				for _, connection := range wfVersion.Data.Connections {
-					source := getNodeNameFromConnectionID(connection.Source.ID)
-					isSplitter := strings.HasPrefix(node.Name, "file-splitter")
-					if strings.HasSuffix(connection.Destination.ID, nodeName+"/"+paramName) ||
-						(isSplitter && strings.HasSuffix(connection.Destination.ID, nodeName+"/multiple/"+source)) ||
-						(node.Script != nil && (strings.HasSuffix(connection.Destination.ID, nodeName+"/file/"+source) ||
-							strings.HasSuffix(connection.Destination.ID, nodeName+"/folder/"+source))) {
-						connectionFound = true
-						primitiveNodeName := getNodeNameFromConnectionID(connection.Source.ID)
-						var primitiveNode *types.PrimitiveNode
-						primitiveNode, pNodeExists = wfVersion.Data.PrimitiveNodes[primitiveNodeName]
-						if !pNodeExists {
-							continue
-						}
-
-						savedPNode, alreadyExists := newPrimitiveNodes[primitiveNode.Name]
-						if alreadyExists && (savedPNode.Value != newPNode.Value) {
-							processDifferentParamsForASinglePNode(*savedPNode, newPNode)
-						}
-
-						newPrimitiveNodes[primitiveNode.Name] = &newPNode
-
-						if (oldParam != nil && oldParam.Value != newPNode.Value) ||
-							(newPNode.Type == "FILE" && strings.HasPrefix(newPNode.Value.(string), "trickest://file/")) {
-							if newPNode.Type != primitiveNode.Type {
-								processInvalidInputType(newPNode, *primitiveNode)
-							}
-							primitiveNode.Value = newPNode.Value
-							primitiveNode.Label = newPNode.Label
-							if oldParam != nil {
-								oldParam.Value = newPNode.Value
-							}
-							wfVersion.Name = nil
-							updateNeeded = true
-						}
-						break
-					}
-				}
-				if !connectionFound {
-					fmt.Println(nodeName + " is not connected to any input!")
-					os.Exit(0)
-				} else if !pNodeExists {
-					fmt.Println(node.Meta.Label + " (" + node.Name + ") doesn't have a primitive node input!")
-					os.Exit(0)
-				}
+				updateNeeded = updateNeeded || addPrimitiveNodeFromConfig(wfVersion, &newPrimitiveNodes, newPNode, node, paramName)
 			} else {
 				if strings.ToLower(newPNode.Type) != strings.ToLower(inputType) {
 					fmt.Println("Input parameter " + tool.Name + "." + paramName + " should be of type " +
@@ -1704,6 +1683,64 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 	}
 
 	return updateNeeded, newPrimitiveNodes
+}
+
+func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPrimitiveNodes *map[string]*types.PrimitiveNode,
+	newPNode types.PrimitiveNode, node *types.Node, paramName string) bool {
+	oldParam := node.Inputs[paramName]
+	connectionFound := false
+	pNodeExists := false
+	updateNeeded := false
+	for _, connection := range wfVersion.Data.Connections {
+		source := getNodeNameFromConnectionID(connection.Source.ID)
+		isSplitter := strings.HasPrefix(node.Name, "file-splitter")
+		if strings.HasSuffix(connection.Destination.ID, node.Name+"/"+paramName) ||
+			(isSplitter && strings.HasSuffix(connection.Destination.ID, node.Name+"/multiple/"+source)) ||
+			(node.Script != nil && (strings.HasSuffix(connection.Destination.ID,
+				node.Name+"/"+strings.ToLower(newPNode.Type)+"/"+source))) {
+			connectionFound = true
+			primitiveNodeName := getNodeNameFromConnectionID(connection.Source.ID)
+			var primitiveNode *types.PrimitiveNode
+			primitiveNode, pNodeExists = wfVersion.Data.PrimitiveNodes[primitiveNodeName]
+			if !pNodeExists {
+				continue
+			}
+
+			savedPNode, alreadyExists := (*newPrimitiveNodes)[primitiveNode.Name]
+			if alreadyExists {
+				if node.Script != nil || strings.HasPrefix(node.Name, "file-splitter") {
+					continue
+				} else if savedPNode.Value != newPNode.Value {
+					processDifferentParamsForASinglePNode(*savedPNode, newPNode)
+				}
+			}
+
+			(*newPrimitiveNodes)[primitiveNode.Name] = &newPNode
+
+			if (oldParam != nil && oldParam.Value != newPNode.Value) ||
+				(newPNode.Type == "FILE" && strings.HasPrefix(newPNode.Value.(string), "trickest://file/")) {
+				if newPNode.Type != primitiveNode.Type {
+					processInvalidInputType(newPNode, *primitiveNode)
+				}
+				primitiveNode.Value = newPNode.Value
+				primitiveNode.Label = newPNode.Label
+				if oldParam != nil {
+					oldParam.Value = newPNode.Value
+				}
+				wfVersion.Name = nil
+				updateNeeded = true
+			}
+			break
+		}
+	}
+	if !connectionFound {
+		fmt.Println(node.Name + " is not connected to any input!")
+		os.Exit(0)
+	} else if !pNodeExists {
+		fmt.Println(node.Meta.Label + " (" + node.Name + ") doesn't have a primitive node input!")
+		os.Exit(0)
+	}
+	return updateNeeded
 }
 
 func readConfigOutputs(config *map[string]interface{}) map[string]download.NodeInfo {
