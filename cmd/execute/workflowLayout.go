@@ -21,7 +21,7 @@ func treeHeight(root *types.TreeNode) int {
 }
 
 func adjustChildrenHeight(root *types.TreeNode, nodesPerHeight *map[int][]*types.TreeNode) {
-	if !root.HasParent {
+	if root.Parent == nil {
 		(*nodesPerHeight)[root.Height] = append((*nodesPerHeight)[root.Height], root)
 	}
 	if root.Children == nil || len(root.Children) == 0 {
@@ -50,8 +50,35 @@ func generateNodesCoordinates(version *types.WorkflowVersionDetailed) {
 	}
 
 	nodesPerHeight := make(map[int][]*types.TreeNode, 0)
+	maxRootHeight := 0
+	for _, node := range rootNodes {
+		if node.Height > maxRootHeight {
+			maxRootHeight = node.Height
+		}
+	}
 	for _, node := range rootNodes {
 		adjustChildrenHeight(node, &nodesPerHeight)
+	}
+	for _, node := range rootNodes {
+		if node.Height == maxRootHeight {
+			adjustChildrenHeight(node, &nodesPerHeight)
+		}
+	}
+	for _, node := range treesNodes {
+		if node.Parent != nil && node.Parent.Height >= node.Height {
+			adjustChildrenHeight(node.Parent, &nodesPerHeight)
+		}
+	}
+	for _, root := range rootNodes {
+		for _, child := range root.Children {
+			if root.Height == child.Height {
+				root.Height = child.Height + 1
+			}
+		}
+	}
+	nodesPerHeight = make(map[int][]*types.TreeNode, 0)
+	for _, node := range treesNodes {
+		nodesPerHeight[node.Height] = append(nodesPerHeight[node.Height], node)
 	}
 
 	maxInputsPerHeight := make(map[int]int, 0)

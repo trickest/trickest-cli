@@ -90,7 +90,7 @@ var ExecuteCmd = &cobra.Command{
 				*executionMachines.Large = 1
 			}
 		}
-		//createRun(version.ID, watch, &executionMachines)
+		createRun(version.ID, watch, &executionMachines)
 	},
 }
 
@@ -1052,7 +1052,7 @@ func CreateTrees(wfVersion *types.WorkflowVersionDetailed, includePrimitiveNodes
 			if node == getNodeNameFromConnectionID(connection.Destination.ID) {
 				child := getNodeNameFromConnectionID(connection.Source.ID)
 				if childNode, exists := allNodes[child]; exists {
-					childNode.HasParent = true
+					childNode.Parent = allNodes[node]
 					allNodes[node].Children = append(allNodes[node].Children, childNode)
 				}
 			}
@@ -1060,7 +1060,7 @@ func CreateTrees(wfVersion *types.WorkflowVersionDetailed, includePrimitiveNodes
 	}
 
 	for node := range wfVersion.Data.Nodes {
-		if !allNodes[node].HasParent {
+		if allNodes[node].Parent == nil {
 			roots = append(roots, allNodes[node])
 		}
 	}
