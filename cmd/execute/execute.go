@@ -1590,7 +1590,8 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 							pathSplit := strings.Split(newPNode.Value.(string), "/")
 							newPNode.Label = pathSplit[len(pathSplit)-1]
 							if wfVersion != nil {
-								updateNeeded = addPrimitiveNodeFromConfig(wfVersion, &newPrimitiveNodes, newPNode, node, paramName)
+								needsUpdate := addPrimitiveNodeFromConfig(wfVersion, &newPrimitiveNodes, newPNode, node, paramName)
+								updateNeeded = updateNeeded || needsUpdate
 							} else {
 								if strings.ToLower(newPNode.Type) != strings.ToLower(inputType) {
 									fmt.Println("Input parameter " + tool.Name + "." + paramName + " should be of type " +
@@ -1629,7 +1630,8 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 								pathSplit := strings.Split(newPNode.Value.(string), "/")
 								newPNode.Label = pathSplit[len(pathSplit)-1]
 								if wfVersion != nil {
-									updateNeeded = addPrimitiveNodeFromConfig(wfVersion, &newPrimitiveNodes, newPNode, node, paramName)
+									needsUpdate := addPrimitiveNodeFromConfig(wfVersion, &newPrimitiveNodes, newPNode, node, paramName)
+									updateNeeded = updateNeeded || needsUpdate
 								} else {
 									if strings.ToLower(newPNode.Type) != strings.ToLower(inputType) {
 										fmt.Println("Input parameter " + tool.Name + "." + paramName + " should be of type " +
@@ -1665,7 +1667,8 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 			}
 
 			if wfVersion != nil {
-				updateNeeded = updateNeeded || addPrimitiveNodeFromConfig(wfVersion, &newPrimitiveNodes, newPNode, node, paramName)
+				needsUpdate := addPrimitiveNodeFromConfig(wfVersion, &newPrimitiveNodes, newPNode, node, paramName)
+				updateNeeded = updateNeeded || needsUpdate
 			} else {
 				if strings.ToLower(newPNode.Type) != strings.ToLower(inputType) {
 					fmt.Println("Input parameter " + tool.Name + "." + paramName + " should be of type " +
