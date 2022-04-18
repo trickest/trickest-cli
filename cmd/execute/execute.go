@@ -1035,6 +1035,7 @@ func CreateTrees(wfVersion *types.WorkflowVersionDetailed, includePrimitiveNodes
 			Status:       "pending",
 			OutputStatus: "no outputs",
 			Children:     make([]*types.TreeNode, 0),
+			Parents:      make([]*types.TreeNode, 0),
 		}
 	}
 
@@ -1052,7 +1053,10 @@ func CreateTrees(wfVersion *types.WorkflowVersionDetailed, includePrimitiveNodes
 			if node == getNodeNameFromConnectionID(connection.Destination.ID) {
 				child := getNodeNameFromConnectionID(connection.Source.ID)
 				if childNode, exists := allNodes[child]; exists {
-					childNode.Parent = allNodes[node]
+					if childNode.Parents == nil {
+						childNode.Parents = make([]*types.TreeNode, 0)
+					}
+					childNode.Parents = append(childNode.Parents, allNodes[node])
 					allNodes[node].Children = append(allNodes[node].Children, childNode)
 				}
 			}
@@ -1060,7 +1064,7 @@ func CreateTrees(wfVersion *types.WorkflowVersionDetailed, includePrimitiveNodes
 	}
 
 	for node := range wfVersion.Data.Nodes {
-		if allNodes[node].Parent == nil {
+		if allNodes[node].Parents == nil || len(allNodes[node].Parents) == 0 {
 			roots = append(roots, allNodes[node])
 		}
 	}

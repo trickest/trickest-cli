@@ -29,7 +29,7 @@ type TreeNode struct {
 	Label        string
 	Inputs       *map[string]*NodeInput
 	Printed      bool
-	Parent       *TreeNode
+	Parents      []*TreeNode
 	Children     []*TreeNode
 	Status       string
 	Message      string

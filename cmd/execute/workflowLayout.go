@@ -21,7 +21,7 @@ func treeHeight(root *types.TreeNode) int {
 }
 
 func adjustChildrenHeight(root *types.TreeNode, nodesPerHeight *map[int][]*types.TreeNode) {
-	if root.Parent == nil {
+	if root.Parents == nil || len(root.Parents) == 0 {
 		(*nodesPerHeight)[root.Height] = append((*nodesPerHeight)[root.Height], root)
 	}
 	if root.Children == nil || len(root.Children) == 0 {
@@ -64,20 +64,39 @@ func generateNodesCoordinates(version *types.WorkflowVersionDetailed) {
 			adjustChildrenHeight(node, &nodesPerHeight)
 		}
 	}
-	for _, node := range treesNodes {
-		if node.Parent != nil && node.Parent.Height >= node.Height {
-			adjustChildrenHeight(node.Parent, &nodesPerHeight)
+	for _, root := range rootNodes {
+		maxChildHeight := 0
+		for _, child := range root.Children {
+			if child.Height > maxChildHeight {
+				maxChildHeight = child.Height
+			}
+		}
+		if root.Height <= maxChildHeight {
+			root.Height = maxChildHeight + 1
+			if root.Height > maxRootHeight {
+				maxRootHeight = root.Height
+			}
+			adjustChildrenHeight(root, &nodesPerHeight)
 		}
 	}
-	for _, root := range rootNodes {
-		for _, child := range root.Children {
-			if root.Height == child.Height {
-				root.Height = child.Height + 1
+	for _, node := range treesNodes {
+		if node.Parents != nil && len(node.Parents) > 0 {
+			minHeightParent := node.Parents[0]
+			for _, parent := range node.Parents {
+				if parent.Height < minHeightParent.Height {
+					minHeightParent = parent
+				}
+			}
+			if minHeightParent.Height <= node.Height {
+				adjustChildrenHeight(minHeightParent, &nodesPerHeight)
 			}
 		}
 	}
 	nodesPerHeight = make(map[int][]*types.TreeNode, 0)
 	for _, node := range treesNodes {
+		if _, exists := nodesPerHeight[node.Height]; !exists {
+			nodesPerHeight[node.Height] = make([]*types.TreeNode, 0)
+		}
 		nodesPerHeight[node.Height] = append(nodesPerHeight[node.Height], node)
 	}
 
@@ -113,7 +132,7 @@ func generateNodesCoordinates(version *types.WorkflowVersionDetailed) {
 					version.Data.Nodes[node.NodeName].Meta.Coordinates.X += nodeSizeIndent
 				}
 				version.Data.Nodes[node.NodeName].Meta.Coordinates.X += previousHeightNodeSizeIndent
-				version.Data.Nodes[node.NodeName].Meta.Coordinates.Y = float64(start)
+				version.Data.Nodes[node.NodeName].Meta.Coordinates.Y = 1.2 * float64(start)
 				start += distance
 				if i+1 < len(nodes) && version.Data.Nodes[nodes[i+1].NodeName] != nil &&
 					len(version.Data.Nodes[nodes[i+1].NodeName].Inputs) == maxInputsPerHeight[height] {
@@ -128,7 +147,7 @@ func generateNodesCoordinates(version *types.WorkflowVersionDetailed) {
 					version.Data.PrimitiveNodes[node.NodeName].Coordinates.X += nodeSizeIndent
 				}
 				version.Data.PrimitiveNodes[node.NodeName].Coordinates.X += previousHeightNodeSizeIndent
-				version.Data.PrimitiveNodes[node.NodeName].Coordinates.Y = float64(start)
+				version.Data.PrimitiveNodes[node.NodeName].Coordinates.Y = 1.2 * float64(start)
 				start += distance
 				if i+1 < len(nodes) && version.Data.Nodes[nodes[i+1].NodeName] != nil &&
 					len(version.Data.Nodes[nodes[i+1].NodeName].Inputs) == maxInputsPerHeight[height] {
