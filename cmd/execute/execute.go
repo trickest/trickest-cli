@@ -1441,12 +1441,12 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 					nodeName = tool.ID
 				} else if wfVersion != nil {
 					node = getNodeByName(param, wfVersion)
-					if node.Script == nil && !strings.HasPrefix(node.ID, "file-splitter") {
+					if node.Script == nil && !strings.HasPrefix(node.Name, "file-splitter") {
 						fmt.Println(param)
 						fmt.Println("Node is not a script or a file splitter, use tool.param-name syntax instead!")
 						os.Exit(0)
 					}
-					nodeName = node.ID
+					nodeName = node.Name
 				} else {
 					fmt.Println("No version or tool specified, can't read config inputs!")
 					os.Exit(0)
@@ -1497,13 +1497,15 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 				}
 				inputType = toolInput.Type
 			} else {
-				oldParam, paramExists := node.Inputs[paramName]
-				paramExists = paramExists && oldParam.Value != nil
-				if !paramExists {
-					fmt.Println("Parameter " + paramName + " doesn't exist for node " + nodeName)
-					os.Exit(0)
+				if node.Script == nil && !strings.HasPrefix(node.Name, "file-splitter") {
+					oldParam, paramExists := node.Inputs[paramName]
+					paramExists = paramExists && oldParam.Value != nil
+					if !paramExists {
+						fmt.Println("Parameter " + paramName + " doesn't exist for node " + nodeName)
+						os.Exit(0)
+					}
+					inputType = oldParam.Type
 				}
-				inputType = oldParam.Type
 			}
 
 			switch val := newPNode.Value.(type) {
@@ -1551,7 +1553,9 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 				newPNode.Name = "boolean-input-" + strconv.Itoa(booleanInputsCnt)
 				newPNode.Value = val
 			case map[string]interface{}:
-				if node == nil || (node.Script == nil && !strings.HasPrefix(node.ID, "file-splitter")) {
+				if node == nil || (node.Script == nil && !strings.HasPrefix(node.Name, "file-splitter")) {
+					fmt.Println(param + ": ")
+					fmt.Println(val)
 					fmt.Println("Invalid input type! Object inputs are used for scripts and splitters.")
 					os.Exit(0)
 				}
@@ -1633,14 +1637,20 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 			if wfVersion != nil {
 				oldParam := node.Inputs[paramName]
 				connectionFound := false
+				pNodeExists := false
 				for _, connection := range wfVersion.Data.Connections {
-					if strings.HasSuffix(connection.Destination.ID, nodeName+"/"+paramName) {
+					source := getNodeNameFromConnectionID(connection.Source.ID)
+					isSplitter := strings.HasPrefix(node.Name, "file-splitter")
+					if strings.HasSuffix(connection.Destination.ID, nodeName+"/"+paramName) ||
+						(isSplitter && strings.HasSuffix(connection.Destination.ID, nodeName+"/multiple/"+source)) ||
+						(node.Script != nil && (strings.HasSuffix(connection.Destination.ID, nodeName+"/file/"+source) ||
+							strings.HasSuffix(connection.Destination.ID, nodeName+"/folder/"+source))) {
 						connectionFound = true
 						primitiveNodeName := getNodeNameFromConnectionID(connection.Source.ID)
-						primitiveNode, pNodeExists := wfVersion.Data.PrimitiveNodes[primitiveNodeName]
+						var primitiveNode *types.PrimitiveNode
+						primitiveNode, pNodeExists = wfVersion.Data.PrimitiveNodes[primitiveNodeName]
 						if !pNodeExists {
-							fmt.Println(primitiveNodeName + " is not a primitive node output!")
-							os.Exit(0)
+							continue
 						}
 
 						savedPNode, alreadyExists := newPrimitiveNodes[primitiveNode.Name]
@@ -1650,14 +1660,16 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 
 						newPrimitiveNodes[primitiveNode.Name] = &newPNode
 
-						if oldParam.Value != newPNode.Value ||
+						if (oldParam != nil && oldParam.Value != newPNode.Value) ||
 							(newPNode.Type == "FILE" && strings.HasPrefix(newPNode.Value.(string), "trickest://file/")) {
 							if newPNode.Type != primitiveNode.Type {
 								processInvalidInputType(newPNode, *primitiveNode)
 							}
 							primitiveNode.Value = newPNode.Value
 							primitiveNode.Label = newPNode.Label
-							oldParam.Value = newPNode.Value
+							if oldParam != nil {
+								oldParam.Value = newPNode.Value
+							}
 							wfVersion.Name = nil
 							updateNeeded = true
 						}
@@ -1666,6 +1678,9 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 				}
 				if !connectionFound {
 					fmt.Println(nodeName + " is not connected to any input!")
+					os.Exit(0)
+				} else if !pNodeExists {
+					fmt.Println(node.Meta.Label + " (" + node.Name + ") doesn't have a primitive node input!")
 					os.Exit(0)
 				}
 			} else {
