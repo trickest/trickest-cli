@@ -81,17 +81,9 @@ var ExecuteCmd = &cobra.Command{
 		allNodes, roots = CreateTrees(version, false)
 		executionMachines = version.MaxMachines
 		if !maxMachines {
-			if executionMachines.Small != nil {
-				*executionMachines.Small = 1
-			}
-			if executionMachines.Medium != nil {
-				*executionMachines.Medium = 1
-			}
-			if executionMachines.Large != nil {
-				*executionMachines.Large = 1
-			}
+			setMachinesToMinimum(&executionMachines)
 		}
-		//createRun(version.ID, watch, &executionMachines)
+		createRun(version.ID, watch, &executionMachines)
 	},
 }
 
@@ -375,7 +367,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 						newNode.Inputs["file/"+newPNode.Name] = &types.NodeInput{
 							Type:  "FILE",
 							Order: 0,
-							Value: "in/" + newPNode.Name + "/" + newPNode.Label,
+							Value: "in/" + newPNode.Name + "/" + path.Base(newPNode.Label),
 						}
 					}
 				}
@@ -424,6 +416,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 									newPNode.Value = val
 								} else {
 									fmt.Println("Folder input must be a complete repo URL with .git extension!")
+									os.Exit(0)
 								}
 								newPNode.Type = "FOLDER"
 								gitInputCnt++
@@ -1764,6 +1757,7 @@ func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPri
 				}
 			}
 			newPNode.ParamName = paramName
+			newPNode.Name = primitiveNode.Name
 			(*newPrimitiveNodes)[primitiveNode.Name] = &newPNode
 
 			if (oldParam != nil && oldParam.Value != newPNode.Value) ||
@@ -1771,7 +1765,7 @@ func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPri
 				if newPNode.Type != primitiveNode.Type {
 					processInvalidInputType(newPNode, *primitiveNode)
 				}
-				primitiveNode.Value = newPNode.Value
+
 				if node.Script != nil {
 					for id, input := range node.Inputs {
 						if id == "file/"+newPNode.Name {
@@ -1789,7 +1783,7 @@ func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPri
 				} else {
 					node.Inputs[paramName].Value = newPNode.Value
 				}
-				primitiveNode.Label = newPNode.Label
+
 				if oldParam != nil {
 					oldParam.Value = newPNode.Value
 				}
@@ -1939,15 +1933,7 @@ func readConfigMachines(config *map[string]interface{}, isTool bool, maximumMach
 				return maximumMachines
 			} else {
 				execMachines = maximumMachines
-				if execMachines.Small != nil {
-					*execMachines.Small = 1
-				}
-				if execMachines.Medium != nil {
-					*execMachines.Medium = 1
-				}
-				if execMachines.Large != nil {
-					*execMachines.Large = 1
-				}
+				setMachinesToMinimum(execMachines)
 			}
 		}
 	}

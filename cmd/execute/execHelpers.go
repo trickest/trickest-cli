@@ -611,6 +611,18 @@ func stopRun(runID string) {
 	}
 }
 
+func setMachinesToMinimum(machines *types.Bees) {
+	if machines.Small != nil {
+		*machines.Small = 1
+	}
+	if machines.Medium != nil {
+		*machines.Medium = 1
+	}
+	if machines.Large != nil {
+		*machines.Large = 1
+	}
+}
+
 func FormatMachines(machines *types.Bees, inline bool) string {
 	var small, medium, large string
 	if machines.Small != nil {
