@@ -67,6 +67,7 @@ type PrimitiveNode struct {
 		X float64 `json:"x"`
 		Y float64 `json:"y"`
 	} `json:"coordinates"`
+	ParamName string
 }
 
 type Node struct {

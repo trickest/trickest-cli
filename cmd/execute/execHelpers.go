@@ -487,7 +487,7 @@ func processInvalidInputType(newPNode, existingPNode types.PrimitiveNode) {
 	if printType == "string" {
 		printType += " (or integer, if a number is needed)"
 	}
-	fmt.Println(newPNode.Name + " should be of type " + printType + " instead of " +
+	fmt.Println(newPNode.ParamName + " should be of type " + printType + " instead of " +
 		strings.ToLower(newPNode.Type) + "!")
 	os.Exit(0)
 }

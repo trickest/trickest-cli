@@ -12,6 +12,7 @@ import (
 	"math"
 	"os"
 	"os/signal"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -90,7 +91,7 @@ var ExecuteCmd = &cobra.Command{
 				*executionMachines.Large = 1
 			}
 		}
-		createRun(version.ID, watch, &executionMachines)
+		//createRun(version.ID, watch, &executionMachines)
 	},
 }
 
@@ -184,7 +185,7 @@ func nodeExists(nodes []types.WorkflowYAMLNode, id string) bool {
 	return false
 }
 
-func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path string) *types.WorkflowVersionDetailed {
+func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, objectPath string) *types.WorkflowVersionDetailed {
 	file, err := os.Open(fileName)
 	if err != nil {
 		fmt.Println(err)
@@ -206,9 +207,9 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 		os.Exit(0)
 	}
 
-	space, project, workflow, _ := list.ResolveObjectPath(path, true)
+	space, project, workflow, _ := list.ResolveObjectPath(objectPath, true)
 	if space == nil {
-		fmt.Println("Space " + strings.Split(path, "/")[0] + " doesn't exist!")
+		fmt.Println("Space " + strings.Split(objectPath, "/")[0] + " doesn't exist!")
 		os.Exit(0)
 	}
 
@@ -350,8 +351,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 								httpInputCnt++
 								newPNode.Name = "http-input-" + strconv.Itoa(httpInputCnt)
 								newPNode.TypeName = "URL"
-								pathSplit := strings.Split(val, "/")
-								newPNode.Label = pathSplit[len(pathSplit)-1]
+								newPNode.Label = newPNode.Value.(string)
 								primitiveNodes[newPNode.Name] = &newPNode
 							}
 						default:
@@ -429,8 +429,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 								gitInputCnt++
 								newPNode.Name = "git-input-" + strconv.Itoa(gitInputCnt)
 								newPNode.TypeName = "GIT"
-								pathSplit := strings.Split(val, "/")
-								newPNode.Label = pathSplit[len(pathSplit)-1]
+								newPNode.Label = newPNode.Value.(string)
 								primitiveNodes[newPNode.Name] = &newPNode
 							}
 						default:
@@ -530,8 +529,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 								newPNode.Value = "trickest://file/" + val
 							}
 						}
-						pathSplit := strings.Split(val, "/")
-						newPNode.Label = pathSplit[len(pathSplit)-1]
+						newPNode.Label = newPNode.Value.(string)
 						newPNode.TypeName = "URL"
 					} else if toolInput.Type == "FOLDER" {
 						if nodeExists(wfNodes, val) {
@@ -641,7 +639,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 					Description: &toolInput.Description,
 				}
 				if newPNode.Type == "FILE" {
-					newNode.Inputs[name].Value = "in/" + newPNode.Name + "/" + newPNode.Label
+					newNode.Inputs[name].Value = "in/" + newPNode.Name + "/" + path.Base(newPNode.Value.(string))
 				} else if newPNode.Type == "FOLDER" {
 					newNode.Inputs[name].Value = "in/" + newPNode.Name + "/"
 				} else {
@@ -901,12 +899,12 @@ func WatchRun(runID string, nodesToDownload map[string]download.NodeInfo, timest
 
 		if run.Status == "COMPLETED" || run.Status == "STOPPED" || run.Status == "FAILED" {
 			if len(nodesToDownload) > 0 {
-				path := run.SpaceName
+				objectPath := run.SpaceName
 				if run.ProjectName != "" {
-					path += "/" + run.ProjectName
+					objectPath += "/" + run.ProjectName
 				}
-				path += "/" + run.WorkflowName
-				download.DownloadRunOutput(run, nodesToDownload, nil, path)
+				objectPath += "/" + run.WorkflowName
+				download.DownloadRunOutput(run, nodesToDownload, nil, objectPath)
 			}
 			mutex.Unlock()
 			return
@@ -1115,8 +1113,11 @@ func createToolWorkflow(wfName string, space *types.SpaceDetailed, project *type
 			Command:     &toolInput.Command,
 			Description: &toolInput.Description,
 		}
-		if pNode, exists := primitiveNodes[inputName]; exists {
-			inputs[inputName].Value = pNode.Value
+		for _, primitiveNode := range primitiveNodes {
+			if primitiveNode.ParamName == inputName {
+				inputs[inputName].Value = path.Base(primitiveNode.Value.(string))
+				break
+			}
 		}
 	}
 	node.Inputs = inputs
@@ -1144,7 +1145,7 @@ func createToolWorkflow(wfName string, space *types.SpaceDetailed, project *type
 			}{ID: "output/" + pNode.Name + "/output"},
 			Destination: struct {
 				ID string `json:"id"`
-			}{ID: "input/" + node.Name + "/" + pNode.Name},
+			}{ID: "input/" + node.Name + "/" + pNode.ParamName},
 		})
 	}
 
@@ -1201,13 +1202,13 @@ func createToolWorkflow(wfName string, space *types.SpaceDetailed, project *type
 	return newVersion
 }
 
-func prepareForExec(path string) *types.WorkflowVersionDetailed {
-	pathSplit := strings.Split(strings.Trim(path, "/"), "/")
+func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
+	pathSplit := strings.Split(strings.Trim(objectPath, "/"), "/")
 	var wfVersion *types.WorkflowVersionDetailed
 	var primitiveNodes map[string]*types.PrimitiveNode
 	projectCreated := false
 
-	space, project, workflow, _ := list.ResolveObjectPath(path, false)
+	space, project, workflow, _ := list.ResolveObjectPath(objectPath, false)
 	if space == nil {
 		os.Exit(0)
 	}
@@ -1444,8 +1445,16 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 					paramName = param
 					nodeName = tool.Name + "-1"
 				} else if wfVersion != nil {
-					node = getNodeByName(param, wfVersion)
-					if node.Script == nil && !strings.HasPrefix(node.Name, "file-splitter") {
+					if len(wfVersion.Data.Nodes) == 1 {
+						for _, n := range wfVersion.Data.Nodes {
+							node = n
+							paramName = param
+						}
+					} else {
+						node = getNodeByName(param, wfVersion)
+					}
+					if node.Script == nil && !strings.HasPrefix(node.Name, "file-splitter") &&
+						len(wfVersion.Data.Nodes) > 1 {
 						fmt.Println(param)
 						fmt.Println("Node is not a script or a file splitter, use tool.param-name syntax instead!")
 						os.Exit(0)
@@ -1520,6 +1529,7 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 					newPNode.TypeName = "STRING"
 					stringInputsCnt++
 					newPNode.Name = "string-input-" + strconv.Itoa(stringInputsCnt)
+					newPNode.Value = val
 				case "FILE":
 					if strings.HasPrefix(val, "http") {
 						newPNode.Value = val
@@ -1538,6 +1548,7 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 						newPNode.Value = val
 					} else {
 						fmt.Println("Folder input must be a complete repo URL with .git extension!")
+						os.Exit(0)
 					}
 					newPNode.TypeName = "GIT"
 					gitInputCnt++
@@ -1571,7 +1582,23 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 				if filesExist {
 					inputFound = true
 					files := filesVal.([]interface{})
-					for _, value := range files {
+					filePNodeNames := make([]string, 0)
+					for _, input := range node.Inputs {
+						if input.Type == "FILE" && input.Value != nil {
+							valSplit := strings.Split(input.Value.(string), "/")
+							if len(valSplit) >= 2 && strings.HasPrefix(valSplit[1], "http-input") {
+								filePNodeNames = append(filePNodeNames, valSplit[1])
+							}
+						}
+					}
+					if len(filePNodeNames) != len(files) {
+						fmt.Println(nodeName)
+						fmt.Println("Number of file inputs doesn't match: ")
+						fmt.Println("Existing: " + strconv.Itoa(len(filePNodeNames)))
+						fmt.Println("Supplied: " + strconv.Itoa(len(files)))
+						os.Exit(0)
+					}
+					for i, value := range files {
 						switch file := value.(type) {
 						case string:
 							if strings.HasPrefix(file, "http") {
@@ -1585,10 +1612,9 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 							}
 							newPNode.Type = "FILE"
 							httpInputCnt++
-							newPNode.Name = "http-input-" + strconv.Itoa(httpInputCnt)
+							newPNode.Name = filePNodeNames[i]
 							newPNode.TypeName = "URL"
-							pathSplit := strings.Split(newPNode.Value.(string), "/")
-							newPNode.Label = pathSplit[len(pathSplit)-1]
+							newPNode.Label = newPNode.Value.(string)
 							if wfVersion != nil {
 								needsUpdate := addPrimitiveNodeFromConfig(wfVersion, &newPrimitiveNodes, newPNode, node, paramName)
 								updateNeeded = updateNeeded || needsUpdate
@@ -1615,7 +1641,23 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 					if foldersExist {
 						inputFound = true
 						folders := foldersVal.([]interface{})
-						for _, value := range folders {
+						folderPNodeNames := make([]string, 0)
+						for _, input := range node.Inputs {
+							if input.Type == "FOLDER" {
+								valSplit := strings.Split(input.Value.(string), "/")
+								if len(valSplit) >= 2 && strings.HasPrefix(valSplit[1], "git-input") {
+									folderPNodeNames = append(folderPNodeNames, valSplit[1])
+								}
+							}
+						}
+						if len(folderPNodeNames) != len(folders) {
+							fmt.Println(nodeName)
+							fmt.Println("Number of folder inputs doesn't match: ")
+							fmt.Println("Existing: " + strconv.Itoa(len(folderPNodeNames)))
+							fmt.Println("Supplied: " + strconv.Itoa(len(folders)))
+							os.Exit(0)
+						}
+						for i, value := range folders {
 							switch folder := value.(type) {
 							case string:
 								if strings.HasPrefix(folder, "http") && strings.HasSuffix(folder, ".git") {
@@ -1625,10 +1667,9 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 								}
 								newPNode.Type = "FOLDER"
 								gitInputCnt++
-								newPNode.Name = "git-input-" + strconv.Itoa(gitInputCnt)
+								newPNode.Name = folderPNodeNames[i]
 								newPNode.TypeName = "GIT"
-								pathSplit := strings.Split(newPNode.Value.(string), "/")
-								newPNode.Label = pathSplit[len(pathSplit)-1]
+								newPNode.Label = newPNode.Value.(string)
 								if wfVersion != nil {
 									needsUpdate := addPrimitiveNodeFromConfig(wfVersion, &newPrimitiveNodes, newPNode, node, paramName)
 									updateNeeded = updateNeeded || needsUpdate
@@ -1659,9 +1700,6 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 			if newPNode.Type == "BOOLEAN" {
 				boolValue := newPNode.Value.(bool)
 				newPNode.Label = strconv.FormatBool(boolValue)
-			} else if newPNode.TypeName == "URL" {
-				pathSplit := strings.Split(newPNode.Value.(string), "/")
-				newPNode.Label = pathSplit[len(pathSplit)-1]
 			} else {
 				newPNode.Label = newPNode.Value.(string)
 			}
@@ -1675,6 +1713,7 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 						tool.Type + " instead of " + newPNode.Type + "!")
 					os.Exit(0)
 				}
+				newPNode.ParamName = paramName
 				newPrimitiveNodes[newPNode.Name] = &newPNode
 			}
 		}
@@ -1705,8 +1744,15 @@ func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPri
 			primitiveNodeName := getNodeNameFromConnectionID(connection.Source.ID)
 			var primitiveNode *types.PrimitiveNode
 			primitiveNode, pNodeExists = wfVersion.Data.PrimitiveNodes[primitiveNodeName]
-			if !pNodeExists {
+			if !(strings.HasPrefix(primitiveNodeName, "http-input") ||
+				strings.HasPrefix(primitiveNodeName, "git-input") ||
+				strings.HasPrefix(primitiveNodeName, "string-input") ||
+				strings.HasPrefix(primitiveNodeName, "boolean-input")) {
 				continue
+			}
+			if !pNodeExists {
+				fmt.Println("Couldn't find primitive node: " + primitiveNodeName)
+				os.Exit(0)
 			}
 
 			savedPNode, alreadyExists := (*newPrimitiveNodes)[primitiveNode.Name]
@@ -1717,7 +1763,7 @@ func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPri
 					processDifferentParamsForASinglePNode(*savedPNode, newPNode)
 				}
 			}
-
+			newPNode.ParamName = paramName
 			(*newPrimitiveNodes)[primitiveNode.Name] = &newPNode
 
 			if (oldParam != nil && oldParam.Value != newPNode.Value) ||
@@ -1726,6 +1772,23 @@ func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPri
 					processInvalidInputType(newPNode, *primitiveNode)
 				}
 				primitiveNode.Value = newPNode.Value
+				if node.Script != nil {
+					for id, input := range node.Inputs {
+						if id == "file/"+newPNode.Name {
+							input.Value = "in/" + newPNode.Name + "/" + path.Base(newPNode.Value.(string))
+							break
+						}
+					}
+				} else if strings.HasPrefix(node.Name, "file-splitter") {
+					for id, input := range node.Inputs {
+						if id == "multiple/"+newPNode.Name {
+							input.Value = "in/" + newPNode.Name + "/" + path.Base(newPNode.Value.(string))
+							break
+						}
+					}
+				} else {
+					node.Inputs[paramName].Value = newPNode.Value
+				}
 				primitiveNode.Label = newPNode.Label
 				if oldParam != nil {
 					oldParam.Value = newPNode.Value
