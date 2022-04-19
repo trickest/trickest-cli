@@ -172,7 +172,7 @@ func createRun(versionID string, watch bool, machines *types.Bees) {
 	}
 
 	if watch {
-		WatchRun(createRunResp.ID, nodesToDownload, false, &executionMachines)
+		WatchRun(createRunResp.ID, nodesToDownload, false, &executionMachines, showParams)
 	} else {
 		availableBees := GetAvailableMachines()
 		fmt.Println("Run successfully created! ID: " + createRunResp.ID)

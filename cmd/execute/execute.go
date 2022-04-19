@@ -813,7 +813,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, path
 	return version
 }
 
-func WatchRun(runID string, nodesToDownload map[string]download.NodeInfo, timestampOnly bool, machines *types.Bees) {
+func WatchRun(runID string, nodesToDownload map[string]download.NodeInfo, timestampOnly bool, machines *types.Bees, showParameters bool) {
 	const fmtStr = "%-12s %v\n"
 	writer := uilive.New()
 	writer.Start()
@@ -890,7 +890,7 @@ func WatchRun(runID string, nodesToDownload map[string]download.NodeInfo, timest
 			}
 		}
 
-		trees := PrintTrees(roots, &allNodes, showParams, true)
+		trees := PrintTrees(roots, &allNodes, showParameters, true)
 		out += "\n" + trees
 		_, _ = fmt.Fprintln(writer, out)
 		_ = writer.Flush()

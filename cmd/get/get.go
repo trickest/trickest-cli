@@ -12,7 +12,8 @@ import (
 )
 
 var (
-	watch bool
+	watch          bool
+	showNodeParams bool
 )
 
 // GetCmd represents the get command
@@ -41,17 +42,21 @@ var GetCmd = &cobra.Command{
 		}
 
 		version := execute.GetLatestWorkflowVersion(workflow)
-		allNodes, roots := execute.CreateTrees(version, true)
+		allNodes, roots := execute.CreateTrees(version, false)
 
 		runs := download.GetRuns(version.WorkflowInfo, 1)
-		if runs != nil && len(runs) > 0 {
-			execute.WatchRun(runs[0].ID, map[string]download.NodeInfo{}, !watch, &runs[0].Bees)
+		if runs != nil && len(runs) > 0 && runs[0].Status == "RUNNING" {
+			execute.WatchRun(runs[0].ID, map[string]download.NodeInfo{}, !watch, &runs[0].Bees, showNodeParams)
 			return
 		} else {
 			const fmtStr = "%-15s %v\n"
 			out := ""
 			out += fmt.Sprintf(fmtStr, "Name:", workflow.Name)
-			out += fmt.Sprintf(fmtStr, "Status:", "no runs")
+			status := "no runs"
+			if runs != nil && len(runs) > 0 {
+				status = strings.ToLower(runs[0].Status)
+			}
+			out += fmt.Sprintf(fmtStr, "Status:", status)
 			availableBees := execute.GetAvailableMachines()
 			out += fmt.Sprintf(fmtStr, "Max machines:", execute.FormatMachines(&version.MaxMachines, true)+
 				" (currently available: "+execute.FormatMachines(&availableBees, true)+")")
@@ -61,7 +66,7 @@ var GetCmd = &cobra.Command{
 			for _, node := range allNodes {
 				node.Status = ""
 			}
-			out += "\n" + execute.PrintTrees(roots, &allNodes, false, false)
+			out += "\n" + execute.PrintTrees(roots, &allNodes, showNodeParams, false)
 			fmt.Print(out)
 		}
 
@@ -70,4 +75,5 @@ var GetCmd = &cobra.Command{
 
 func init() {
 	GetCmd.Flags().BoolVar(&watch, "watch", false, "Watch the workflow execution if it's still running")
+	GetCmd.Flags().BoolVar(&showNodeParams, "show-params", false, "Show parameters in the workflow tree")
 }
