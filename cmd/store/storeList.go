@@ -17,7 +17,7 @@ var storeListCmd = &cobra.Command{
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		tools := list.GetTools(math.MaxInt, "", "")
-		workflows := list.GetWorkflows("", true, "")
+		workflows := list.GetWorkflows("", "", "", true)
 		if tools != nil && len(tools) > 0 {
 			printTools(tools)
 		} else {

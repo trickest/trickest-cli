@@ -237,7 +237,7 @@ func getSpaceByID(id string) *types.SpaceDetailed {
 	return &space
 }
 
-func GetWorkflows(projectID string, store bool, search string) []types.WorkflowListResponse {
+func GetWorkflows(projectID, spaceID, search string, store bool) []types.WorkflowListResponse {
 	urlReq := util.Cfg.BaseUrl + "v1/store/workflow/"
 	urlReq += "?page_size=" + strconv.Itoa(math.MaxInt)
 	if !store {
@@ -250,6 +250,8 @@ func GetWorkflows(projectID string, store bool, search string) []types.WorkflowL
 
 	if projectID != "" {
 		urlReq += "&project=" + projectID
+	} else if spaceID != "" {
+		urlReq += "&space=" + spaceID
 	}
 
 	client := &http.Client{}
@@ -347,7 +349,7 @@ func ResolveObjectPath(path string, silent bool) (*types.SpaceDetailed, *types.P
 		for _, proj := range space.Projects {
 			if proj.Name == pathSplit[1] {
 				project = &proj
-				project.Workflows = GetWorkflows(project.ID, false, "")
+				project.Workflows = GetWorkflows(project.ID, "", "", false)
 				break
 			}
 		}

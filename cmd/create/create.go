@@ -174,6 +174,16 @@ func CreateWorkflow(name, description, spaceID, projectID string, deleteProjectO
 		ProjectID:   projectID,
 	}
 
+	workflows := list.GetWorkflows(projectID, spaceID, name, false)
+	if workflows != nil {
+		for _, wf := range workflows {
+			if wf.Name == name {
+				fmt.Println(name + ": A workflow with the same name already exists.")
+				os.Exit(0)
+			}
+		}
+	}
+
 	buf := new(bytes.Buffer)
 
 	err := json.NewEncoder(buf).Encode(&workflow)

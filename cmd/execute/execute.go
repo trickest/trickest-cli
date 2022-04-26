@@ -1108,7 +1108,7 @@ func createToolWorkflow(wfName string, space *types.SpaceDetailed, project *type
 		}
 		for _, primitiveNode := range primitiveNodes {
 			if primitiveNode.ParamName == inputName {
-				inputs[inputName].Value = path.Base(primitiveNode.Value.(string))
+				inputs[inputName].Value = primitiveNode.Value
 				break
 			}
 		}
@@ -1207,7 +1207,7 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 	}
 	if workflow == nil {
 		wfName := pathSplit[len(pathSplit)-1]
-		storeWorkflows := list.GetWorkflows("", true, wfName)
+		storeWorkflows := list.GetWorkflows("", "", wfName, true)
 		if storeWorkflows != nil && len(storeWorkflows) > 0 {
 			for _, wf := range storeWorkflows {
 				if strings.ToLower(wf.Name) == strings.ToLower(wfName) {

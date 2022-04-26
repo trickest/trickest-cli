@@ -18,7 +18,7 @@ var storeSearchCmd = &cobra.Command{
 			search = args[0]
 		}
 		tools := list.GetTools(math.MaxInt, search, "")
-		workflows := list.GetWorkflows("", true, search)
+		workflows := list.GetWorkflows("", "", search, true)
 		if tools != nil && len(tools) > 0 {
 			printTools(tools)
 		} else {
