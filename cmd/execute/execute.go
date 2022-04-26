@@ -43,7 +43,7 @@ var (
 // ExecuteCmd represents the execute command
 var ExecuteCmd = &cobra.Command{
 	Use:   "execute",
-	Short: "This command executes a workflow",
+	Short: "Execute a workflow",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		if util.SpaceName == "" {
