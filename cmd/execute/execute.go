@@ -1107,7 +1107,7 @@ func createToolWorkflow(wfName string, space *types.SpaceDetailed, project *type
 			Description: &toolInput.Description,
 		}
 		for _, primitiveNode := range primitiveNodes {
-			if primitiveNode.ParamName == inputName {
+			if *primitiveNode.ParamName == inputName {
 				inputs[inputName].Value = primitiveNode.Value
 				break
 			}
@@ -1138,7 +1138,7 @@ func createToolWorkflow(wfName string, space *types.SpaceDetailed, project *type
 			}{ID: "output/" + pNode.Name + "/output"},
 			Destination: struct {
 				ID string `json:"id"`
-			}{ID: "input/" + node.Name + "/" + pNode.ParamName},
+			}{ID: "input/" + node.Name + "/" + *pNode.ParamName},
 		})
 	}
 
@@ -1466,7 +1466,12 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 				}
 				paramName = nameSplit[1]
 				if wfVersion != nil {
-					node = getNodeByName(nameSplit[0], wfVersion)
+					nodeName = nameSplit[0]
+					nodeNameSplit := strings.Split(nodeName, "-")
+					if _, err := strconv.Atoi(nodeNameSplit[len(nodeNameSplit)-1]); err != nil {
+						nodeName += "-1"
+					}
+					node = getNodeByName(nodeName, wfVersion)
 					if node.Script != nil {
 						fmt.Println(param)
 						fmt.Println("Node is a script, use the following syntax:")
@@ -1706,7 +1711,7 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 						tool.Type + " instead of " + newPNode.Type + "!")
 					os.Exit(0)
 				}
-				newPNode.ParamName = paramName
+				newPNode.ParamName = &paramName
 				newPrimitiveNodes[newPNode.Name] = &newPNode
 			}
 		}
@@ -1735,6 +1740,11 @@ func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPri
 				node.Name+"/"+strings.ToLower(newPNode.Type)+"/"+source))) {
 			connectionFound = true
 			primitiveNodeName := getNodeNameFromConnectionID(connection.Source.ID)
+			if strings.HasSuffix(connection.Destination.ID, node.Name+"/"+paramName) && newPNode.Name != primitiveNodeName {
+				delete(wfVersion.Data.PrimitiveNodes, newPNode.Name)
+				newPNode.Name = primitiveNodeName
+				wfVersion.Data.PrimitiveNodes[newPNode.Name] = &newPNode
+			}
 			var primitiveNode *types.PrimitiveNode
 			primitiveNode, pNodeExists = wfVersion.Data.PrimitiveNodes[primitiveNodeName]
 			if !(strings.HasPrefix(primitiveNodeName, "http-input") ||
@@ -1756,7 +1766,6 @@ func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPri
 					processDifferentParamsForASinglePNode(*savedPNode, newPNode)
 				}
 			}
-			newPNode.ParamName = paramName
 			newPNode.Name = primitiveNode.Name
 			(*newPrimitiveNodes)[primitiveNode.Name] = &newPNode
 
