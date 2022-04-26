@@ -231,15 +231,15 @@ Execute command will execute the workflow supplied either from the store or from
 #### config.yaml
 
 ```
-inputs: 
-    domains:
-        - LIST_OF_DOMAINS
+inputs:
+  domains:
+    file:
+    - LIST_OF_DOMAINS
 machines:
-    small: 1
-    medium: 1
-    large: 1
+  small: 1
+  large: 1
 outputs:
-    - zip-to-out
+  - zip-to-out
 ```
 
 
