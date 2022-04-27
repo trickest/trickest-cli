@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/spf13/cobra"
 	"github.com/xlab/treeprint"
+	"math"
+	"strings"
 	"trickest-cli/cmd/list"
 	"trickest-cli/types"
 )
@@ -14,7 +16,13 @@ var storeListCmd = &cobra.Command{
 	Short: "List all workflows from the Trickest store",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		workflows := list.GetWorkflows("", true, "")
+		tools := list.GetTools(math.MaxInt, "", "")
+		workflows := list.GetWorkflows("", "", "", true)
+		if tools != nil && len(tools) > 0 {
+			printTools(tools)
+		} else {
+			fmt.Println("Couldn't find any tool in the store!")
+		}
 		if workflows != nil && len(workflows) > 0 {
 			printWorkflows(workflows)
 		} else {
@@ -35,6 +43,17 @@ func printWorkflows(workflows []types.WorkflowListResponse) {
 		if workflow.Description != "" {
 			wfSubBranch.AddNode("\U0001f4cb \033[3m" + workflow.Description + "\033[0m") //📋
 		}
+	}
+
+	fmt.Println(tree.String())
+}
+
+func printTools(tools []types.Tool) {
+	tree := treeprint.New()
+	tree.SetValue("Tools")
+	for _, tool := range tools {
+		branch := tree.AddBranch(tool.Name + " [" + strings.TrimPrefix(tool.SourceURL, "https://") + "]")
+		branch.AddNode("\U0001f4cb \033[3m" + tool.Description + "\033[0m") //📋
 	}
 
 	fmt.Println(tree.String())

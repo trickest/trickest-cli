@@ -22,7 +22,8 @@ var ListCmd = &cobra.Command{
 	Short: "Lists objects on the Trickest platform",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) == 0 {
+		path := util.FormatPath()
+		if len(args) == 0 && path == "" {
 			spaces := getSpaces("")
 
 			if spaces != nil && len(spaces) > 0 {
@@ -32,23 +33,34 @@ var ListCmd = &cobra.Command{
 			}
 			return
 		}
-
-		space, project, workflow := ResolveObjectPath(args[0])
-
-		if space == nil && project == nil && workflow == nil {
-			os.Exit(0)
+		if path == "" {
+			path = strings.Trim(args[0], "/")
+		} else {
+			if len(args) > 0 {
+				fmt.Println("Please use either path or flag syntax for the platform objects.")
+				return
+			}
 		}
 
-		if space != nil {
-			printSpaceDetailed(*space)
-		}
-
-		if project != nil {
-			printProject(*project)
+		space, project, workflow, found := ResolveObjectPath(path, false)
+		if !found {
+			return
 		}
 
 		if workflow != nil {
+			if project != nil && workflow.Name == project.Name {
+				if util.WorkflowName == "" {
+					printProject(*project)
+					if util.ProjectName != "" {
+						return
+					}
+				}
+			}
 			printWorkflow(*workflow)
+		} else if project != nil {
+			printProject(*project)
+		} else if space != nil {
+			printSpaceDetailed(*space)
 		}
 	},
 }
@@ -167,7 +179,7 @@ func getSpaces(name string) []types.Space {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	}
 
 	var spaces types.Spaces
@@ -212,7 +224,7 @@ func getSpaceByID(id string) *types.SpaceDetailed {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	}
 
 	var space types.SpaceDetailed
@@ -225,7 +237,7 @@ func getSpaceByID(id string) *types.SpaceDetailed {
 	return &space
 }
 
-func GetWorkflows(projectID string, store bool, search string) []types.WorkflowListResponse {
+func GetWorkflows(projectID, spaceID, search string, store bool) []types.WorkflowListResponse {
 	urlReq := util.Cfg.BaseUrl + "v1/store/workflow/"
 	urlReq += "?page_size=" + strconv.Itoa(math.MaxInt)
 	if !store {
@@ -238,6 +250,8 @@ func GetWorkflows(projectID string, store bool, search string) []types.WorkflowL
 
 	if projectID != "" {
 		urlReq += "&project=" + projectID
+	} else if spaceID != "" {
+		urlReq += "&space=" + spaceID
 	}
 
 	client := &http.Client{}
@@ -261,7 +275,7 @@ func GetWorkflows(projectID string, store bool, search string) []types.WorkflowL
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	}
 
 	var workflows types.Workflows
@@ -274,7 +288,7 @@ func GetWorkflows(projectID string, store bool, search string) []types.WorkflowL
 	return workflows.Results
 }
 
-func getWorkflowByID(id string) *types.Workflow {
+func GetWorkflowByID(id string) *types.Workflow {
 	client := &http.Client{}
 
 	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/store/workflow/"+id+"/", nil)
@@ -297,7 +311,7 @@ func getWorkflowByID(id string) *types.Workflow {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	}
 
 	var workflow types.Workflow
@@ -310,20 +324,24 @@ func getWorkflowByID(id string) *types.Workflow {
 	return &workflow
 }
 
-func ResolveObjectPath(path string) (*types.SpaceDetailed, *types.Project, *types.Workflow) {
+func ResolveObjectPath(path string, silent bool) (*types.SpaceDetailed, *types.Project, *types.Workflow, bool) {
 	pathSplit := strings.Split(strings.Trim(path, "/"), "/")
 	if len(pathSplit) > 3 {
-		fmt.Println("Invalid object path!")
-		return nil, nil, nil
+		if !silent {
+			fmt.Println("Invalid object path!")
+		}
+		return nil, nil, nil, false
 	}
 	space := GetSpaceByName(pathSplit[0])
 	if space == nil {
-		fmt.Println("Couldn't find space named " + pathSplit[0] + "!")
-		return nil, nil, nil
+		if !silent {
+			fmt.Println("Couldn't find space named " + pathSplit[0] + "!")
+		}
+		return nil, nil, nil, false
 	}
 
 	if len(pathSplit) == 1 {
-		return space, nil, nil
+		return space, nil, nil, true
 	}
 
 	var project *types.Project
@@ -331,42 +349,101 @@ func ResolveObjectPath(path string) (*types.SpaceDetailed, *types.Project, *type
 		for _, proj := range space.Projects {
 			if proj.Name == pathSplit[1] {
 				project = &proj
-				proj.Workflows = GetWorkflows(proj.ID, false, "")
-				if len(pathSplit) == 2 {
-					return nil, &proj, nil
-				} else {
-					break
-				}
+				project.Workflows = GetWorkflows(project.ID, "", "", false)
+				break
 			}
 		}
 	}
 
+	var workflow *types.Workflow
 	if space.Workflows != nil && len(space.Workflows) > 0 {
 		for _, wf := range space.Workflows {
 			if wf.Name == pathSplit[1] {
-				return nil, nil, &wf
+				workflow = &wf
+				break
 			}
 		}
 	}
 
 	if len(pathSplit) == 2 {
-		fmt.Println("Couldn't find project or workflow named " + pathSplit[1] + " inside " +
-			pathSplit[0] + " space!")
-		return nil, nil, nil
+		if project != nil || workflow != nil {
+			return space, project, workflow, true
+		}
+		if !silent {
+			fmt.Println("Couldn't find project or workflow named " + pathSplit[1] + " inside " +
+				pathSplit[0] + " space!")
+		}
+		return space, nil, nil, false
 	}
 
 	if project != nil && project.Workflows != nil && len(project.Workflows) > 0 {
 		for _, wf := range project.Workflows {
 			if wf.Name == pathSplit[2] {
-				fullWorkflow := getWorkflowByID(wf.ID)
-				return nil, nil, fullWorkflow
+				fullWorkflow := GetWorkflowByID(wf.ID)
+				return space, project, fullWorkflow, true
 			}
 		}
 	} else {
-		fmt.Println("No workflows found in " + pathSplit[0] + "/" + pathSplit[1])
-		return nil, nil, nil
+		if !silent {
+			fmt.Println("No workflows found in " + pathSplit[0] + "/" + pathSplit[1])
+		}
+		return space, project, nil, false
 	}
 
-	fmt.Println("Couldn't find workflow named " + pathSplit[2] + " in " + pathSplit[0] + "/" + pathSplit[1] + "/")
-	return nil, nil, nil
+	if !silent {
+		fmt.Println("Couldn't find workflow named " + pathSplit[2] + " in " + pathSplit[0] + "/" + pathSplit[1] + "/")
+	}
+	return space, project, nil, false
+}
+
+func GetTools(pageSize int, search string, name string) []types.Tool {
+	urlReq := util.Cfg.BaseUrl + "v1/store/tool/"
+	if pageSize > 0 {
+		urlReq = urlReq + "?page_size=" + strconv.Itoa(pageSize)
+	} else {
+		urlReq = urlReq + "?page_size=" + strconv.Itoa(math.MaxInt)
+	}
+
+	if search != "" {
+		search = url.QueryEscape(search)
+		urlReq += "&search=" + search
+	}
+
+	if name != "" {
+		name = url.QueryEscape(name)
+		urlReq += "&name=" + name
+	}
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", urlReq, nil)
+	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
+	req.Header.Add("Accept", "application/json")
+
+	var resp *http.Response
+	resp, err = client.Do(req)
+	if err != nil {
+		fmt.Println("Error: Couldn't get tools info.")
+		return nil
+	}
+	defer resp.Body.Close()
+
+	var bodyBytes []byte
+	bodyBytes, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error: Couldn't read tools info.")
+		return nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		util.ProcessUnexpectedResponse(resp)
+	}
+
+	var tools types.Tools
+	err = json.Unmarshal(bodyBytes, &tools)
+	if err != nil {
+		fmt.Println("Error unmarshalling tools response!")
+		return nil
+	}
+
+	return tools.Results
 }

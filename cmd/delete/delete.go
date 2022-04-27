@@ -3,9 +3,8 @@ package delete
 import (
 	"fmt"
 	"github.com/spf13/cobra"
-	"io/ioutil"
 	"net/http"
-	"os"
+	"strings"
 	"trickest-cli/cmd/list"
 	"trickest-cli/util"
 )
@@ -16,27 +15,33 @@ var DeleteCmd = &cobra.Command{
 	Short: "Deletes an object on the Trickest platform",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) != 1 {
-			fmt.Println("You must specify the path of the object to be deleted!")
+		path := util.FormatPath()
+		if path == "" {
+			if len(args) == 0 {
+				fmt.Println("You must specify the path of the object to be deleted!")
+				return
+			}
+			path = strings.Trim(args[0], "/")
+		} else {
+			if len(args) > 0 {
+				fmt.Println("Please use either path or flag syntax for the platform objects.")
+				return
+			}
+		}
+
+		space, project, workflow, found := list.ResolveObjectPath(path, false)
+
+		if !found {
 			return
-		}
-
-		space, project, workflow := list.ResolveObjectPath(args[0])
-
-		if space == nil && project == nil && workflow == nil {
-			os.Exit(0)
-		}
-
-		if space != nil {
-			deleteSpace("", space.ID)
-		}
-
-		if project != nil {
-			deleteProject(project.ID)
 		}
 
 		if workflow != nil {
 			deleteWorkflow(workflow.ID)
+		} else if project != nil {
+			DeleteProject(project.ID)
+			return
+		} else if space != nil {
+			deleteSpace("", space.ID)
 		}
 	},
 }
@@ -70,20 +75,13 @@ func deleteSpace(name string, id string) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
-		var bodyBytes []byte
-		bodyBytes, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Println("Error: Couldn't read delete space response.")
-			return
-		}
-
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	} else {
 		fmt.Println("Space deleted successfully!")
 	}
 }
 
-func deleteProject(id string) {
+func DeleteProject(id string) {
 	client := &http.Client{}
 
 	req, err := http.NewRequest("DELETE", util.Cfg.BaseUrl+"v1/projects/"+id+"/", nil)
@@ -99,14 +97,7 @@ func deleteProject(id string) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
-		var bodyBytes []byte
-		bodyBytes, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Println("Error: Couldn't read delete project response.")
-			return
-		}
-
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	} else {
 		fmt.Println("Project deleted successfully!")
 	}
@@ -128,14 +119,7 @@ func deleteWorkflow(id string) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
-		var bodyBytes []byte
-		bodyBytes, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Println("Error: Couldn't read delete workflow response.")
-			return
-		}
-
-		util.ProcessUnexpectedResponse(bodyBytes, resp.StatusCode)
+		util.ProcessUnexpectedResponse(resp)
 	} else {
 		fmt.Println("Workflow deleted successfully!")
 	}

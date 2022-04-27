@@ -162,3 +162,60 @@ type SubJob struct {
 	Children      []SubJob
 	Label         string
 }
+
+type Tools struct {
+	Next     string `json:"next"`
+	Previous string `json:"previous"`
+	Page     int    `json:"page"`
+	Last     int    `json:"last"`
+	Count    int    `json:"count"`
+	Results  []Tool `json:"results"`
+}
+
+type Tool struct {
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	Description      string `json:"description"`
+	VaultInfo        string `json:"vault_info"`
+	Author           string `json:"author"`
+	AuthorInfo       int    `json:"author_info"`
+	ToolCategory     string `json:"tool_category"`
+	ToolCategoryName string `json:"tool_category_name"`
+	ToolCategoryObj  struct {
+		ID          string `json:"id"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+	} `json:"tool_category_obj"`
+	Type      string               `json:"type"`
+	Inputs    map[string]ToolInput `json:"inputs"`
+	Container *struct {
+		Args    []string `json:"args,omitempty"`
+		Image   string   `json:"image"`
+		Command []string `json:"command"`
+	} `json:"container,omitempty"`
+	Outputs struct {
+		Folder *struct {
+			Type  string `json:"type"`
+			Order int    `json:"order"`
+		} `json:"folder,omitempty"`
+		File *struct {
+			Type  string `json:"type"`
+			Order int    `json:"order"`
+		} `json:"file,omitempty"`
+	} `json:"outputs"`
+	SourceURL     string    `json:"source_url"`
+	CreatedDate   time.Time `json:"created_date"`
+	ModifiedDate  time.Time `json:"modified_date"`
+	OutputCommand string    `json:"output_command"`
+	LicenseInfo   struct {
+		Name string `json:"name"`
+		Url  string `json:"url"`
+	} `json:"license_info"`
+}
+
+type ToolInput struct {
+	Type        string `json:"type"`
+	Description string `json:"description"`
+	Command     string `json:"command"`
+	Order       int    `json:"order"`
+}

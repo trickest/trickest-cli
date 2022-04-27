@@ -5,6 +5,8 @@ import (
 	"trickest-cli/cmd/create"
 	"trickest-cli/cmd/delete"
 	"trickest-cli/cmd/download"
+	"trickest-cli/cmd/execute"
+	"trickest-cli/cmd/get"
 	"trickest-cli/cmd/list"
 	"trickest-cli/cmd/store"
 	"trickest-cli/util"
@@ -28,6 +30,9 @@ func Execute() {
 
 func init() {
 	RootCmd.PersistentFlags().StringVar(&util.Cfg.User.Token, "token", "", "Trickest authentication token")
+	RootCmd.PersistentFlags().StringVar(&util.SpaceName, "space", "", "Space name")
+	RootCmd.PersistentFlags().StringVar(&util.ProjectName, "project", "", "Project name")
+	RootCmd.PersistentFlags().StringVar(&util.WorkflowName, "workflow", "", "Workflow name")
 
 	cobra.OnInitialize(initVaultID)
 
@@ -36,6 +41,8 @@ func init() {
 	RootCmd.AddCommand(create.CreateCmd)
 	RootCmd.AddCommand(delete.DeleteCmd)
 	RootCmd.AddCommand(download.DownloadCmd)
+	RootCmd.AddCommand(execute.ExecuteCmd)
+	RootCmd.AddCommand(get.GetCmd)
 }
 
 func initVaultID() {

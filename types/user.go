@@ -39,3 +39,34 @@ type VaultInfo struct {
 	CreatedDate  time.Time `json:"created_date"`
 	ModifiedDate time.Time `json:"modified_date"`
 }
+
+type Hives struct {
+	Next     string `json:"next"`
+	Previous string `json:"previous"`
+	Page     int    `json:"page"`
+	Last     int    `json:"last"`
+	Count    int    `json:"count"`
+	Results  []Hive `json:"results"`
+}
+
+type Hive struct {
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	HiveType     string    `json:"hive_type"`
+	VaultInfo    string    `json:"vault_info"`
+	Cluster      string    `json:"cluster"`
+	State        string    `json:"state"`
+	CreatedDate  time.Time `json:"created_date"`
+	ModifiedDate time.Time `json:"modified_date"`
+	Bees         []struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		Mem         string `json:"mem"`
+		CPU         string `json:"cpu"`
+		Total       int    `json:"total"`
+		Running     int    `json:"running"`
+		Up          int    `json:"up"`
+		Down        int    `json:"down"`
+		Error       int    `json:"error"`
+	} `json:"bees"`
+}
