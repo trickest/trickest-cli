@@ -142,7 +142,7 @@ Flags:
 ## Execute
 Use **execute** command to execute your particular workflow.
 
-### Provide parameters using **config.yaml** file
+#### Provide parameters using **config.yaml** file
 
 Use config.yaml file provided using **--config** option to specify:
 - inputs values,
@@ -177,7 +177,7 @@ outputs:  # List of nodes whose outputs will be downloaded.
 For each Trickest workflow **config.yaml** file can be founded in [workflows repository](https://github.com/trickest/workflows) as an example.
 
 
-### Provide parameters using **workflow.yaml** file
+#### Provide parameters using **workflow.yaml** file
 
 Use workflow.yaml file provided using **--file** option to specify:
 - inputs values,
