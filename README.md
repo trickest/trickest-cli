@@ -211,7 +211,7 @@ Flags:
   --workflow string            The name of the workflow.
   --space string               The name of the space to which workflow belongs.
   --config                     The file path to a config.yaml file which contains specific nodes outputs to be downloaded, otherwise all nodes will be processed.
-  --runs                       The number of executions to be processed with last execution as starting point, otherwise all executions will be processed.
+  --runs                       The number of executions to be processed with last execution as a starting point, otherwise only last execution will be processed.
 ```
 
 ##### Structure
