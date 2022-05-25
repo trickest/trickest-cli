@@ -10,7 +10,7 @@ import (
 // storeSearchCmd represents the storeSearch command
 var storeSearchCmd = &cobra.Command{
 	Use:   "search",
-	Short: "Search for workflows in the Trickest store",
+	Short: "Search for workflows and tools in the Trickest store",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		search := ""
@@ -19,12 +19,12 @@ var storeSearchCmd = &cobra.Command{
 		}
 		tools := list.GetTools(math.MaxInt, search, "")
 		workflows := list.GetWorkflows("", "", search, true)
-		if tools != nil && len(tools) > 0 {
+		if len(tools) > 0 {
 			printTools(tools)
 		} else {
 			fmt.Println("Couldn't find any tool in the store that matches the search!")
 		}
-		if workflows != nil && len(workflows) > 0 {
+		if len(workflows) > 0 {
 			printWorkflows(workflows)
 		} else {
 			fmt.Println("Couldn't find any workflow in the store that matches the search!")
@@ -34,5 +34,4 @@ var storeSearchCmd = &cobra.Command{
 
 func init() {
 	StoreCmd.AddCommand(storeSearchCmd)
-
 }
