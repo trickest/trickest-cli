@@ -73,7 +73,7 @@ trickest version
 
 # Authentication
 
-Prior to using Trickest Client, you have to enter your credentials to authenticate with Platform. For this, you will need your authentication token that can be found on [my-account page](https://trickest.io/dashboard/settings/my-account) inside the Platform.
+Prior to using Trickest Client, you have to enter your credentials to authenticate with the Trickest platform. For this, you will need your authentication token that can be found on [my-account page](https://trickest.io/dashboard/settings/my-account) inside the the Trickest platform.
 
 Authentication token can be supplied as a flag `--token` or an environment variable `TRICKEST_TOKEN`.
 
@@ -125,7 +125,7 @@ Keep in mind that when passing values that have spaces, they need be inside of d
 
 
 ## GET
-Use **get** command to get details of your particular workflow.
+Use **get** command to get details of your particular workflow (current status, node structure etc).
 
 ```
 Command usage:
@@ -204,7 +204,7 @@ For each Trickest workflow **workflow.yaml** file can be also founded in [workfl
 Use **output** command to download the outputs of your particular workflow execution(s) to local.
 
 ```
-Usage:
+Command usage:
 trickest output --workflow <workflow_name> --space <space_name> [--config <config_file_path>] [--runs <number>]
 
 Flags:
@@ -224,48 +224,50 @@ File/Directory structure will be kept the same as on the platform. Spaces and pr
 
 Use **store** command to get more info about Trickest workflows and public tools available in the [Trickest Store](https://trickest.io/dashboard/store).
 
-#### Tools
+#### List tools
 Use **store tools** command to list all public tools available in the [store](https://trickest.io/dashboard/store), along with their descriptions.
 
 ```
+Command usage:
 trickest store tools
 ```
 
-#### Workflows
+#### List workflows
 Use **store workflows** command to list all Trickest workflows available in the [store](https://trickest.io/dashboard/store), along with their descriptions.
 
 ```
+Command usage:
 trickest store workflows
 ```
 
-#### Tool Details
-Use **store tool** command to get the details of the specified public tool available in the [store](https://trickest.io/dashboard/store).
+#### Get tool details
+Use **store get** along with **--tool** option to get the details of the specified public tool available in the [store](https://trickest.io/dashboard/store).
 
 ```
-Usage:
-trickest store --tool <tool_name>
+Command usage:
+trickest store get --tool <tool_name>
 
 Flags:
   --tool string         The name of the tool.
 ```
 
-#### Workflow Details
-Use **store workflow** command to get the details of the specified Trickest workflow available in the [store](https://trickest.io/dashboard/store).
+#### Get workflow details
+Use **store get** along with **--workflow** option to get the details of the specified Trickest workflow available in the [store](https://trickest.io/dashboard/store).
 
 ```
-Usage:
-trickest store --workflow <workflow_name>
+Command usage:
+trickest store get --workflow <workflow_name>
 
 Flags:
-  --workflow string         The name of the workflow.
+  --workflow string     The name of the workflow.
 ```
 
-#### Workflow Copy
+#### Copy workflow to a private space
 Use **store copy** command to copy particular Trickest workflow from the [store](https://trickest.io/dashboard/store) to your private space.
 After copy of particular Trickest workflow is created within your private space, you can execute it using **execute** Trickest Client command.
 
 ```
-Usage:
+Command usage:
 trickest store copy --workflow <workflow_name> [--name <workflow_copy_name>] --space <space_name>
 
 Flags:
