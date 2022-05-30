@@ -61,7 +61,7 @@ var GetCmd = &cobra.Command{
 			out += fmt.Sprintf(fmtStr, "Max machines:", execute.FormatMachines(&version.MaxMachines, true)+
 				" (currently available: "+execute.FormatMachines(&availableBees, true)+")")
 			out += fmt.Sprintf(fmtStr, "Created:", workflow.CreatedDate.In(time.Local).Format(time.RFC1123)+
-				" ("+time.Since(workflow.CreatedDate).Round(time.Second).String()+" ago)")
+				" ("+util.FormatDuration(time.Since(workflow.CreatedDate))+" ago)")
 
 			for _, node := range allNodes {
 				node.Status = ""

@@ -852,22 +852,22 @@ func WatchRun(runID string, nodesToDownload map[string]download.NodeInfo, timest
 		out += fmt.Sprintf(fmtStr, "Machines:", FormatMachines(machines, true)+
 			" (currently available: "+FormatMachines(&availableBees, true)+")")
 		out += fmt.Sprintf(fmtStr, "Created:", run.CreatedDate.In(time.Local).Format(time.RFC1123)+
-			" ("+time.Since(run.CreatedDate).Round(time.Second).String()+" ago)")
+			" ("+util.FormatDuration(time.Since(run.CreatedDate))+" ago)")
 		if run.Status != "PENDING" {
 			if !run.StartedDate.IsZero() {
 				out += fmt.Sprintf(fmtStr, "Started:", run.StartedDate.In(time.Local).Format(time.RFC1123)+
-					" ("+time.Since(run.StartedDate).Round(time.Second).String()+" ago)")
+					" ("+util.FormatDuration(time.Since(run.StartedDate))+" ago)")
 			}
 		}
 		if run.Finished {
 			if !run.CompletedDate.IsZero() {
 				out += fmt.Sprintf(fmtStr, "Finished:", run.CompletedDate.In(time.Local).Format(time.RFC1123)+
-					" ("+time.Since(run.CompletedDate).Round(time.Second).String()+" ago)")
+					" ("+util.FormatDuration(time.Since(run.CompletedDate))+" ago)")
 			}
-			out += fmt.Sprintf(fmtStr, "Duration:", (run.CompletedDate.Sub(run.StartedDate)).Round(time.Second).String())
+			out += fmt.Sprintf(fmtStr, "Duration:", util.FormatDuration(run.CompletedDate.Sub(run.StartedDate)))
 		}
 		if run.Status == "RUNNING" {
-			out += fmt.Sprintf(fmtStr, "Duration:", time.Since(run.StartedDate).Round(time.Second).String())
+			out += fmt.Sprintf(fmtStr, "Duration:", util.FormatDuration(time.Since(run.StartedDate)))
 		}
 
 		subJobs := GetSubJobs(runID)
@@ -932,7 +932,7 @@ func PrintTrees(roots []*types.TreeNode, allNodes *map[string]*types.TreeNode, s
 					nodeName := strings.Trim(lineSplit[1], ")")
 					node := (*allNodes)[nodeName]
 					_, _ = fmt.Fprintf(w, "\t"+line+"\t"+node.Status+"\t"+
-						node.Duration.Round(time.Second).String()+"\t"+node.OutputStatus+"\n")
+						util.FormatDuration(node.Duration)+"\t"+node.OutputStatus+"\n")
 				} else {
 					_, _ = fmt.Fprintf(w, "\t"+line+"\t\t\t\n")
 				}

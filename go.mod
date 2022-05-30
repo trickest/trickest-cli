@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	github.com/gosuri/uilive v0.0.4
+	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	github.com/schollz/progressbar/v3 v3.8.6
 	github.com/spf13/cobra v1.3.0
 	github.com/xlab/treeprint v1.1.0
