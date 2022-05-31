@@ -3,11 +3,13 @@ package util
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/hako/durafmt"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 	"trickest-cli/types"
 )
 
@@ -167,4 +169,23 @@ func ProcessUnexpectedResponse(resp *http.Response) {
 		fmt.Println("Sorry, something went wrong!")
 		os.Exit(0)
 	}
+}
+
+func FormatDuration(duration time.Duration) string {
+	duration = duration.Round(time.Second)
+	units := durafmt.Units{
+		Year:   durafmt.Unit{Singular: "year", Plural: "years"},
+		Week:   durafmt.Unit{Singular: "week", Plural: "weeks"},
+		Day:    durafmt.Unit{Singular: "day", Plural: "days"},
+		Hour:   durafmt.Unit{Singular: "h", Plural: "h"},
+		Minute: durafmt.Unit{Singular: "m", Plural: "m"},
+		Second: durafmt.Unit{Singular: "s", Plural: "s"},
+	}
+
+	str := durafmt.Parse(duration).LimitFirstN(2).Format(units)
+	str = strings.Replace(str, " s", "s", 1)
+	str = strings.Replace(str, " m", "m", 1)
+	str = strings.Replace(str, " h", "h", 1)
+
+	return str
 }
