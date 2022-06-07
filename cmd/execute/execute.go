@@ -38,6 +38,9 @@ var (
 	roots             []*types.TreeNode
 	workflowYAML      string
 	maxMachines       bool
+	downloadAllNodes  bool
+	outputsDirectory  string
+	outputNodesFlag   string
 )
 
 // ExecuteCmd represents the execute command
@@ -83,7 +86,12 @@ var ExecuteCmd = &cobra.Command{
 		if !maxMachines {
 			setMachinesToMinimum(&executionMachines)
 		}
-		createRun(version.ID, watch, &executionMachines)
+
+		outputNodes := make([]string, 0)
+		if outputNodesFlag != "" {
+			outputNodes = strings.Split(outputNodesFlag, ",")
+		}
+		createRun(version.ID, watch, &executionMachines, outputNodes, outputsDirectory)
 	},
 }
 
@@ -94,6 +102,9 @@ func init() {
 	ExecuteCmd.Flags().BoolVar(&showParams, "show-params", false, "Show parameters in the workflow tree")
 	ExecuteCmd.Flags().StringVar(&workflowYAML, "file", "", "Workflow YAML file to execute")
 	ExecuteCmd.Flags().BoolVar(&maxMachines, "max", false, "Use maximum number of machines for workflow execution")
+	ExecuteCmd.Flags().BoolVar(&downloadAllNodes, "output-all", false, "Download all outputs when the execution is finished")
+	ExecuteCmd.Flags().StringVar(&outputNodesFlag, "output", "", "A comma separated list of nodes which outputs should be downloaded when the execution is finished")
+	ExecuteCmd.Flags().StringVar(&outputsDirectory, "output-dir", "", "Path to directory which should be used to store outputs")
 }
 
 func getToolScriptOrSplitterFromYAMLNode(node types.WorkflowYAMLNode) (*types.Tool, *types.Script, *types.Splitter) {
@@ -813,7 +824,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 	return version
 }
 
-func WatchRun(runID string, nodesToDownload map[string]download.NodeInfo, timestampOnly bool, machines *types.Bees, showParameters bool) {
+func WatchRun(runID, downloadPath string, nodesToDownload map[string]download.NodeInfo, timestampOnly bool, machines *types.Bees, showParameters bool) {
 	const fmtStr = "%-12s %v\n"
 	writer := uilive.New()
 	writer.Start()
@@ -900,13 +911,18 @@ func WatchRun(runID string, nodesToDownload map[string]download.NodeInfo, timest
 		}
 
 		if run.Status == "COMPLETED" || run.Status == "STOPPED" || run.Status == "FAILED" {
-			if len(nodesToDownload) > 0 {
-				objectPath := run.SpaceName
+			if downloadPath == "" {
+				downloadPath = run.SpaceName
 				if run.ProjectName != "" {
-					objectPath += "/" + run.ProjectName
+					downloadPath += "/" + run.ProjectName
 				}
-				objectPath += "/" + run.WorkflowName
-				download.DownloadRunOutput(run, nodesToDownload, nil, objectPath)
+				downloadPath += "/" + run.WorkflowName
+			}
+			if downloadAllNodes {
+				// DownloadRunOutputs downloads all outputs if no nodes were specified
+				download.DownloadRunOutput(run, nil, nil, downloadPath)
+			} else if len(nodesToDownload) > 0 {
+				download.DownloadRunOutput(run, nodesToDownload, nil, downloadPath)
 			}
 			mutex.Unlock()
 			return

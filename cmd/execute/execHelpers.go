@@ -124,7 +124,7 @@ func getScripts(pageSize int, search string, name string) []types.Script {
 	return scripts.Results
 }
 
-func createRun(versionID string, watch bool, machines *types.Bees) {
+func createRun(versionID string, watch bool, machines *types.Bees, outputNodes []string, outputsDir string) {
 	run := types.CreateRun{
 		VersionID: versionID,
 		HiveInfo:  hive.ID,
@@ -171,8 +171,14 @@ func createRun(versionID string, watch bool, machines *types.Bees) {
 		os.Exit(0)
 	}
 
+	if len(outputNodes) > 0 {
+		for _, nodeName := range outputNodes {
+			nodesToDownload[nodeName] = download.NodeInfo{ToFetch: true, Found: false}
+		}
+		watch = true
+	}
 	if watch {
-		WatchRun(createRunResp.ID, nodesToDownload, false, &executionMachines, showParams)
+		WatchRun(createRunResp.ID, outputsDir, nodesToDownload, false, &executionMachines, showParams)
 	} else {
 		availableBees := GetAvailableMachines()
 		fmt.Println("Run successfully created! ID: " + createRunResp.ID)
