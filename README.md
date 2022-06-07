@@ -30,10 +30,8 @@ Current workflow categories:
 - Misconfiguration
 - Fuzzing
 - Discovery
-  
-# Install
 
-## Quickstart
+# Installation
 
 #### **OSX**
 
@@ -73,224 +71,208 @@ mv ./trickest-cli-linux-amd64 /usr/local/bin/trickest
 trickest version
 ```
 
-# Usage
+# Authentication
 
-## Authentication
+Prior to using Trickest Client, you have to enter your credentials to authenticate with the Trickest platform. For this, you will need your authentication token that can be found on [my-account page](https://trickest.io/dashboard/settings/my-account) inside the the Trickest platform.
 
-### Token
-
-You can find your token on [my-account page](https://trickest.io/dashboard/settings/my-account) inside the Trickest platform.
-
-It can be supplied as a flag `--token` or an environment variable `TRICKEST_TOKEN`. 
-
-### Dynamics
+Authentication token can be supplied as a flag `--token` or an environment variable `TRICKEST_TOKEN`.
 
 The `TRICKEST_TOKEN` supplied as a flag will be checked **first** and take priority if both are present.
 
-# List
+# Usage
 
-## All
 
-List all of your created spaces & projects and their descriptions.
+## LIST
+Use **list** command to list your private content.
+
+#### All
+
+Use **list** command to list all of your created spaces and projects along with their descriptions.
 
 ```
+Command usage:
 trickest list
 ```
 
-![Trickest Client - List](images/list-all.png "Trickest Client - List All")
+#### Spaces
 
-## Spaces
-
-List the content of space along with its projects and workflows.
+Use **list** command with **--space** option to list the content of your particular space - projects and workflows, along with their descriptions.
 
 ```
-trickest list "<SPACE_NAME>"
-```
-```
-trickest list --space "<SPACE_NAME>"
-``` 
+Command usage:
+trickest list --space <space_name>
 
-![Trickest Client - List](images/list-space.png "Trickest Client - List Space")
-
-## Projects   
-List all workflows in the project supplied.
+Flags:
+--space string    The name of the space to be listed.
 
 ```
-trickest list "<SPACE_NAME>/<PROJECT_NAME>"
-```
-```
-trickest list --space "<SPACE_NAME>" --project "<PROJECT_NAME>"
-``` 
 
-![Trickest Client - List](images/list-project.png "Trickest Client - List Project")
+#### Projects   
+
+Use **list** command with **--project** option to list the content of your particular project - workflows, along with their descriptions.
+
+```
+Command usage:
+trickest list --project <project_name> --space <space_name>
+
+Flags:
+--project string    The name of the project to be listed.
+--space string      The name of the space to which project belongs.
+
+```
 
 Keep in mind that when passing values that have spaces, they need be inside of double quotes (eg. "Alpine Testing")
 
-# Create
 
-## Space
-
-```
-trickest create "<SPACE_NAME>"
-``` 
-```
-trickest create --space "<SPACE_NAME>"
-``` 
-
-## Project
+## GET
+Use **get** command to get details of your particular workflow (current status, node structure etc).
 
 ```
-trickest create "<SPACE_NAME>/<PROJECT_NAME>"
-```
-```
-trickest create --space "<SPACE_NAME>" --project "<PROJECT_NAME>"
-```
-## Workflow   
+Command usage:
+trickest get --workflow <workflow_name> --space <space_name> [--export] [--watch]
 
-```
-trickest create "<SPACE_NAME>/<PROJECT_NAME>/<WORKFLOW_NAME>"
-```
-```
-trickest create --space "<SPACE_NAME>" --project "<PROJECT_NAME>" --workflow "<WORKFLOW_NAME>"
-``` 
-
-# Delete
-
-## Space
-
-```
-trickest delete "<SPACE_NAME>"
-```
-```
-trickest delete --space "<SPACE_NAME>"
-```
-## Project
-
-```
-trickest delete "<SPACE_NAME>/<PROJECT_NAME>"
-``` 
-```
-trickest delete --space "<SPACE_NAME>" --project "<PROJECT_NAME>"
+Flags:
+--workflow string   The name of the workflow.
+--space string      The name of the space to which workflow belongs.
+--export            Option to download a workflow structure in YAML file format.
+--watch             Option to track execution status in case workflow is in running state.
 ```
 
-## Workflow   
+
+## Execute
+Use **execute** command to execute your particular workflow.
+
+#### Provide parameters using **config.yaml** file
+
+Use config.yaml file provided using **--config** option to specify:
+- inputs values,
+- execution parallelism by machine type,
+- outputs to be downloaded.
 
 ```
-trickest delete "<SPACE_NAME>/<PROJECT_NAME>/<WORKFLOW_NAME>"
-``` 
+Command usage:
+trickest execute --workflow <workflow_name> --space <space_name> --config <config_file_path> [--watch]
+
+Flags:
+  --workflow string            The name of the workflow to be executed.
+  --space string               The name of the space to which workflow belongs.
+  --config                     The file path to the config.yaml file which contains execution parameter values.
+  --watch                      Option to track execution status.
 ```
-trickest delete --space "<SPACE_NAME>" --project "<PROJECT_NAME>" --workflow "<WORKFLOW_NAME>"
-``` 
+
+Predefined config.yaml file content:
+```
+inputs:   # List of input values for the particular workflow nodes.
+  <node_name>:
+    <input_name>:
+    - <input_value>
+machines: # Machines configuration by type related to execution parallelisam.
+  small:  <number>
+  medium: <number>
+  large:  <number>
+outputs:  # List of nodes whose outputs will be downloaded.
+  - <node_name>
+```
+
+For each Trickest workflow **config.yaml** file can be founded in [workflows repository](https://github.com/trickest/workflows) as an example.
+
+
+#### Provide parameters using **workflow.yaml** file
+
+Use workflow.yaml file provided using **--file** option to specify:
+- inputs values,
+- execution parallelism by machine type,
+- outputs to be downloaded.
+
+```
+Command usage:
+trickest execute --workflow <workflow_name> --space <space_name> --file <workflow_file_path> [--watch]
+
+Flags:
+  --workflow string            The name of the workflow to be executed.
+  --space string               The name of the space to which workflow belongs.
+  --file                       The file path to a workflow.yaml file which contains execution parameter values.
+  --watch                      Option to track execution status.
+```
+
+Use **get** Trickest Client command along with **--export** option to download workflow.yaml file for your particular workflow. Change parameters directly in local if needed and start new execution.
+
+For each Trickest workflow **workflow.yaml** file can be also founded in [workflows repository](https://github.com/trickest/workflows) as an example.
+
+
+## Output
+Use **output** command to download the outputs of your particular workflow execution(s) to local.
+
+```
+Command usage:
+trickest output --workflow <workflow_name> --space <space_name> [--config <config_file_path>] [--runs <number>]
+
+Flags:
+  --workflow string            The name of the workflow.
+  --space string               The name of the space to which workflow belongs.
+  --config                     The file path to a config.yaml file which contains specific nodes outputs to be downloaded, otherwise all nodes will be processed.
+  --runs                       The number of executions to be processed with last execution as a starting point, otherwise only last execution will be processed.
+```
+
+##### Structure
+
+File/Directory structure will be kept the same as on the platform. Spaces and projects will become directories inside of which all of the workflow outputs will be downloaded.
+
 
 ## Store
+[Trickest Store](https://trickest.io/dashboard/store) is a collection of all public tools, Trickest scripts and Trickest workflows available on the platform. If you are interested in viewing and executing the Trickest workflows, more info about the same you can found in Trickest [workflows repository](https://github.com/trickest/workflows).
 
-## Platform
+Use **store** command to get more info about Trickest workflows and public tools available in the [Trickest Store](https://trickest.io/dashboard/store).
 
-[Trickest Store](https://trickest.io/dashboard/store) is a collection of all workflows, tools, and scripts available on the platform. 
-
-If you are interested in contributing, viewing, and executing the workflows and the tools with the `trickest` you can also check our [workflows repository.](https://github.com/trickest/workflows)
-
-## List
-
-### Workflows
-
-List all public **workflows** available in the [store.](https://trickest.io/dashboard/store)
+#### List tools
+Use **store tools** command to list all public tools available in the [store](https://trickest.io/dashboard/store), along with their descriptions.
 
 ```
-trickest store workflows
-```
-
-![Trickest Store - List Workflows](images/store-workflows.png "Trickest Store - List Workflows")
-
-### Tools
-
-List all public **tools** available in the [store.](https://trickest.io/dashboard/store)
-
-```
+Command usage:
 trickest store tools
 ```
 
-![Trickest Store - List Tools](images/store-tools.png "Trickest Store - List Tools")
-
-## Search
-
-Search through all of the workflows and tools available in the [store.](https://trickest.io/dashboard/store)
+#### List workflows
+Use **store workflows** command to list all Trickest workflows available in the [store](https://trickest.io/dashboard/store), along with their descriptions.
 
 ```
-trickest store search <QUERY>
+Command usage:
+trickest store workflows
 ```
 
-![Trickest Store - List Workflows](images/store-search.png "Trickest Store - Search ")
-
-# Execute
-
-Execute command will execute the workflow supplied either from the store or from file.
-
-### Configuration
-
-#### config.yaml
+#### Get tool details
+Use **store get** along with **--tool** option to get the details of the specified public tool available in the [store](https://trickest.io/dashboard/store).
 
 ```
-inputs:
-  domains:
-    file:
-    - LIST_OF_DOMAINS
-machines:
-  small: 1
-  large: 1
-outputs:
-  - zip-to-out
+Command usage:
+trickest store get --tool <tool_name>
+
+Flags:
+  --tool string         The name of the tool.
 ```
 
-
-* `inputs` - custom input parameters for the workflow 
-
-* `machines` - machines configuration
-
-* `outputs` - configuration of outputs nodes that will be downloaded *
-
-#### Flags
-
-* `--name` workflow name used when creating single-tool workflows or using workflows from the Store
-* `--show-params` Show parameters in the workflow tree
-* `--watch` watch the execution running
+#### Get workflow details
+Use **store get** along with **--workflow** option to get the details of the specified Trickest workflow available in the [store](https://trickest.io/dashboard/store).
 
 ```
-trickest execute --workflow "Simple Visual Recon" --space "Demo Space" --config config.yaml --watch
+Command usage:
+trickest store get --workflow <workflow_name>
+
+Flags:
+  --workflow string     The name of the workflow.
 ```
 
-![Trickest Execute - Store](images/execute-store.png "Trickest Execute - Store")
-
-## File
-
-When executing the workflow through `--file` input `--config` flag is not needed. Inputs could be changed directly in the `workflow.yaml` file.
+#### Copy workflow to a private space
+Use **store copy** command to copy particular Trickest workflow from the [store](https://trickest.io/dashboard/store) to your private space.
+After copy of particular Trickest workflow is created within your private space, you can execute it using **execute** Trickest Client command.
 
 ```
-trickest execute --file workflow.yaml --name "APK Url Discovery" --space "APK Research" --watch
-```
+Command usage:
+trickest store copy --workflow <workflow_name> [--name <workflow_copy_name>] --space <space_name>
 
-![Trickest Execute - File](images/execute-file.png "Trickest Execute - File")
-
-# Download
-
-The download command will download the outputs of the workflow to local. 
-
-## Structure
-
-File/Directory structure will be kept the same as on the platform. Spaces and projects will become directories inside of which all of the workflow outputs will be downloaded. Additionally, ``config.yaml`` could be passed to specify which particular nodes outputs should be downloaded. If not supplied, all of the outputs will be downloaded.
+Flags:
+  --workflow string         The name of the workflow to be duplicated.
+  --name string             Option to set new name for workflow copy.
+  --space string            The name of the space to copy workflow into. In case space doesn't exist, new space with given name will be created.
 
 ```
-trickest download --space "Demo" --workflow "APK Url Discovery" --runs 1
-```
-
-![Trickest Download](images/download.png "Trickest Download")
-
-# Get
-
-Get command will get the workflow supplied and display its status. Additionally, if workflow is currently running, `--watch` could be provided to watch the current execution status.
-
-```
-trickest get --workflow "Simple Visual Recon" --space "Demo Space"
-```
-
-![Trickest Get](images/get.png "Trickest Get")
