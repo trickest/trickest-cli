@@ -13,7 +13,11 @@ import (
 	"trickest-cli/util"
 )
 
-type workflowExport []nodeExport
+type workflowExport struct {
+	Name     string       `yaml:"name"`
+	Category string       `yaml:"category"`
+	Steps    []nodeExport `yaml:"steps"`
+}
 
 type nodeExport struct {
 	Name    string
@@ -53,7 +57,7 @@ var ExportCmd = &cobra.Command{
 		}
 
 		if destinationPath == "" {
-			destinationPath = workflow.Name
+			destinationPath = workflow.Name + ".yaml"
 		}
 
 		createYAML(workflow, destinationPath)
@@ -61,7 +65,8 @@ var ExportCmd = &cobra.Command{
 }
 
 func init() {
-	ExportCmd.Flags().StringVarP(&destinationPath, "output", "o", "", "Output file")
+	ExportCmd.Flags().StringVarP(&destinationPath, "output", "o", "",
+		"Output file (default workflow-name.yaml)")
 }
 
 func sortNodes(nodes map[string]*types.Node) []*types.Node {
@@ -78,7 +83,11 @@ func sortNodes(nodes map[string]*types.Node) []*types.Node {
 }
 
 func createYAML(workflow *types.Workflow, destinationPath string) {
-	var w workflowExport
+	w := workflowExport{
+		Steps: make([]nodeExport, 0),
+	}
+	w.Category = workflow.WorkflowCategory.Name
+	w.Name = workflow.Name
 	version := execute.GetLatestWorkflowVersion(workflow)
 	nodes := sortNodes(version.Data.Nodes)
 	for _, n := range nodes {
@@ -111,7 +120,7 @@ func createYAML(workflow *types.Workflow, destinationPath string) {
 					}
 				}
 			}
-			w = append(w, nodeExport{
+			w.Steps = append(w.Steps, nodeExport{
 				Name:    n.Meta.Label,
 				ID:      n.Name,
 				Machine: n.BeeType,
@@ -142,7 +151,7 @@ func createYAML(workflow *types.Workflow, destinationPath string) {
 			if len(inputs["folder"]) == 0 {
 				delete(inputs, "folder")
 			}
-			w = append(w, nodeExport{
+			w.Steps = append(w.Steps, nodeExport{
 				Name:    n.Meta.Label,
 				ID:      n.Name,
 				Script:  n.Script.Source,
@@ -162,7 +171,7 @@ func createYAML(workflow *types.Workflow, destinationPath string) {
 					}
 				}
 			}
-			w = append(w, nodeExport{
+			w.Steps = append(w.Steps, nodeExport{
 				Name:    n.Meta.Label,
 				ID:      n.Name,
 				Machine: n.BeeType,
