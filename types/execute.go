@@ -138,3 +138,20 @@ type Splitter struct {
 		} `json:"output"`
 	} `json:"outputs"`
 }
+
+type FilesResponse struct {
+	Next     string         `json:"next"`
+	Previous string         `json:"previous"`
+	Page     int            `json:"page"`
+	Last     int            `json:"last"`
+	Count    int            `json:"count"`
+	Results  []TrickestFile `json:"results"`
+}
+
+type TrickestFile struct {
+	Id           string    `json:"id"`
+	Name         string    `json:"name"`
+	VaultInfo    string    `json:"vault_info"`
+	Size         int       `json:"size"`
+	ModifiedDate time.Time `json:"modified_date"`
+}

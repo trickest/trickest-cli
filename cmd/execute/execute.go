@@ -342,6 +342,8 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 										os.Exit(0)
 									}
 									newPNode.Value = "trickest://file/" + val
+									trueVal := true
+									newPNode.UpdateFile = &trueVal
 								}
 								newPNode.Type = "FILE"
 								httpInputCnt++
@@ -736,6 +738,8 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 								newPNode.Value = val
 							} else {
 								newPNode.Value = "trickest://file/" + val
+								trueVal := true
+								newPNode.UpdateFile = &trueVal
 							}
 							primitiveNodes[newPNode.Name] = &newPNode
 							multi := true
@@ -801,11 +805,8 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 			PrimitiveNodes: primitiveNodes,
 		},
 	}
-	for _, pNode := range version.Data.PrimitiveNodes {
-		if pNode.Type == "FILE" && strings.HasPrefix(pNode.Value.(string), "trickest://file/") {
-			uploadFile(strings.TrimPrefix(pNode.Value.(string), "trickest://file/"))
-		}
-	}
+
+	uploadFilesIfNeeded(version.Data.PrimitiveNodes)
 	setConnectedSplitters(version, nil)
 	generateNodesCoordinates(version)
 	version = createNewVersion(version)
@@ -1194,11 +1195,7 @@ func createToolWorkflow(wfName string, space *types.SpaceDetailed, project *type
 		},
 	}
 
-	for _, pNode := range newVersion.Data.PrimitiveNodes {
-		if pNode.Type == "FILE" && strings.HasPrefix(pNode.Value.(string), "trickest://file/") {
-			pNode.Label = uploadFile(strings.TrimPrefix(pNode.Value.(string), "trickest://file/"))
-		}
-	}
+	uploadFilesIfNeeded(newVersion.Data.PrimitiveNodes)
 	newVersion = createNewVersion(newVersion)
 	return newVersion
 }
@@ -1271,11 +1268,7 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 
 					wfVersion = GetLatestWorkflowVersion(newWorkflow)
 					if update && updatedWfVersion != nil {
-						for _, pNode := range primitiveNodes {
-							if pNode.Type == "FILE" && strings.HasPrefix(pNode.Value.(string), "trickest://file/") {
-								pNode.Label = uploadFile(strings.TrimPrefix(pNode.Value.(string), "trickest://file/"))
-							}
-						}
+						uploadFilesIfNeeded(primitiveNodes)
 						updatedWfVersion.WorkflowInfo = newWorkflow.ID
 						wfVersion = createNewVersion(updatedWfVersion)
 					}
@@ -1322,11 +1315,7 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 		} else {
 			update, updatedWfVersion, newPrimitiveNodes := readConfig(configFile, wfVersion, nil)
 			if update {
-				for _, pNode := range newPrimitiveNodes {
-					if pNode.Type == "FILE" && strings.HasPrefix(pNode.Value.(string), "trickest://file/") {
-						pNode.Label = uploadFile(strings.TrimPrefix(pNode.Value.(string), "trickest://file/"))
-					}
-				}
+				uploadFilesIfNeeded(newPrimitiveNodes)
 				wfVersion = createNewVersion(updatedWfVersion)
 			}
 		}
@@ -1545,6 +1534,8 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 							os.Exit(0)
 						}
 						newPNode.Value = "trickest://file/" + val
+						trueVal := true
+						newPNode.UpdateFile = &trueVal
 					}
 					newPNode.TypeName = "URL"
 					httpInputCnt++
@@ -1615,6 +1606,8 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 									os.Exit(0)
 								}
 								newPNode.Value = "trickest://file/" + file
+								trueVal := true
+								newPNode.UpdateFile = &trueVal
 							}
 							newPNode.Type = "FILE"
 							httpInputCnt++

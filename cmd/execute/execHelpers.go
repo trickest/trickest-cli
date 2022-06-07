@@ -679,3 +679,69 @@ func getNodeNameFromConnectionID(id string) string {
 
 	return idSplit[1]
 }
+
+func getFiles() []types.TrickestFile {
+	urlReq := util.Cfg.BaseUrl + "v1/subjob/?vault=" + util.GetVault()
+	urlReq = urlReq + "&page_size=" + strconv.Itoa(math.MaxInt)
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", urlReq, nil)
+	req.Header.Add("Authorization", "Token "+util.GetToken())
+	req.Header.Add("Accept", "application/json")
+
+	var resp *http.Response
+	resp, err = client.Do(req)
+	if err != nil {
+		fmt.Println("Error: Couldn't get files!")
+		os.Exit(0)
+	}
+	defer resp.Body.Close()
+
+	var bodyBytes []byte
+	bodyBytes, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error: Couldn't read files response.")
+		os.Exit(0)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		util.ProcessUnexpectedResponse(resp)
+	}
+
+	var files types.FilesResponse
+	err = json.Unmarshal(bodyBytes, &files)
+	if err != nil {
+		fmt.Println("Error unmarshalling sub-jobs response!")
+		os.Exit(0)
+	}
+
+	return files.Results
+}
+
+func fileExistsOnPlatform(name string) bool {
+	files := getFiles()
+	for _, file := range files {
+		if file.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func uploadFilesIfNeeded(primitiveNodes map[string]*types.PrimitiveNode) {
+	for _, pNode := range primitiveNodes {
+		if pNode.Type == "FILE" && strings.HasPrefix(pNode.Value.(string), "trickest://file/") {
+			fileName := strings.TrimPrefix(pNode.Value.(string), "trickest://file/")
+			if pNode.UpdateFile != nil && *pNode.UpdateFile {
+				pNode.Label = uploadFile(fileName)
+			} else {
+				if !fileExistsOnPlatform(fileName) {
+					fmt.Println("\"" + fileName + "\" hasn't been uploaded yet or has been deleted from the platform." +
+						" Try uploading it without the \"trickest://file/\" prefix.")
+					os.Exit(0)
+				}
+			}
+			pNode.UpdateFile = nil
+		}
+	}
+}

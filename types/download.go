@@ -67,7 +67,8 @@ type PrimitiveNode struct {
 		X float64 `json:"x"`
 		Y float64 `json:"y"`
 	} `json:"coordinates"`
-	ParamName *string `json:",omitempty"`
+	ParamName  *string `json:",omitempty"`
+	UpdateFile *bool   `json:",omitempty"`
 }
 
 type Node struct {
