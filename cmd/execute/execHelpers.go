@@ -171,7 +171,7 @@ func createRun(versionID string, watch bool, machines *types.Bees, outputNodes [
 		os.Exit(0)
 	}
 
-	if len(outputNodes) > 0 {
+	if len(outputNodes) > 0 || downloadAllNodes {
 		for _, nodeName := range outputNodes {
 			nodesToDownload[nodeName] = download.NodeInfo{ToFetch: true, Found: false}
 		}
