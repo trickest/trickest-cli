@@ -192,11 +192,15 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 		os.Exit(0)
 	}
 
-	var wfNodes []types.WorkflowYAMLNode
-	err = yaml.Unmarshal(bytesData, &wfNodes)
+	var wf types.WorkflowYAML
+	err = yaml.Unmarshal(bytesData, &wf)
 	if err != nil {
 		fmt.Println("Couldn't unmarshal workflow YAML!")
 		os.Exit(0)
+	}
+
+	if workflowName == "" {
+		workflowName = wf.Name
 	}
 
 	space, project, workflow, _ := list.ResolveObjectPath(objectPath, true)
@@ -214,7 +218,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 	httpInputCnt := 0
 	gitInputCnt := 0
 
-	for _, node := range wfNodes {
+	for _, node := range wf.Steps {
 		tool, script, splitter := getToolScriptOrSplitterFromYAMLNode(node)
 
 		newNode := &types.Node{
@@ -304,7 +308,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 						}
 						switch val := value.(type) {
 						case string:
-							if nodeExists(wfNodes, val) {
+							if nodeExists(wf.Steps, val) {
 								connections = append(connections, types.Connection{
 									Source: struct {
 										ID string `json:"id"`
@@ -386,7 +390,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 						}
 						switch val := value.(type) {
 						case string:
-							if nodeExists(wfNodes, val) {
+							if nodeExists(wf.Steps, val) {
 								connections = append(connections, types.Connection{
 									Source: struct {
 										ID string `json:"id"`
@@ -483,7 +487,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 				switch val := value.(type) {
 				case string:
 					if toolInput.Type == "FILE" {
-						if nodeExists(wfNodes, val) {
+						if nodeExists(wf.Steps, val) {
 							connections = append(connections, types.Connection{
 								Source: struct {
 									ID string `json:"id"`
@@ -525,7 +529,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 						newPNode.Label = newPNode.Value.(string)
 						newPNode.TypeName = "URL"
 					} else if toolInput.Type == "FOLDER" {
-						if nodeExists(wfNodes, val) {
+						if nodeExists(wf.Steps, val) {
 							connections = append(connections, types.Connection{
 								Source: struct {
 									ID string `json:"id"`
@@ -564,7 +568,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 							}
 						}
 					} else {
-						if nodeExists(wfNodes, val) {
+						if nodeExists(wf.Steps, val) {
 							connections = append(connections, types.Connection{
 								Source: struct {
 									ID string `json:"id"`
@@ -685,7 +689,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 			for _, value := range inputs {
 				switch val := value.(type) {
 				case string:
-					if nodeExists(wfNodes, val) {
+					if nodeExists(wf.Steps, val) {
 						connections = append(connections, types.Connection{
 							Source: struct {
 								ID string `json:"id"`

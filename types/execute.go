@@ -52,6 +52,12 @@ type CreateRunResponse struct {
 	HiveInfo  string `json:"hive_info"`
 }
 
+type WorkflowYAML struct {
+	Name     string             `yaml:"name"`
+	Category *string            `yaml:"category,omitempty"`
+	Steps    []WorkflowYAMLNode `yaml:"steps"`
+}
+
 type WorkflowYAMLNode struct {
 	Name    string      `yaml:"name"`
 	ID      string      `yaml:"id"`
