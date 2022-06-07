@@ -1,4 +1,4 @@
-package download
+package output
 
 import (
 	"encoding/json"
@@ -36,9 +36,9 @@ var (
 	numberOfRuns int
 )
 
-// DownloadCmd represents the download command
-var DownloadCmd = &cobra.Command{
-	Use:   "download",
+// OutputCmd represents the download command
+var OutputCmd = &cobra.Command{
+	Use:   "output",
 	Short: "Download workflow outputs",
 	Long: `This command downloads sub-job outputs of a completed workflow run.
 Downloaded files will be stored into space/project/workflow/run-timestamp directory. Every node will have it's own
@@ -135,9 +135,9 @@ The YAML config file should be formatted like:
 }
 
 func init() {
-	DownloadCmd.Flags().StringVar(&configFile, "config", "", "YAML file to determine which nodes output(s) should be downloaded")
-	DownloadCmd.Flags().BoolVar(&allRuns, "all", false, "Download output data for all runs")
-	DownloadCmd.Flags().IntVar(&numberOfRuns, "runs", 1, "Number of recent runs which outputs should be downloaded")
+	OutputCmd.Flags().StringVar(&configFile, "config", "", "YAML file to determine which nodes output(s) should be downloaded")
+	OutputCmd.Flags().BoolVar(&allRuns, "all", false, "Download output data for all runs")
+	OutputCmd.Flags().IntVar(&numberOfRuns, "runs", 1, "Number of recent runs which outputs should be downloaded")
 }
 
 func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, version *types.WorkflowVersionDetailed, destinationPath string) {
