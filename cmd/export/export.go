@@ -15,7 +15,7 @@ import (
 
 type workflowExport struct {
 	Name     string       `yaml:"name"`
-	Category string       `yaml:"category"`
+	Category *string      `yaml:"category,omitempty"`
 	Steps    []nodeExport `yaml:"steps"`
 }
 
@@ -86,7 +86,9 @@ func createYAML(workflow *types.Workflow, destinationPath string) {
 	w := workflowExport{
 		Steps: make([]nodeExport, 0),
 	}
-	w.Category = workflow.WorkflowCategory.Name
+	if workflow.WorkflowCategory != nil {
+		w.Category = &workflow.WorkflowCategory.Name
+	}
 	w.Name = workflow.Name
 	version := execute.GetLatestWorkflowVersion(workflow)
 	nodes := sortNodes(version.Data.Nodes)
