@@ -83,7 +83,7 @@ var ExecuteCmd = &cobra.Command{
 		if !maxMachines {
 			setMachinesToMinimum(&executionMachines)
 		}
-		//createRun(version.ID, watch, &executionMachines)
+		createRun(version.ID, watch, &executionMachines)
 	},
 }
 
