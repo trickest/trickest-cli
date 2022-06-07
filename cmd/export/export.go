@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"trickest-cli/cmd/execute"
@@ -200,4 +201,10 @@ func createYAML(workflow *types.Workflow, destinationPath string) {
 		fmt.Println("Couldn't write data to file: " + destinationPath)
 		os.Exit(0)
 	}
+
+	path, err := filepath.Abs(file.Name())
+	if err != nil {
+		return
+	}
+	fmt.Println("Workflow \"" + workflow.Name + "\" successfully exported to " + path)
 }
