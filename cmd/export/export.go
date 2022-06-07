@@ -184,19 +184,20 @@ func createYAML(workflow *types.Workflow, destinationPath string) {
 
 	yamlData, err := yaml.Marshal(&w)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		fmt.Println("Couldn't marshal workflow to YAML")
+		os.Exit(0)
 	}
 
 	file, err := os.Create(destinationPath)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		fmt.Println("Couldn't create/overwrite file: " + destinationPath)
+		os.Exit(0)
 	}
+	defer file.Close()
 
 	_, err = file.Write(yamlData)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		fmt.Println("Couldn't write data to file: " + destinationPath)
+		os.Exit(0)
 	}
 }
