@@ -101,14 +101,14 @@ func createYAML(workflow *types.Workflow, destinationPath string) {
 					continue
 				}
 
-				inputValue := fmt.Sprintf("%v", input.Value)
-				if strings.HasPrefix(inputValue, "in/file-splitter-") {
+				inputValueStr := fmt.Sprintf("%v", input.Value)
+				if strings.HasPrefix(inputValueStr, "in/file-splitter-") {
 					// in/file-splitter-x:item
-					value := strings.Split(inputValue, "/")[1]
+					value := strings.Split(inputValueStr, "/")[1]
 					value = strings.Split(value, ":")[0]
 					inputs[name] = value
 				} else if input.Type == "FILE" || input.Type == "FOLDER" {
-					value := strings.Split(inputValue, "/")[1]
+					value := strings.Split(inputValueStr, "/")[1]
 					if strings.HasPrefix(value, "http-input-") || strings.HasPrefix(value, "git-input-") {
 						if v, ok := version.Data.PrimitiveNodes[value]; ok {
 							value = v.Value.(string)
@@ -116,10 +116,10 @@ func createYAML(workflow *types.Workflow, destinationPath string) {
 					}
 					inputs[name] = value
 				} else {
-					if inputValue == "" {
-						inputs[name] = true
+					if _, ok := input.Value.(bool); ok {
+						inputs[name] = input.Value
 					} else {
-						inputs[name] = inputValue
+						inputs[name] = inputValueStr
 					}
 				}
 			}
