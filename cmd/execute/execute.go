@@ -83,7 +83,7 @@ var ExecuteCmd = &cobra.Command{
 		if !maxMachines {
 			setMachinesToMinimum(&executionMachines)
 		}
-		createRun(version.ID, watch, &executionMachines)
+		//createRun(version.ID, watch, &executionMachines)
 	},
 }
 
@@ -334,7 +334,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 								}
 								continue
 							} else {
-								if strings.HasPrefix(val, "http") {
+								if strings.HasPrefix(val, "http") || strings.HasPrefix(val, "trickest://file/") {
 									newPNode.Value = val
 								} else {
 									if _, err = os.Stat(val); errors.Is(err, os.ErrNotExist) {
@@ -716,7 +716,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 							Value: "in/" + val + "/output.txt",
 						}
 					} else {
-						if _, err = os.Stat(val); errors.Is(err, os.ErrNotExist) {
+						if _, err = os.Stat(val); errors.Is(err, os.ErrNotExist) && !strings.HasPrefix(val, "trickest://file/") {
 							fmt.Println("A node with the given ID (" + val + ") doesn't exists in the workflow yaml!")
 							fmt.Println("A file named " + val + " doesn't exist!")
 							os.Exit(0)
@@ -726,12 +726,16 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 								Name:     "http-input-" + strconv.Itoa(httpInputCnt),
 								Type:     "FILE",
 								Label:    val,
-								Value:    "trickest://file/" + val,
 								TypeName: "URL",
 								Coordinates: struct {
 									X float64 `json:"x"`
 									Y float64 `json:"y"`
 								}{0, 0},
+							}
+							if strings.HasPrefix(val, "trickest://file/") {
+								newPNode.Value = val
+							} else {
+								newPNode.Value = "trickest://file/" + val
 							}
 							primitiveNodes[newPNode.Name] = &newPNode
 							multi := true
@@ -1533,7 +1537,7 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 					newPNode.Name = "string-input-" + strconv.Itoa(stringInputsCnt)
 					newPNode.Value = val
 				case "FILE":
-					if strings.HasPrefix(val, "http") {
+					if strings.HasPrefix(val, "http") || strings.HasPrefix(val, "trickest://file/") {
 						newPNode.Value = val
 					} else {
 						if _, err := os.Stat(val); errors.Is(err, os.ErrNotExist) {
@@ -1603,7 +1607,7 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 					for i, value := range files {
 						switch file := value.(type) {
 						case string:
-							if strings.HasPrefix(file, "http") {
+							if strings.HasPrefix(file, "http") || strings.HasPrefix(file, "trickest://file/") {
 								newPNode.Value = file
 							} else {
 								if _, err := os.Stat(file); errors.Is(err, os.ErrNotExist) {
