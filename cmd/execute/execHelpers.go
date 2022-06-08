@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"trickest-cli/cmd/delete"
-	"trickest-cli/cmd/download"
+	"trickest-cli/cmd/output"
 	"trickest-cli/types"
 	"trickest-cli/util"
 )
@@ -233,7 +233,7 @@ func createNewVersion(version *types.WorkflowVersionDetailed) *types.WorkflowVer
 		return nil
 	}
 
-	newVersion := download.GetWorkflowVersionByID(newVersionInfo.ID)
+	newVersion := output.GetWorkflowVersionByID(newVersionInfo.ID)
 	return newVersion
 }
 
@@ -314,7 +314,7 @@ func GetLatestWorkflowVersion(workflow *types.Workflow) *types.WorkflowVersionDe
 		os.Exit(0)
 	}
 
-	latestVersion := download.GetWorkflowVersionByID(versions[0].ID)
+	latestVersion := output.GetWorkflowVersionByID(versions[0].ID)
 
 	return latestVersion
 }

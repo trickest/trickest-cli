@@ -5,9 +5,9 @@ import (
 	"github.com/spf13/cobra"
 	"strings"
 	"time"
-	"trickest-cli/cmd/download"
 	"trickest-cli/cmd/execute"
 	"trickest-cli/cmd/list"
+	"trickest-cli/cmd/output"
 	"trickest-cli/util"
 )
 
@@ -44,7 +44,7 @@ var GetCmd = &cobra.Command{
 		version := execute.GetLatestWorkflowVersion(workflow)
 		allNodes, roots := execute.CreateTrees(version, false)
 
-		runs := download.GetRuns(version.WorkflowInfo, 1)
+		runs := output.GetRuns(version.WorkflowInfo, 1)
 		if runs != nil && len(runs) > 0 && runs[0].Status == "RUNNING" {
 			execute.WatchRun(runs[0].ID, "", map[string]download.NodeInfo{}, !watch, &runs[0].Bees, showNodeParams)
 			return

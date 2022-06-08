@@ -4,10 +4,11 @@ import (
 	"github.com/spf13/cobra"
 	"trickest-cli/cmd/create"
 	"trickest-cli/cmd/delete"
-	"trickest-cli/cmd/download"
 	"trickest-cli/cmd/execute"
+	"trickest-cli/cmd/export"
 	"trickest-cli/cmd/get"
 	"trickest-cli/cmd/list"
+	"trickest-cli/cmd/output"
 	"trickest-cli/cmd/store"
 	"trickest-cli/util"
 )
@@ -40,9 +41,10 @@ func init() {
 	RootCmd.AddCommand(store.StoreCmd)
 	RootCmd.AddCommand(create.CreateCmd)
 	RootCmd.AddCommand(delete.DeleteCmd)
-	RootCmd.AddCommand(download.DownloadCmd)
+	RootCmd.AddCommand(output.OutputCmd)
 	RootCmd.AddCommand(execute.ExecuteCmd)
 	RootCmd.AddCommand(get.GetCmd)
+	RootCmd.AddCommand(export.ExportCmd)
 }
 
 func initVaultID() {

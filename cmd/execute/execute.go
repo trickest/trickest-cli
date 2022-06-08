@@ -20,8 +20,8 @@ import (
 	"text/tabwriter"
 	"time"
 	"trickest-cli/cmd/create"
-	"trickest-cli/cmd/download"
 	"trickest-cli/cmd/list"
+	"trickest-cli/cmd/output"
 	"trickest-cli/types"
 	"trickest-cli/util"
 )
@@ -33,7 +33,7 @@ var (
 	showParams        bool
 	executionMachines types.Bees
 	hive              *types.Hive
-	nodesToDownload   = make(map[string]download.NodeInfo, 0)
+	nodesToDownload   = make(map[string]output.NodeInfo, 0)
 	allNodes          map[string]*types.TreeNode
 	roots             []*types.TreeNode
 	workflowYAML      string
@@ -1832,8 +1832,8 @@ func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPri
 	return updateNeeded
 }
 
-func readConfigOutputs(config *map[string]interface{}) map[string]download.NodeInfo {
-	downloadNodes := make(map[string]download.NodeInfo)
+func readConfigOutputs(config *map[string]interface{}) map[string]output.NodeInfo {
+	downloadNodes := make(map[string]output.NodeInfo)
 	if outputs, exists := (*config)["outputs"]; exists && outputs != nil {
 		outputsList, isList := outputs.([]interface{})
 		if !isList {
@@ -1843,7 +1843,7 @@ func readConfigOutputs(config *map[string]interface{}) map[string]download.NodeI
 		for _, node := range outputsList {
 			nodeName, ok := node.(string)
 			if ok {
-				downloadNodes[nodeName] = download.NodeInfo{ToFetch: true, Found: false}
+				downloadNodes[nodeName] = output.NodeInfo{ToFetch: true, Found: false}
 			} else {
 				fmt.Print("Invalid output node name: ")
 				fmt.Println(node)
