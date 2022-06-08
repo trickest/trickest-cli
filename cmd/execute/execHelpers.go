@@ -687,7 +687,7 @@ func getNodeNameFromConnectionID(id string) string {
 }
 
 func getFiles() []types.TrickestFile {
-	urlReq := util.Cfg.BaseUrl + "v1/subjob/?vault=" + util.GetVault()
+	urlReq := util.Cfg.BaseUrl + "v1/file/?vault=" + util.GetVault()
 	urlReq = urlReq + "&page_size=" + strconv.Itoa(math.MaxInt)
 
 	client := &http.Client{}
