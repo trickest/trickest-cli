@@ -260,6 +260,14 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 		if script != nil {
 			newNode.ID = script.ID
 			newNode.Script = &script.Script
+			if script.Name == "custom-script" {
+				if node.Script != nil {
+					newNode.Script.Source = *node.Script
+				} else {
+					fmt.Println("custom-script node must specify a script to be executed")
+					os.Exit(0)
+				}
+			}
 			newNode.Type = script.Type
 			outputs := struct {
 				Folder *struct {
