@@ -827,7 +827,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 	return version
 }
 
-func WatchRun(runID, downloadPath string, nodesToDownload map[string]download.NodeInfo, timestampOnly bool, machines *types.Bees, showParameters bool) {
+func WatchRun(runID, downloadPath string, nodesToDownload map[string]output.NodeInfo, timestampOnly bool, machines *types.Bees, showParameters bool) {
 	const fmtStr = "%-12s %v\n"
 	writer := uilive.New()
 	writer.Start()
@@ -923,9 +923,9 @@ func WatchRun(runID, downloadPath string, nodesToDownload map[string]download.No
 			}
 			if downloadAllNodes {
 				// DownloadRunOutputs downloads all outputs if no nodes were specified
-				download.DownloadRunOutput(run, nil, nil, downloadPath)
+				output.DownloadRunOutput(run, nil, nil, downloadPath)
 			} else if len(nodesToDownload) > 0 {
-				download.DownloadRunOutput(run, nodesToDownload, nil, downloadPath)
+				output.DownloadRunOutput(run, nodesToDownload, nil, downloadPath)
 			}
 			mutex.Unlock()
 			return
