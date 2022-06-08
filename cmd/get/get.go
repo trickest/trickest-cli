@@ -46,7 +46,7 @@ var GetCmd = &cobra.Command{
 
 		runs := output.GetRuns(version.WorkflowInfo, 1)
 		if runs != nil && len(runs) > 0 && runs[0].Status == "RUNNING" {
-			execute.WatchRun(runs[0].ID, map[string]output.NodeInfo{}, !watch, &runs[0].Bees, showNodeParams)
+			execute.WatchRun(runs[0].ID, "", map[string]download.NodeInfo{}, !watch, &runs[0].Bees, showNodeParams)
 			return
 		} else {
 			const fmtStr = "%-15s %v\n"

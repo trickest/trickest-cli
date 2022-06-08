@@ -38,6 +38,9 @@ var (
 	roots             []*types.TreeNode
 	workflowYAML      string
 	maxMachines       bool
+	downloadAllNodes  bool
+	outputsDirectory  string
+	outputNodesFlag   string
 )
 
 // ExecuteCmd represents the execute command
@@ -83,7 +86,12 @@ var ExecuteCmd = &cobra.Command{
 		if !maxMachines {
 			setMachinesToMinimum(&executionMachines)
 		}
-		createRun(version.ID, watch, &executionMachines)
+
+		outputNodes := make([]string, 0)
+		if outputNodesFlag != "" {
+			outputNodes = strings.Split(outputNodesFlag, ",")
+		}
+		createRun(version.ID, watch, &executionMachines, outputNodes, outputsDirectory)
 	},
 }
 
@@ -94,6 +102,9 @@ func init() {
 	ExecuteCmd.Flags().BoolVar(&showParams, "show-params", false, "Show parameters in the workflow tree")
 	ExecuteCmd.Flags().StringVar(&workflowYAML, "file", "", "Workflow YAML file to execute")
 	ExecuteCmd.Flags().BoolVar(&maxMachines, "max", false, "Use maximum number of machines for workflow execution")
+	ExecuteCmd.Flags().BoolVar(&downloadAllNodes, "output-all", false, "Download all outputs when the execution is finished")
+	ExecuteCmd.Flags().StringVar(&outputNodesFlag, "output", "", "A comma separated list of nodes which outputs should be downloaded when the execution is finished")
+	ExecuteCmd.Flags().StringVar(&outputsDirectory, "output-dir", "", "Path to directory which should be used to store outputs")
 }
 
 func getToolScriptOrSplitterFromYAMLNode(node types.WorkflowYAMLNode) (*types.Tool, *types.Script, *types.Splitter) {
@@ -192,11 +203,15 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 		os.Exit(0)
 	}
 
-	var wfNodes []types.WorkflowYAMLNode
-	err = yaml.Unmarshal(bytesData, &wfNodes)
+	var wf types.WorkflowYAML
+	err = yaml.Unmarshal(bytesData, &wf)
 	if err != nil {
 		fmt.Println("Couldn't unmarshal workflow YAML!")
 		os.Exit(0)
+	}
+
+	if workflowName == "" {
+		workflowName = wf.Name
 	}
 
 	space, project, workflow, _ := list.ResolveObjectPath(objectPath, true)
@@ -214,7 +229,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 	httpInputCnt := 0
 	gitInputCnt := 0
 
-	for _, node := range wfNodes {
+	for _, node := range wf.Steps {
 		tool, script, splitter := getToolScriptOrSplitterFromYAMLNode(node)
 
 		newNode := &types.Node{
@@ -245,6 +260,9 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 		if script != nil {
 			newNode.ID = script.ID
 			newNode.Script = &script.Script
+			if node.Script != nil {
+				newNode.Script.Source = *node.Script
+			}
 			newNode.Type = script.Type
 			outputs := struct {
 				Folder *struct {
@@ -304,7 +322,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 						}
 						switch val := value.(type) {
 						case string:
-							if nodeExists(wfNodes, val) {
+							if nodeExists(wf.Steps, val) {
 								connections = append(connections, types.Connection{
 									Source: struct {
 										ID string `json:"id"`
@@ -330,7 +348,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 								}
 								continue
 							} else {
-								if strings.HasPrefix(val, "http") {
+								if strings.HasPrefix(val, "http") || strings.HasPrefix(val, "trickest://file/") {
 									newPNode.Value = val
 								} else {
 									if _, err = os.Stat(val); errors.Is(err, os.ErrNotExist) {
@@ -338,6 +356,8 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 										os.Exit(0)
 									}
 									newPNode.Value = "trickest://file/" + val
+									trueVal := true
+									newPNode.UpdateFile = &trueVal
 								}
 								newPNode.Type = "FILE"
 								httpInputCnt++
@@ -386,7 +406,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 						}
 						switch val := value.(type) {
 						case string:
-							if nodeExists(wfNodes, val) {
+							if nodeExists(wf.Steps, val) {
 								connections = append(connections, types.Connection{
 									Source: struct {
 										ID string `json:"id"`
@@ -483,7 +503,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 				switch val := value.(type) {
 				case string:
 					if toolInput.Type == "FILE" {
-						if nodeExists(wfNodes, val) {
+						if nodeExists(wf.Steps, val) {
 							connections = append(connections, types.Connection{
 								Source: struct {
 									ID string `json:"id"`
@@ -525,7 +545,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 						newPNode.Label = newPNode.Value.(string)
 						newPNode.TypeName = "URL"
 					} else if toolInput.Type == "FOLDER" {
-						if nodeExists(wfNodes, val) {
+						if nodeExists(wf.Steps, val) {
 							connections = append(connections, types.Connection{
 								Source: struct {
 									ID string `json:"id"`
@@ -564,7 +584,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 							}
 						}
 					} else {
-						if nodeExists(wfNodes, val) {
+						if nodeExists(wf.Steps, val) {
 							connections = append(connections, types.Connection{
 								Source: struct {
 									ID string `json:"id"`
@@ -685,7 +705,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 			for _, value := range inputs {
 				switch val := value.(type) {
 				case string:
-					if nodeExists(wfNodes, val) {
+					if nodeExists(wf.Steps, val) {
 						connections = append(connections, types.Connection{
 							Source: struct {
 								ID string `json:"id"`
@@ -712,7 +732,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 							Value: "in/" + val + "/output.txt",
 						}
 					} else {
-						if _, err = os.Stat(val); errors.Is(err, os.ErrNotExist) {
+						if _, err = os.Stat(val); errors.Is(err, os.ErrNotExist) && !strings.HasPrefix(val, "trickest://file/") {
 							fmt.Println("A node with the given ID (" + val + ") doesn't exists in the workflow yaml!")
 							fmt.Println("A file named " + val + " doesn't exist!")
 							os.Exit(0)
@@ -722,12 +742,18 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 								Name:     "http-input-" + strconv.Itoa(httpInputCnt),
 								Type:     "FILE",
 								Label:    val,
-								Value:    "trickest://file/" + val,
 								TypeName: "URL",
 								Coordinates: struct {
 									X float64 `json:"x"`
 									Y float64 `json:"y"`
 								}{0, 0},
+							}
+							if strings.HasPrefix(val, "trickest://file/") {
+								newPNode.Value = val
+							} else {
+								newPNode.Value = "trickest://file/" + val
+								trueVal := true
+								newPNode.UpdateFile = &trueVal
 							}
 							primitiveNodes[newPNode.Name] = &newPNode
 							multi := true
@@ -793,18 +819,15 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 			PrimitiveNodes: primitiveNodes,
 		},
 	}
-	for _, pNode := range version.Data.PrimitiveNodes {
-		if pNode.Type == "FILE" && strings.HasPrefix(pNode.Value.(string), "trickest://file/") {
-			uploadFile(strings.TrimPrefix(pNode.Value.(string), "trickest://file/"))
-		}
-	}
+
+	uploadFilesIfNeeded(version.Data.PrimitiveNodes)
 	setConnectedSplitters(version, nil)
 	generateNodesCoordinates(version)
 	version = createNewVersion(version)
 	return version
 }
 
-func WatchRun(runID string, nodesToDownload map[string]output.NodeInfo, timestampOnly bool, machines *types.Bees, showParameters bool) {
+func WatchRun(runID, downloadPath string, nodesToDownload map[string]download.NodeInfo, timestampOnly bool, machines *types.Bees, showParameters bool) {
 	const fmtStr = "%-12s %v\n"
 	writer := uilive.New()
 	writer.Start()
@@ -891,13 +914,18 @@ func WatchRun(runID string, nodesToDownload map[string]output.NodeInfo, timestam
 		}
 
 		if run.Status == "COMPLETED" || run.Status == "STOPPED" || run.Status == "FAILED" {
-			if len(nodesToDownload) > 0 {
-				objectPath := run.SpaceName
+			if downloadPath == "" {
+				downloadPath = run.SpaceName
 				if run.ProjectName != "" {
-					objectPath += "/" + run.ProjectName
+					downloadPath += "/" + run.ProjectName
 				}
-				objectPath += "/" + run.WorkflowName
-				output.DownloadRunOutput(run, nodesToDownload, nil, objectPath)
+				downloadPath += "/" + run.WorkflowName
+			}
+			if downloadAllNodes {
+				// DownloadRunOutputs downloads all outputs if no nodes were specified
+				download.DownloadRunOutput(run, nil, nil, downloadPath)
+			} else if len(nodesToDownload) > 0 {
+				download.DownloadRunOutput(run, nodesToDownload, nil, downloadPath)
 			}
 			mutex.Unlock()
 			return
@@ -1186,11 +1214,7 @@ func createToolWorkflow(wfName string, space *types.SpaceDetailed, project *type
 		},
 	}
 
-	for _, pNode := range newVersion.Data.PrimitiveNodes {
-		if pNode.Type == "FILE" && strings.HasPrefix(pNode.Value.(string), "trickest://file/") {
-			pNode.Label = uploadFile(strings.TrimPrefix(pNode.Value.(string), "trickest://file/"))
-		}
-	}
+	uploadFilesIfNeeded(newVersion.Data.PrimitiveNodes)
 	newVersion = createNewVersion(newVersion)
 	return newVersion
 }
@@ -1263,11 +1287,7 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 
 					wfVersion = GetLatestWorkflowVersion(newWorkflow)
 					if update && updatedWfVersion != nil {
-						for _, pNode := range primitiveNodes {
-							if pNode.Type == "FILE" && strings.HasPrefix(pNode.Value.(string), "trickest://file/") {
-								pNode.Label = uploadFile(strings.TrimPrefix(pNode.Value.(string), "trickest://file/"))
-							}
-						}
+						uploadFilesIfNeeded(primitiveNodes)
 						updatedWfVersion.WorkflowInfo = newWorkflow.ID
 						wfVersion = createNewVersion(updatedWfVersion)
 					}
@@ -1314,11 +1334,7 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 		} else {
 			update, updatedWfVersion, newPrimitiveNodes := readConfig(configFile, wfVersion, nil)
 			if update {
-				for _, pNode := range newPrimitiveNodes {
-					if pNode.Type == "FILE" && strings.HasPrefix(pNode.Value.(string), "trickest://file/") {
-						pNode.Label = uploadFile(strings.TrimPrefix(pNode.Value.(string), "trickest://file/"))
-					}
-				}
+				uploadFilesIfNeeded(newPrimitiveNodes)
 				wfVersion = createNewVersion(updatedWfVersion)
 			}
 		}
@@ -1529,7 +1545,7 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 					newPNode.Name = "string-input-" + strconv.Itoa(stringInputsCnt)
 					newPNode.Value = val
 				case "FILE":
-					if strings.HasPrefix(val, "http") {
+					if strings.HasPrefix(val, "http") || strings.HasPrefix(val, "trickest://file/") {
 						newPNode.Value = val
 					} else {
 						if _, err := os.Stat(val); errors.Is(err, os.ErrNotExist) {
@@ -1537,6 +1553,8 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 							os.Exit(0)
 						}
 						newPNode.Value = "trickest://file/" + val
+						trueVal := true
+						newPNode.UpdateFile = &trueVal
 					}
 					newPNode.TypeName = "URL"
 					httpInputCnt++
@@ -1599,7 +1617,7 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 					for i, value := range files {
 						switch file := value.(type) {
 						case string:
-							if strings.HasPrefix(file, "http") {
+							if strings.HasPrefix(file, "http") || strings.HasPrefix(file, "trickest://file/") {
 								newPNode.Value = file
 							} else {
 								if _, err := os.Stat(file); errors.Is(err, os.ErrNotExist) {
@@ -1607,6 +1625,8 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 									os.Exit(0)
 								}
 								newPNode.Value = "trickest://file/" + file
+								trueVal := true
+								newPNode.UpdateFile = &trueVal
 							}
 							newPNode.Type = "FILE"
 							httpInputCnt++

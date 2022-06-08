@@ -52,6 +52,12 @@ type CreateRunResponse struct {
 	HiveInfo  string `json:"hive_info"`
 }
 
+type WorkflowYAML struct {
+	Name     string             `yaml:"name"`
+	Category *string            `yaml:"category,omitempty"`
+	Steps    []WorkflowYAMLNode `yaml:"steps"`
+}
+
 type WorkflowYAMLNode struct {
 	Name    string      `yaml:"name"`
 	ID      string      `yaml:"id"`
@@ -131,4 +137,21 @@ type Splitter struct {
 			Order *int   `json:"order,omitempty"`
 		} `json:"output"`
 	} `json:"outputs"`
+}
+
+type FilesResponse struct {
+	Next     string         `json:"next"`
+	Previous string         `json:"previous"`
+	Page     int            `json:"page"`
+	Last     int            `json:"last"`
+	Count    int            `json:"count"`
+	Results  []TrickestFile `json:"results"`
+}
+
+type TrickestFile struct {
+	Id           string    `json:"id"`
+	Name         string    `json:"name"`
+	VaultInfo    string    `json:"vault_info"`
+	Size         int       `json:"size"`
+	ModifiedDate time.Time `json:"modified_date"`
 }
