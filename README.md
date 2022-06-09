@@ -10,26 +10,16 @@ Trickest platform is an IDE tailored for bug bounty hunters, penetration testers
 
 Current workflow categories:
 
+- Recon
+- Discovery
+- Fuzzing
+- Network
 - Containers
-- Scraping
-- Probing
-- Spidering
-- CVE
-- Machine Learning
+- Scanners
 - Social Engineering
 - Cloud Storage
 - Static Code Analysis
-- Vulnerabilities
 - Utilities
-- Static
-- Social
-- Scanners
-- Recon
-- Passwords
-- Network
-- Misconfiguration
-- Fuzzing
-- Discovery
 
 # Installation
 
@@ -87,7 +77,7 @@ Use **list** command to list your private content.
 
 #### All
 
-Use **list** command to list all of your created spaces and projects along with their descriptions.
+Use **list** command to list all of your spaces along with their descriptions.
 
 ```
 Command usage:
@@ -140,7 +130,7 @@ Flags:
 
 
 ## Execute
-Use **execute** command to execute your particular workflow.
+Use **execute** command to execute a particular workflow or tool.
 
 #### Provide parameters using **config.yaml** file
 
@@ -151,13 +141,18 @@ Use config.yaml file provided using **--config** option to specify:
 
 ```
 Command usage:
-trickest execute --workflow <workflow_name> --space <space_name> --config <config_file_path> [--watch]
+trickest execute --workflow <workflow_or_tool_name> --space <space_name> --config <config_file_path> [--watch]
 
 Flags:
-  --workflow string            The name of the workflow to be executed.
-  --space string               The name of the space to which workflow belongs.
-  --config                     The file path to the config.yaml file which contains execution parameter values.
-  --watch                      Option to track execution status.
+      --config string       YAML file for run configuration
+      --file string         Workflow YAML file to execute
+      --max                 Use maximum number of machines for workflow execution
+      --name string         New workflow name (used when creating tool workflows or copying store workflows)
+      --output string       A comma separated list of nodes which outputs should be downloaded when the execution is finished
+      --output-all          Download all outputs when the execution is finished
+      --output-dir string   Path to directory which should be used to store outputs
+      --show-params         Show parameters in the workflow tree
+      --watch               Watch the execution running
 ```
 
 Predefined config.yaml file content:
@@ -174,8 +169,7 @@ outputs:  # List of nodes whose outputs will be downloaded.
   - <node_name>
 ```
 
-For each Trickest workflow **config.yaml** file can be founded in [workflows repository](https://github.com/trickest/workflows) as an example.
-
+Example workflow **config.yaml** files can be found in the [Trickest Workflows repository](https://github.com/trickest/workflows).
 
 #### Provide parameters using **workflow.yaml** file
 
@@ -184,21 +178,27 @@ Use workflow.yaml file provided using **--file** option to specify:
 - execution parallelism by machine type,
 - outputs to be downloaded.
 
-```
-Command usage:
-trickest execute --workflow <workflow_name> --space <space_name> --file <workflow_file_path> [--watch]
-
-Flags:
-  --workflow string            The name of the workflow to be executed.
-  --space string               The name of the space to which workflow belongs.
-  --file                       The file path to a workflow.yaml file which contains execution parameter values.
-  --watch                      Option to track execution status.
-```
-
 Use **get** Trickest Client command along with **--export** option to download workflow.yaml file for your particular workflow. Change parameters directly in local if needed and start new execution.
 
 For each Trickest workflow **workflow.yaml** file can be also founded in [workflows repository](https://github.com/trickest/workflows) as an example.
 
+### Continuous Integration
+You can use the `execute` command as part of a CI pipeline to continuously execute your Trickest workflows whenever your code changes. The `--watch` command can be used to watch a workflow's progress until it completes and the `--output`, `--output-all` and `--output-dir` commands can be used to fetch the outputs of one or more nodes.
+
+The Trickest CLI Docker image is available on quay.io/trickest/trickest-cli.
+
+Example GitHub action usage
+```
+  execute_trickest_workflow:
+    runs-on: ubuntu-latest
+    container: quay.io/trickest/trickest-cli
+    env:
+      TRICKEST_TOKEN: ${{ secrets.TRICKEST_TOKEN }}
+    steps:
+      - name: Execute workflow
+        run: |
+          trickest execute --workflow run_tests --space continuous_integration --config config.yaml --watch --output-all --output-dir reports
+```
 
 ## Output
 Use **output** command to download the outputs of your particular workflow execution(s) to local.
