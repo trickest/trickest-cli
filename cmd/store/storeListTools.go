@@ -10,8 +10,8 @@ import (
 	"trickest-cli/types"
 )
 
-// storeToolsCmd represents the storeTools command
-var storeToolsCmd = &cobra.Command{
+// storeListToolsCmd represents the storeListTools command
+var storeListToolsCmd = &cobra.Command{
 	Use:   "tools",
 	Short: "List tools from the Trickest store",
 	Long:  ``,
@@ -26,7 +26,7 @@ var storeToolsCmd = &cobra.Command{
 }
 
 func init() {
-	StoreCmd.AddCommand(storeToolsCmd)
+	storeListCmd.AddCommand(storeListToolsCmd)
 }
 
 func printTools(tools []types.Tool) {

@@ -8,8 +8,8 @@ import (
 	"trickest-cli/types"
 )
 
-// storeWorkflowsCmd represents the storeWorkflows command
-var storeWorkflowsCmd = &cobra.Command{
+// storeListWorkflowsCmd represents the storeListWorkflows command
+var storeListWorkflowsCmd = &cobra.Command{
 	Use:   "workflows",
 	Short: "List workflows from the Trickest store",
 	Long:  ``,
@@ -24,7 +24,7 @@ var storeWorkflowsCmd = &cobra.Command{
 }
 
 func init() {
-	StoreCmd.AddCommand(storeWorkflowsCmd)
+	storeListCmd.AddCommand(storeListWorkflowsCmd)
 }
 
 func printWorkflows(workflows []types.WorkflowListResponse) {
