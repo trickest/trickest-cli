@@ -23,33 +23,32 @@ Current workflow categories:
 
 # Installation
 
-#### **OSX**
+#### **macOS**
 
 ```
 # Download the binary
-curl -sLO https://github.com/trickest/trickest-cli/releases/download/v1.0/trickest-cli-darwin-amd64.gz
+curl -sLO https://github.com/trickest/trickest-cli/releases/download/v1.0.0/trickest-cli-macOS-arm64.zip
 
 # Unzip
-gunzip trickest-cli-darwin-amd64.gz
+unzip trickest-cli-macOS-arm64.zip
 
 # Make binary executable
-chmod +x trickest-cli-darwin-amd64
+chmod +x trickest-cli-macOS-arm64
 
 # Move binary to path
-mv ./trickest-cli-darwin-amd64 /usr/local/bin/trickest
+mv ./trickest-cli-macOS-arm64 /usr/local/bin/trickest
 
 # Test installation
-trickest version
+trickest --help
 ```
 
 #### **Linux**
 
 ```
-# Download the binary
-curl -sLO https://github.com/trickest/trickest-cli/releases/download/v1.0/trickest-cli-linux-amd64.gz
+curl -sLO https://github.com/trickest/trickest-cli/releases/download/v1.0.0/trickest-cli-linux-amd64.zip
 
 # Unzip
-gunzip trickest-cli-linux-amd64.gz
+unzip trickest-cli-linux-amd64.zip
 
 # Make binary executable
 chmod +x trickest-cli-linux-amd64
@@ -58,7 +57,12 @@ chmod +x trickest-cli-linux-amd64
 mv ./trickest-cli-linux-amd64 /usr/local/bin/trickest
 
 # Test installation
-trickest version
+trickest --help
+```
+
+#### Docker
+```
+docker run quay.io/trickest/trickest-cli
 ```
 
 # Authentication
