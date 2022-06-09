@@ -123,12 +123,20 @@ The YAML config file should be formatted like:
 			return
 		}
 
+		if numberOfRuns == 1 && wfRuns[0].Status == "SCHEDULED" {
+			wfRuns = GetRuns(workflow.ID, numberOfRuns+1)
+			runs = append(runs, wfRuns...)
+		}
+
 		version := GetWorkflowVersionByID(runs[0].WorkflowVersionInfo)
 		if version == nil {
 			return
 		}
 
 		for _, run := range runs {
+			if run.Status == "SCHEDULED" {
+				continue
+			}
 			DownloadRunOutput(&run, nodes, version, path)
 		}
 	},
