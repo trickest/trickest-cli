@@ -10,26 +10,16 @@ Trickest platform is an IDE tailored for bug bounty hunters, penetration testers
 
 Current workflow categories:
 
+- Recon
+- Discovery
+- Fuzzing
+- Network
 - Containers
-- Scraping
-- Probing
-- Spidering
-- CVE
-- Machine Learning
+- Scanners
 - Social Engineering
 - Cloud Storage
 - Static Code Analysis
-- Vulnerabilities
 - Utilities
-- Static
-- Social
-- Scanners
-- Recon
-- Passwords
-- Network
-- Misconfiguration
-- Fuzzing
-- Discovery
 
 # Installation
 
@@ -87,7 +77,7 @@ Use **list** command to list your private content.
 
 #### All
 
-Use **list** command to list all of your created projects along with their descriptions.
+Use **list** command to list all of your spaces along with their descriptions.
 
 ```
 Command usage:
