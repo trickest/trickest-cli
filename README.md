@@ -130,7 +130,7 @@ Flags:
 
 
 ## Execute
-Use **execute** command to execute your particular workflow.
+Use **execute** command to execute a particular workflow or tool.
 
 #### Provide parameters using **config.yaml** file
 
@@ -141,7 +141,7 @@ Use config.yaml file provided using **--config** option to specify:
 
 ```
 Command usage:
-trickest execute --workflow <workflow_name> --space <space_name> --config <config_file_path> [--watch]
+trickest execute --workflow <workflow_or_tool_name> --space <space_name> --config <config_file_path> [--watch]
 
 Flags:
   --workflow string            The name of the workflow to be executed.
@@ -164,8 +164,7 @@ outputs:  # List of nodes whose outputs will be downloaded.
   - <node_name>
 ```
 
-For each Trickest workflow **config.yaml** file can be founded in [workflows repository](https://github.com/trickest/workflows) as an example.
-
+Example workflow **config.yaml** files can be found in the [Trickest Workflows repository](https://github.com/trickest/workflows).
 
 #### Provide parameters using **workflow.yaml** file
 
@@ -173,17 +172,6 @@ Use workflow.yaml file provided using **--file** option to specify:
 - inputs values,
 - execution parallelism by machine type,
 - outputs to be downloaded.
-
-```
-Command usage:
-trickest execute --workflow <workflow_name> --space <space_name> --file <workflow_file_path> [--watch]
-
-Flags:
-  --workflow string            The name of the workflow to be executed.
-  --space string               The name of the space to which workflow belongs.
-  --file                       The file path to a workflow.yaml file which contains execution parameter values.
-  --watch                      Option to track execution status.
-```
 
 Use **get** Trickest Client command along with **--export** option to download workflow.yaml file for your particular workflow. Change parameters directly in local if needed and start new execution.
 
