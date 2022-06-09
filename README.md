@@ -87,7 +87,7 @@ Use **list** command to list your private content.
 
 #### All
 
-Use **list** command to list all of your created spaces and projects along with their descriptions.
+Use **list** command to list all of your created projects along with their descriptions.
 
 ```
 Command usage:
