@@ -4,10 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/gosuri/uilive"
-	"github.com/spf13/cobra"
-	"github.com/xlab/treeprint"
-	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"math"
 	"os"
@@ -24,6 +20,11 @@ import (
 	"trickest-cli/cmd/output"
 	"trickest-cli/types"
 	"trickest-cli/util"
+
+	"github.com/gosuri/uilive"
+	"github.com/spf13/cobra"
+	"github.com/xlab/treeprint"
+	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -1323,6 +1324,9 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 					break
 				}
 			}
+		}
+		if newWorkflowName == "" {
+			newWorkflowName = wfName
 		}
 		wfVersion = createToolWorkflow(newWorkflowName, space, project, projectCreated, &tools[0], primitiveNodes, executionMachines)
 
