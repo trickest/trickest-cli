@@ -801,7 +801,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 			projectID = project.ID
 		}
 		if workflowName == "" {
-			fmt.Println("Use --name flag when trying to create a new workflow.")
+			fmt.Println("Use --set-name flag when trying to create a new workflow.")
 			os.Exit(0)
 		}
 		newWorkflow := create.CreateWorkflow(workflowName, "", space.ID, projectID, true)
