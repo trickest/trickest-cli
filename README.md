@@ -3,6 +3,10 @@
 <h3 align="center">
 Client used for executing, listing, downloading, getting, creating, deleting and searching objects on the <a href=https://trickest.com>Trickest</a> platform.
 </h3>
+<br>
+
+![Trickest Client](trickest-cli.png "Trickest Client")
+
 
 # About
 
