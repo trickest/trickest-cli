@@ -151,7 +151,7 @@ Flags:
       --config string       YAML file for run configuration
       --file string         Workflow YAML file to execute
       --max                 Use maximum number of machines for workflow execution
-      --name string         New workflow name (used when creating tool workflows or copying store workflows)
+      --set-name string         New workflow name (used when creating tool workflows or copying store workflows)
       --output string       A comma separated list of nodes which outputs should be downloaded when the execution is finished
       --output-all          Download all outputs when the execution is finished
       --output-dir string   Path to directory which should be used to store outputs
@@ -276,7 +276,7 @@ trickest store copy --workflow <workflow_name> [--name <workflow_copy_name>] --s
 
 Flags:
   --workflow string         The name of the workflow to be duplicated.
-  --name string             Option to set new name for workflow copy.
+  --set-name string             Option to set new name for workflow copy.
   --space string            The name of the space to copy workflow into. In case space doesn't exist, new space with given name will be created.
 
 ```
