@@ -54,7 +54,7 @@ var ExecuteCmd = &cobra.Command{
 			util.SpaceName = "Playground"
 		}
 		path := util.FormatPath()
-		if path == "" || path == "Playground" {
+		if path == "" {
 			if len(args) == 0 {
 				fmt.Println("Workflow name or path must be specified!")
 				return
@@ -73,8 +73,10 @@ var ExecuteCmd = &cobra.Command{
 		}
 		var version *types.WorkflowVersionDetailed
 		if workflowYAML != "" {
+			// Executing from a file
 			version = readWorkflowYAMLandCreateVersion(workflowYAML, newWorkflowName, path)
 		} else {
+			// Executing an existing workflow or copying from store
 			version = prepareForExec(path)
 		}
 		if version == nil {
@@ -97,7 +99,7 @@ var ExecuteCmd = &cobra.Command{
 }
 
 func init() {
-	ExecuteCmd.Flags().StringVar(&newWorkflowName, "name", "", "New workflow name (used when creating tool workflows or copying store workflows)")
+	ExecuteCmd.Flags().StringVar(&newWorkflowName, "set-name", "", "Set workflow name")
 	ExecuteCmd.Flags().StringVar(&configFile, "config", "", "YAML file for run configuration")
 	ExecuteCmd.Flags().BoolVar(&watch, "watch", false, "Watch the execution running")
 	ExecuteCmd.Flags().BoolVar(&showParams, "show-params", false, "Show parameters in the workflow tree")
@@ -1230,10 +1232,25 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 	if space == nil {
 		os.Exit(0)
 	}
-	if workflow == nil {
+
+	if workflow != nil && newWorkflowName == "" {
+		// Executing an existing workflow
+		wfVersion = GetLatestWorkflowVersion(workflow)
+		if configFile == "" {
+			executionMachines = wfVersion.MaxMachines
+		} else {
+			update, updatedWfVersion, newPrimitiveNodes := readConfig(configFile, wfVersion, nil)
+			if update {
+				uploadFilesIfNeeded(newPrimitiveNodes)
+				wfVersion = createNewVersion(updatedWfVersion)
+			}
+		}
+	} else {
+		// Executing from store
 		wfName := pathSplit[len(pathSplit)-1]
 		storeWorkflows := list.GetWorkflows("", "", wfName, true)
 		if storeWorkflows != nil && len(storeWorkflows) > 0 {
+			// Executing from store
 			for _, wf := range storeWorkflows {
 				if strings.ToLower(wf.Name) == strings.ToLower(wfName) {
 					storeWfVersion := GetLatestWorkflowVersion(list.GetWorkflowByID(wf.ID))
@@ -1331,17 +1348,6 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 		wfVersion = createToolWorkflow(newWorkflowName, space, project, projectCreated, &tools[0], primitiveNodes, executionMachines)
 
 		return wfVersion
-	} else {
-		wfVersion = GetLatestWorkflowVersion(workflow)
-		if configFile == "" {
-			executionMachines = wfVersion.MaxMachines
-		} else {
-			update, updatedWfVersion, newPrimitiveNodes := readConfig(configFile, wfVersion, nil)
-			if update {
-				uploadFilesIfNeeded(newPrimitiveNodes)
-				wfVersion = createNewVersion(updatedWfVersion)
-			}
-		}
 	}
 
 	return wfVersion
