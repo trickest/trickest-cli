@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/spf13/cobra"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -13,6 +12,8 @@ import (
 	"trickest-cli/cmd/list"
 	"trickest-cli/types"
 	"trickest-cli/util"
+
+	"github.com/spf13/cobra"
 )
 
 var description string
@@ -143,7 +144,16 @@ func CreateProject(name string, description string, spaceName string) *types.Pro
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		util.ProcessUnexpectedResponse(resp)
+		var errResponse util.UnexpectedResponse
+
+		json.Unmarshal(bodyBytes, &errResponse)
+		details := errResponse["details"]
+		if resp.StatusCode == http.StatusBadRequest {
+			fmt.Println(details)
+			os.Exit(1)
+		} else {
+			util.ProcessUnexpectedResponse(resp)
+		}
 	}
 
 	fmt.Println("Project successfully created!")
