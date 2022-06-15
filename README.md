@@ -30,16 +30,16 @@ Current workflow categories are:
 
 ```
 # Download the binary
-wget https://github.com/trickest/trickest-cli/releases/download/v1.0.0/trickest-cli-1.0.0-macOS-amd64.zip
+wget https://github.com/trickest/trickest-cli/releases/download/v1.0.0/trickest-cli-1.0.0-macOS-arm64.zip
 
 # Unzip
-unzip trickest-cli-1.0.0-macOS-amd64.zip
+unzip trickest-cli-1.0.0-macOS-arm64.zip
 
 # Make binary executable
-chmod +x trickest-cli-1.0.0-macOS-amd64
+chmod +x trickest-cli-1.0.0-macOS-arm64
 
 # Move binary to path
-mv ./trickest-cli-1.0.0-macOS-amd64 /usr/local/bin/trickest
+mv ./trickest-cli-1.0.0-macOS-arm64 /usr/local/bin/trickest
 
 # Test installation
 trickest --help
