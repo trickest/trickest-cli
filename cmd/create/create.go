@@ -136,24 +136,15 @@ func CreateProject(name string, description string, spaceName string) *types.Pro
 		os.Exit(0)
 	}
 
+	if resp.StatusCode != http.StatusCreated {
+		util.ProcessUnexpectedResponse(resp)
+	}
+
 	var bodyBytes []byte
 	bodyBytes, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println("Error: Couldn't read response body!")
 		os.Exit(0)
-	}
-
-	if resp.StatusCode != http.StatusCreated {
-		var errResponse util.UnexpectedResponse
-
-		json.Unmarshal(bodyBytes, &errResponse)
-		details := errResponse["details"]
-		if resp.StatusCode == http.StatusBadRequest {
-			fmt.Println(details)
-			os.Exit(1)
-		} else {
-			util.ProcessUnexpectedResponse(resp)
-		}
 	}
 
 	fmt.Println("Project successfully created!")
