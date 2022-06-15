@@ -42,6 +42,7 @@ var (
 	downloadAllNodes  bool
 	outputsDirectory  string
 	outputNodesFlag   string
+	ci                bool
 )
 
 // ExecuteCmd represents the execute command
@@ -106,6 +107,7 @@ func init() {
 	ExecuteCmd.Flags().BoolVar(&downloadAllNodes, "output-all", false, "Download all outputs when the execution is finished")
 	ExecuteCmd.Flags().StringVar(&outputNodesFlag, "output", "", "A comma separated list of nodes which outputs should be downloaded when the execution is finished")
 	ExecuteCmd.Flags().StringVar(&outputsDirectory, "output-dir", "", "Path to directory which should be used to store outputs")
+	ExecuteCmd.Flags().BoolVar(&ci, "ci", false, "Run in CI mode (in-progreess executions will be stopped when the CLI is forcefully stopped - if not set, you will be asked for confirmation)")
 }
 
 func getToolScriptOrSplitterFromYAMLNode(node types.WorkflowYAMLNode) (*types.Tool, *types.Script, *types.Splitter) {
@@ -847,15 +849,20 @@ func WatchRun(runID, downloadPath string, nodesToDownload map[string]output.Node
 			_ = writer.Flush()
 			writer.Stop()
 
-			fmt.Println("The program will exit. Would you like to stop the remote execution? (Y/N)")
-			var answer string
-			for {
-				_, _ = fmt.Scan(&answer)
-				if strings.ToLower(answer) == "y" || strings.ToLower(answer) == "yes" {
-					stopRun(runID)
-					os.Exit(0)
-				} else if strings.ToLower(answer) == "n" || strings.ToLower(answer) == "no" {
-					os.Exit(0)
+			if ci {
+				stopRun(runID)
+				os.Exit(0)
+			} else {
+				fmt.Println("The program will exit. Would you like to stop the remote execution? (Y/N)")
+				var answer string
+				for {
+					_, _ = fmt.Scan(&answer)
+					if strings.ToLower(answer) == "y" || strings.ToLower(answer) == "yes" {
+						stopRun(runID)
+						os.Exit(0)
+					} else if strings.ToLower(answer) == "n" || strings.ToLower(answer) == "no" {
+						os.Exit(0)
+					}
 				}
 			}
 		}()
