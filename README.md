@@ -3,23 +3,26 @@
 <h3 align="center">
 Client used for executing, listing, downloading, getting, creating, deleting and searching objects on the <a href=https://trickest.com>Trickest</a> platform.
 </h3>
+<br>
+
+![Trickest Client](trickest-cli.png "Trickest Client")
+
 
 # About
 
-Trickest platform is an IDE tailored for bug bounty hunters, penetration testers, and SecOps teams to build and automate workflows from start to finish. Powered by the world's most advanced crowdsourced intelligence.
+Trickest platform is an IDE tailored for bug bounty hunters, penetration testers, and SecOps teams to build and automate workflows from start to finish.
 
-Current workflow categories:
+Current workflow categories are:
 
-- Recon
-- Discovery
-- Fuzzing
-- Network
-- Containers
-- Scanners
-- Social Engineering
-- Cloud Storage
-- Static Code Analysis
-- Utilities
+* Vulnerability Scanning
+* Misconfiguration Scanning
+* Container Security
+* Web Application Scanning
+* Asset Discovery
+* Network Scanning
+* Fuzzing
+* Static Code Analysis
+* ... and a lot more
 
 # Installation
 
@@ -67,97 +70,97 @@ docker run quay.io/trickest/trickest-cli
 
 # Authentication
 
-Prior to using Trickest Client, you have to enter your credentials to authenticate with the Trickest platform. For this, you will need your authentication token that can be found on [my-account page](https://trickest.io/dashboard/settings/my-account) inside the the Trickest platform.
+You can find your authentication token on [My Account](https://trickest.io/dashboard/settings/my-account) page inside the the Trickest platform.
 
-Authentication token can be supplied as a flag `--token` or an environment variable `TRICKEST_TOKEN`.
+The authentication token can be provided as a flag `--token` or an environment variable `TRICKEST_TOKEN` to the trickest-cli.
 
-The `TRICKEST_TOKEN` supplied as a flag will be checked **first** and take priority if both are present.
+The `TRICKEST_TOKEN` supplied as `--token` will take priority if both are present.
 
 # Usage
 
-
-## LIST
-Use **list** command to list your private content.
+## List command
 
 #### All
 
-Use **list** command to list all of your spaces along with their descriptions.
+Use the **list** command to list all of your spaces along with their descriptions.
 
 ```
-Command usage:
 trickest list
 ```
 
 #### Spaces
 
-Use **list** command with **--space** option to list the content of your particular space - projects and workflows, along with their descriptions.
+Use the **list** command with the **--space** flag to list the content of your particular space; its projects and workflows, and their descriptions.
 
 ```
-Command usage:
 trickest list --space <space_name>
-
-Flags:
---space string    The name of the space to be listed.
-
 ```
+
+| Flag    | Type   | Default | Description                         |
+|---------|--------|---------|-------------------------------------|
+| --space | string | /       | The name of the space to be listed  |
+
+
 
 #### Projects   
 
-Use **list** command with **--project** option to list the content of your particular project - workflows, along with their descriptions.
+Use the **list** command with the **--project** option to list the content of your particular project; its workflows, along with their descriptions.
 
 ```
-Command usage:
 trickest list --project <project_name> --space <space_name>
-
-Flags:
---project string    The name of the project to be listed.
---space string      The name of the space to which project belongs.
-
 ```
 
-Keep in mind that when passing values that have spaces, they need be inside of double quotes (eg. "Alpine Testing")
+| Flag      | Type   | Default | Description                                        |
+|-----------|--------|---------|----------------------------------------------------|
+| --project | string | /       | The name of the project to be listed.              |
+| --space   | string | /       | The name of the space to which the project belongs |
 
+##### Note: When passing values that have spaces, they need to be double-quoted (e.g. "Alpine Testing").
 
 ## GET
-Use **get** command to get details of your particular workflow (current status, node structure etc).
+
+Use the **get** command to get details of your particular workflow (current status, node structure,  etc.).
 
 ```
-Command usage:
-trickest get --workflow <workflow_name> --space <space_name> [--export] [--watch]
-
-Flags:
---workflow string   The name of the workflow.
---space string      The name of the space to which workflow belongs.
---export            Option to download a workflow structure in YAML file format.
---watch             Option to track execution status in case workflow is in running state.
+trickest get --workflow <workflow_name> --space <space_name> [--watch]
 ```
 
+| Flag        | Type     | Default | Description                                                            |
+|-------------|----------|---------|------------------------------------------------------------------------|
+| --workflow  | string   | /       | The name of the workflow                                               |
+| --space     | string   | /       | The name of the space to which the project belongs                     |
+| --watch     | boolean  | /       | Option to track execution status in case workflow is in running state  |
+
+
+##### If the supplied workflow has a running execution, you can jump in and watch it running with the `--watch` flag!
 
 ## Execute
-Use **execute** command to execute a particular workflow or tool.
+Use the **execute** command to execute a particular workflow or tool.
 
 #### Provide parameters using **config.yaml** file
 
-Use config.yaml file provided using **--config** option to specify:
+Use config.yaml file provided using **--config** flag to specify:
+
 - inputs values,
 - execution parallelism by machine type,
 - outputs to be downloaded.
 
 ```
-Command usage:
-trickest execute --workflow <workflow_or_tool_name> --space <space_name> --config <config_file_path> [--watch]
-
-Flags:
-      --config string       YAML file for run configuration
-      --file string         Workflow YAML file to execute
-      --max                 Use maximum number of machines for workflow execution
-      --set-name string     Set workflow name
-      --output string       A comma separated list of nodes which outputs should be downloaded when the execution is finished
-      --output-all          Download all outputs when the execution is finished
-      --output-dir string   Path to directory which should be used to store outputs
-      --show-params         Show parameters in the workflow tree
-      --watch               Watch the execution running
+trickest execute --workflow <workflow_or_tool_name> --space <space_name> --config <config_file_path> --set-name "New Name" [--watch]
 ```
+
+| Flag          | Type    | Default | Description                                                                                       |
+| ------------- | ------- | ------- | ------------------------------------------------------------------------------------------------- |
+| --config      | file    | /       | YAML file for run configuration                                                                   |
+| --workflow    | string  | /       | Workflow from the Store to be executed                                                            |
+| --file        | file    | /       | Workflow YAML file to execute                                                                     |
+| --max         | boolean | /       | Use maximum number of machines for workflow execution                                             |
+| --output      | string  | /       | A comma-separated list of nodes whose outputs should be downloaded when the execution is finished |
+| --output-all  | boolean | /       | Download all outputs when the execution is finished                                               |
+| --output-dir  | string  | .       | Path to the directory which should be used to store outputs                                       |
+| --show-params | boolean | /       | Show parameters in the workflow tree                                                              |
+| --watch       | boolean | /       | Option to track execution status in case workflow is in running state                             |
+| --set-name    | string  | /       | Sets the new workflow name and will copy the workflow to space and project supplied               |
 
 Predefined config.yaml file content:
 ```
@@ -173,110 +176,95 @@ outputs:  # List of nodes whose outputs will be downloaded.
   - <node_name>
 ```
 
-Example workflow **config.yaml** files can be found in the [Trickest Workflows repository](https://github.com/trickest/workflows).
+##### Example workflow **config.yaml** files can be found in the [Trickest Workflows repository](https://github.com/trickest/workflows).
 
 #### Provide parameters using **workflow.yaml** file
 
 Use workflow.yaml file provided using **--file** option to specify:
 - inputs values,
-- execution parallelism by machine type,
-- outputs to be downloaded.
+- outputs to be downloaded
 
-Use **get** Trickest Client command along with **--export** option to download workflow.yaml file for your particular workflow. Change parameters directly in local if needed and start new execution.
+## Export
 
-For each Trickest workflow **workflow.yaml** file can be also founded in [workflows repository](https://github.com/trickest/workflows) as an example.
+Use the **export** command to download the workflow file for your particular workflow. You can also change parameters in your favorite IDE and execute the workflow again.
 
-### Continuous Integration
-You can use the `execute` command as part of a CI pipeline to continuously execute your Trickest workflows whenever your code changes. The `--watch` command can be used to watch a workflow's progress until it completes and the `--output`, `--output-all` and `--output-dir` commands can be used to fetch the outputs of one or more nodes.
+```
+trickest export --space <space_name> --workflow <workflow_name> -o <output_file_path>
+```
+| Flag       | Type    | Default | Description                                     |
+| ---------- | ------- | ------- | ----------------------------------------------- |
+| --workflow | string  | /       | Workflow to be exported                         |
+| --space    | string  | /       | Space name containing workflow to be exported   |
+| --project  | string  | /       | Project name containing workflow to be exported |
+      
+For each published Trickest workflow, **workflow.yaml** file can be also founded in [workflows repository](https://github.com/trickest/workflows).
 
-The Trickest CLI Docker image is available on quay.io/trickest/trickest-cli.
+### Continuous Integration 
+
+You can find the Github Action for the `trickest-cli` at https://github.com/trickest/action and the Docker image at https://quay.io/trickest/trickest-cli.
+
+The `execute` command can be used as part of a CI pipeline to execute your Trickest workflows whenever your code or infrastructure changes. Optionally, you can use the `--watch` command inside the action to watch a workflow's progress until it completes. 
+
+The `--output`, `--output-all`, and `--output-dir` commands will fetch the outputs of one or more nodes to a particular directory, respectively.
 
 Example GitHub action usage
 ```
-  execute_trickest_workflow:
-    runs-on: ubuntu-latest
-    container: quay.io/trickest/trickest-cli
-    env:
-      TRICKEST_TOKEN: ${{ secrets.TRICKEST_TOKEN }}
-    steps:
-      - name: Execute workflow
-        run: |
-          trickest execute --workflow run_tests --space continuous_integration --config config.yaml --watch --output-all --output-dir reports
+    - name: Trickest Execute
+      id: trickest
+      uses: trickest/action@main
+      env:
+        TRICKEST_TOKEN: "${{ secrets.TRICKEST_TOKEN }}"
+      with:
+        workflow_path: workflow.yaml
+        space: "Example Space"
+        project: "Example Project"
+        watch: true
+        output_dir: reports
+        output_all: true
+        output: "report"
 ```
 
 ## Output
-Use **output** command to download the outputs of your particular workflow execution(s) to local.
+Use the **output** command to download the outputs of your particular workflow execution(s) to your local environment.
 
 ```
-Command usage:
 trickest output --workflow <workflow_name> --space <space_name> [--config <config_file_path>] [--runs <number>]
-
-Flags:
-  --workflow string            The name of the workflow.
-  --space string               The name of the space to which workflow belongs.
-  --config                     The file path to a config.yaml file which contains specific nodes outputs to be downloaded, otherwise all nodes will be processed.
-  --runs                       The number of executions to be processed with last execution as a starting point, otherwise only last execution will be processed.
 ```
+| Flag       | Type   | Default | Description                                                                                                                        |
+| ---------- | ------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| --workflow | string | /       | The name of the workflow.                                                                                                          |
+| --space    | string | /       | The name of the space to which workflow belongs                                                                                  |
+| --config   | file   | /       | YAML file for run configuration                                                                                                    |
+| --runs     | integer | 1       | The number of executions to be downloaded sorted by newest |
 
-##### Structure
+      
 
-File/Directory structure will be kept the same as on the platform. Spaces and projects will become directories inside of which all of the workflow outputs will be downloaded.
+
+## Output Structure
+
+When using the **output** command,  trickest-cli will keep the local directory/file structure the same as on the platform. All your spaces and projects will become directories with the appropriate outputs.
 
 
 ## Store
-[Trickest Store](https://trickest.io/dashboard/store) is a collection of all public tools, Trickest scripts and Trickest workflows available on the platform. If you are interested in viewing and executing the Trickest workflows, more info about the same you can found in Trickest [workflows repository](https://github.com/trickest/workflows).
+[Trickest Store](https://trickest.io/dashboard/store) is a collection of all public tools, Trickest scripts, and Trickest workflows available on the platform. More info can be found at [Trickest workflows repository](https://github.com/trickest/workflows).
 
-Use **store** command to get more info about Trickest workflows and public tools available in the [Trickest Store](https://trickest.io/dashboard/store).
+Use the **store** command to get more info about Trickest workflows and public tools available in the [Trickest Store](https://trickest.io/dashboard/store).
 
-#### List tools
-Use **store tools** command to list all public tools available in the [store](https://trickest.io/dashboard/store), along with their descriptions.
-
-```
-Command usage:
-trickest store tools
-```
-
-#### List workflows
-Use **store workflows** command to list all Trickest workflows available in the [store](https://trickest.io/dashboard/store), along with their descriptions.
+#### List
+Use **store list** command to list all public tools & workflows available in the [store](https://trickest.io/dashboard/store), along with their descriptions.
 
 ```
-Command usage:
-trickest store workflows
+trickest store list
 ```
 
-#### Get tool details
-Use **store get** along with **--tool** option to get the details of the specified public tool available in the [store](https://trickest.io/dashboard/store).
+#### Search
+Use **store search** to search all Trickest tools & workflows available in the [store](https://trickest.io/dashboard/store), along with their descriptions.
 
 ```
-Command usage:
-trickest store get --tool <tool_name>
-
-Flags:
-  --tool string         The name of the tool.
+trickest store search subdomain takeover
 ```
 
-#### Get workflow details
-Use **store get** along with **--workflow** option to get the details of the specified Trickest workflow available in the [store](https://trickest.io/dashboard/store).
+## Report Bugs / Feedback
+We look forward to any feedback you want to share with us or if you're stuck with a problem you can contact us at [support@trickest.com](mailto:support@trickest.com).
 
-```
-Command usage:
-trickest store get --workflow <workflow_name>
-
-Flags:
-  --workflow string     The name of the workflow.
-```
-
-#### Copy workflow to a private space
-Use **store copy** command to copy particular Trickest workflow from the [store](https://trickest.io/dashboard/store) to your private space.
-After copy of particular Trickest workflow is created within your private space, you can execute it using **execute** Trickest Client command.
-
-```
-Command usage:
-trickest store copy --workflow <workflow_name> [--set-name <workflow_copy_name>] --space <space_name>
-
-Flags:
-  --workflow string         The name of the workflow to be duplicated.
-  --set-name string         Set workflow name
-  --space string            The name of the space to copy workflow into. In case space doesn't exist, new space with given name will be created.
-
-```
+You can also create an [Issue](https://github.com/trickest/trickest-cli/issues/new/choose) in the Github repository.
