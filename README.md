@@ -265,7 +265,6 @@ trickest store search subdomain takeover
 ```
 
 ## Report Bugs / Feedback
-
 We look forward to any feedback you want to share with us or if you're stuck with a problem you can contact us at [support@trickest.com](mailto:support@trickest.com).
 
 You can also create an [Issue](https://github.com/trickest/trickest-cli/issues/new/choose) in the Github repository.
