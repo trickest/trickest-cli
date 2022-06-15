@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/spf13/cobra"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -13,6 +12,8 @@ import (
 	"trickest-cli/cmd/list"
 	"trickest-cli/types"
 	"trickest-cli/util"
+
+	"github.com/spf13/cobra"
 )
 
 var description string
@@ -135,15 +136,15 @@ func CreateProject(name string, description string, spaceName string) *types.Pro
 		os.Exit(0)
 	}
 
+	if resp.StatusCode != http.StatusCreated {
+		util.ProcessUnexpectedResponse(resp)
+	}
+
 	var bodyBytes []byte
 	bodyBytes, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println("Error: Couldn't read response body!")
 		os.Exit(0)
-	}
-
-	if resp.StatusCode != http.StatusCreated {
-		util.ProcessUnexpectedResponse(resp)
 	}
 
 	fmt.Println("Project successfully created!")

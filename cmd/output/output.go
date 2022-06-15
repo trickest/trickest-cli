@@ -3,9 +3,6 @@ package output
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/schollz/progressbar/v3"
-	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 	"io"
 	"io/ioutil"
 	"math"
@@ -14,10 +11,13 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"time"
 	"trickest-cli/cmd/list"
 	"trickest-cli/types"
 	"trickest-cli/util"
+
+	"github.com/schollz/progressbar/v3"
+	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 type NodeInfo struct {
@@ -197,7 +197,8 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, version *types
 		}
 	}
 
-	runDir := "run-" + run.StartedDate.Format(time.RFC3339)
+	const layout = "2006-01-02T150405Z"
+	runDir := "run-" + run.StartedDate.Format(layout)
 	runDir = strings.TrimSuffix(runDir, "Z")
 	runDir = strings.Replace(runDir, "T", "-", 1)
 	runDir = path.Join(destinationPath, runDir)

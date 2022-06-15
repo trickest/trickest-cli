@@ -149,18 +149,19 @@ Use config.yaml file provided using **--config** flag to specify:
 trickest execute --workflow <workflow_or_tool_name> --space <space_name> --config <config_file_path> --set-name "New Name" [--watch]
 ```
 
-| Flag          | Type    | Default | Description                                                                                       |
-| ------------- | ------- | ------- | ------------------------------------------------------------------------------------------------- |
-| --config      | file    | /       | YAML file for run configuration                                                                   |
-| --workflow    | string  | /       | Workflow from the Store to be executed                                                            |
-| --file        | file    | /       | Workflow YAML file to execute                                                                     |
-| --max         | boolean | /       | Use maximum number of machines for workflow execution                                             |
-| --output      | string  | /       | A comma-separated list of nodes whose outputs should be downloaded when the execution is finished |
-| --output-all  | boolean | /       | Download all outputs when the execution is finished                                               |
-| --output-dir  | string  | .       | Path to the directory which should be used to store outputs                                       |
-| --show-params | boolean | /       | Show parameters in the workflow tree                                                              |
-| --watch       | boolean | /       | Option to track execution status in case workflow is in running state                             |
-| --set-name    | string  | /       | Sets the new workflow name and will copy the workflow to space and project supplied               |
+| Flag          | Type    | Default | Description                                                                                                                                 |
+| ------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| --config      | file    | /       | YAML file for run configuration                                                                                                             |
+| --workflow    | string  | /       | Workflow from the Store to be executed                                                                                                      |
+| --file        | file    | /       | Workflow YAML file to execute                                                                                                               |
+| --max         | boolean | /       | Use maximum number of machines for workflow execution                                                                                       |
+| --output      | string  | /       | A comma-separated list of nodes whose outputs should be downloaded when the execution is finished                                           |
+| --output-all  | boolean | /       | Download all outputs when the execution is finished                                                                                         |
+| --output-dir  | string  | .       | Path to the directory which should be used to store outputs                                                                                 |
+| --show-params | boolean | /       | Show parameters in the workflow tree                                                                                                        |
+| --watch       | boolean | /       | Option to track execution status in case workflow is in running state                                                                       |
+| --set-name    | string  | /       | Sets the new workflow name and will copy the workflow to space and project supplied                                                         |
+| --ci          | boolean | false   | un in CI mode (in-progreess executions will be stopped when the CLI is forcefully stopped - if not set, you will be asked for confirmation) |
 
 Predefined config.yaml file content:
 ```
