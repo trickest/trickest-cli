@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -963,7 +964,7 @@ func PrintTrees(roots []*types.TreeNode, allNodes *map[string]*types.TreeNode, s
 		treeSplit := strings.Split(tree, "\n")
 		for _, line := range treeSplit {
 			if line != "" {
-				if strings.Contains(line, "(") {
+				if match, _ := regexp.MatchString(`\([-a-z0-9]+-[0-9]+\)`, line); match {
 					lineSplit := strings.Split(line, "(")
 					nodeName := strings.Trim(lineSplit[1], ")")
 					node := (*allNodes)[nodeName]
