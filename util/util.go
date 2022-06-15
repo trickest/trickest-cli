@@ -3,14 +3,14 @@ package util
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/hako/durafmt"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 	"trickest-cli/types"
+
+	"github.com/hako/durafmt"
 )
 
 type UnexpectedResponse map[string]interface{}
@@ -143,10 +143,15 @@ func GetHiveInfo() *types.Hive {
 }
 
 func ProcessUnexpectedResponse(resp *http.Response) {
-	fmt.Println(resp.Request.Method + " " + resp.Request.URL.Path + " " + strconv.Itoa(resp.StatusCode))
+	// fmt.Println(resp.Request.Method + " " + resp.Request.URL.Path + " " + strconv.Itoa(resp.StatusCode))
 	if resp.StatusCode >= http.StatusInternalServerError {
 		fmt.Println("Sorry, something went wrong!")
 		os.Exit(0)
+	}
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		fmt.Println("Error: Unauthorized to perform this action.\nPlease, make sure that your token is correct and that you have access to this resource.")
+		os.Exit(1)
 	}
 
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
