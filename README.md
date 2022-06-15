@@ -161,6 +161,7 @@ Flags:
       --output-dir string   Path to directory which should be used to store outputs
       --show-params         Show parameters in the workflow tree
       --watch               Watch the execution running
+      --ci                  Run in CI mode (in-progreess executions will be stopped when the CLI is forcefully stopped - if not set, you will be asked for confirmation)
 ```
 
 Predefined config.yaml file content:
