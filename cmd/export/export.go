@@ -2,8 +2,6 @@ package export
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
 	"sort"
@@ -12,6 +10,9 @@ import (
 	"trickest-cli/cmd/list"
 	"trickest-cli/types"
 	"trickest-cli/util"
+
+	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 type workflowExport struct {
@@ -102,7 +103,7 @@ func createYAML(workflow *types.Workflow, destinationPath string) {
 				}
 
 				inputValueStr := fmt.Sprintf("%v", input.Value)
-				if strings.HasPrefix(inputValueStr, "in/file-splitter-") {
+				if strings.HasPrefix(inputValueStr, "in/file-splitter-") || strings.HasPrefix(inputValueStr, "in/split-to-string-") {
 					// in/file-splitter-x:item
 					value := strings.Split(inputValueStr, "/")[1]
 					value = strings.Split(value, ":")[0]

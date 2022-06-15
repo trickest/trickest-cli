@@ -150,7 +150,7 @@ func setConnectedSplitters(version *types.WorkflowVersionDetailed, splitterIDs *
 		tempMap := make(map[string]string, 0)
 		splitterIDs = &tempMap
 		for _, node := range version.Data.Nodes {
-			if strings.HasPrefix(node.Name, "file-splitter") {
+			if strings.HasPrefix(node.Name, "file-splitter") || strings.HasPrefix(node.Name, "split-to-string") {
 				(*splitterIDs)[node.Name] = node.Name
 				continue
 			}
@@ -166,7 +166,8 @@ func setConnectedSplitters(version *types.WorkflowVersionDetailed, splitterIDs *
 				if strings.Contains(connection.Source.ID, nodeName) {
 					destinationNodeID := getNodeNameFromConnectionID(connection.Destination.ID)
 					_, exists := (*splitterIDs)[destinationNodeID]
-					if strings.HasPrefix(destinationNodeID, "file-splitter-") ||
+					isSplitter := strings.HasPrefix(destinationNodeID, "file-splitter-") || strings.HasPrefix(destinationNodeID, "split-to-string-")
+					if isSplitter ||
 						(strings.Contains(connection.Destination.ID, "folder") &&
 							version.Data.Nodes[destinationNodeID].Script != nil) || exists {
 						continue
@@ -528,7 +529,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 							if toolInput.Command != "" {
 								newNode.Inputs[name].Command = &toolInput.Command
 							}
-							if strings.HasPrefix(val, "file-splitter-") {
+							if strings.HasPrefix(val, "file-splitter-") || strings.HasPrefix(val, "split-to-string-") {
 								workerConnected := true
 								newNode.Inputs[name].Value = "in/" + val + ":item"
 								newNode.Inputs[name].WorkerConnected = &workerConnected
@@ -568,7 +569,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 								Command:     &toolInput.Command,
 								Description: &toolInput.Description,
 							}
-							if strings.HasPrefix(val, "file-splitter-") {
+							if strings.HasPrefix(val, "file-splitter-") || strings.HasPrefix(val, "split-to-string-") {
 								workerConnected := true
 								newNode.Inputs[name].Value = "in/" + val + ":item"
 								newNode.Inputs[name].WorkerConnected = &workerConnected
@@ -1018,7 +1019,7 @@ func printTree(node *types.TreeNode, branch *treeprint.Tree, allNodes *map[strin
 				switch v := input.Value.(type) {
 				case string:
 					if strings.HasPrefix(v, "in/") {
-						if strings.Contains(v, "/file-splitter-") {
+						if strings.Contains(v, "/file-splitter-") || strings.Contains(v, "/split-to-string-") {
 							v = strings.TrimPrefix(v, "/in")
 							v = strings.TrimSuffix(v, ":item")
 						} else {
@@ -1370,7 +1371,7 @@ func getNodeByName(name string, version *types.WorkflowVersionDetailed) *types.N
 		toolNodeFound := false
 		for id, n := range version.Data.Nodes {
 			if n.Meta.Label == name {
-				if n.Script != nil || strings.HasPrefix(id, "file-splitter") {
+				if n.Script != nil || strings.HasPrefix(id, "file-splitter") || strings.HasPrefix(id, "split-to-string") {
 					node = n
 					labelCnt++
 					ok = true
@@ -1474,7 +1475,8 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 					} else {
 						node = getNodeByName(param, wfVersion)
 					}
-					if node.Script == nil && !strings.HasPrefix(node.Name, "file-splitter") &&
+					isSplitter := strings.HasPrefix(node.Name, "file-splitter") || strings.HasPrefix(node.Name, "split-to-string")
+					if node.Script == nil && !isSplitter &&
 						len(wfVersion.Data.Nodes) > 1 {
 						fmt.Println(param)
 						fmt.Println("Node is not a script or a file splitter, use tool.param-name syntax instead!")
@@ -1512,7 +1514,7 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 						fmt.Println("      ...\n   ]")
 						os.Exit(0)
 					}
-					if strings.HasPrefix(node.ID, "file-splitter") {
+					if strings.HasPrefix(node.ID, "file-splitter") || strings.HasPrefix(node.ID, "split-to-string") {
 						fmt.Println(param)
 						fmt.Println("Node is a file splitter, use the following syntax:")
 						fmt.Println("<splitter name or ID>:")
@@ -1536,7 +1538,8 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 				}
 				inputType = toolInput.Type
 			} else {
-				if node.Script == nil && !strings.HasPrefix(node.Name, "file-splitter") {
+				isSplitter := strings.HasPrefix(node.Name, "file-splitter") || strings.HasPrefix(node.Name, "split-to-string")
+				if node.Script == nil && !isSplitter {
 					oldParam, paramExists := node.Inputs[paramName]
 					paramExists = paramExists && oldParam.Value != nil
 					if !paramExists {
@@ -1596,7 +1599,8 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 				newPNode.Name = "boolean-input-" + strconv.Itoa(booleanInputsCnt)
 				newPNode.Value = val
 			case map[string]interface{}:
-				if node == nil || (node.Script == nil && !strings.HasPrefix(node.Name, "file-splitter")) {
+				isSplitter := strings.HasPrefix(node.Name, "file-splitter") || strings.HasPrefix(node.Name, "split-to-string")
+				if node == nil || (node.Script == nil && !isSplitter) {
 					fmt.Println(param + ": ")
 					fmt.Println(val)
 					fmt.Println("Invalid input type! Object inputs are used for scripts and splitters.")
@@ -1765,7 +1769,7 @@ func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPri
 	updateNeeded := false
 	for _, connection := range wfVersion.Data.Connections {
 		source := getNodeNameFromConnectionID(connection.Source.ID)
-		isSplitter := strings.HasPrefix(node.Name, "file-splitter")
+		isSplitter := strings.HasPrefix(node.Name, "file-splitter") || strings.HasPrefix(node.Name, "split-to-string")
 		if strings.HasSuffix(connection.Destination.ID, node.Name+"/"+paramName) ||
 			(isSplitter && strings.HasSuffix(connection.Destination.ID, node.Name+"/multiple/"+source)) ||
 			(node.Script != nil && (strings.HasSuffix(connection.Destination.ID,
@@ -1792,7 +1796,7 @@ func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPri
 
 			savedPNode, alreadyExists := (*newPrimitiveNodes)[primitiveNode.Name]
 			if alreadyExists {
-				if node.Script != nil || strings.HasPrefix(node.Name, "file-splitter") {
+				if node.Script != nil || strings.HasPrefix(node.Name, "file-splitter") || strings.HasPrefix(node.Name, "split-to-string") {
 					continue
 				} else if savedPNode.Value != newPNode.Value {
 					processDifferentParamsForASinglePNode(*savedPNode, newPNode)
@@ -1814,7 +1818,7 @@ func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPri
 							break
 						}
 					}
-				} else if strings.HasPrefix(node.Name, "file-splitter") {
+				} else if strings.HasPrefix(node.Name, "file-splitter") || strings.HasPrefix(node.Name, "split-to-string") {
 					for id, input := range node.Inputs {
 						if id == "multiple/"+newPNode.Name {
 							input.Value = "in/" + newPNode.Name + "/" + path.Base(newPNode.Value.(string))
