@@ -3,8 +3,6 @@ package list
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/spf13/cobra"
-	"github.com/xlab/treeprint"
 	"io/ioutil"
 	"math"
 	"net/http"
@@ -14,6 +12,9 @@ import (
 	"strings"
 	"trickest-cli/types"
 	"trickest-cli/util"
+
+	"github.com/spf13/cobra"
+	"github.com/xlab/treeprint"
 )
 
 // ListCmd represents the list command
@@ -344,10 +345,21 @@ func ResolveObjectPath(path string, silent bool) (*types.SpaceDetailed, *types.P
 		return space, nil, nil, true
 	}
 
+	// Space and workflow with no project
+	var projectName string
+	var workflowName string
+	if len(pathSplit) == 2 {
+		projectName = ""
+		workflowName = pathSplit[1]
+	} else {
+		projectName = pathSplit[1]
+		workflowName = pathSplit[2]
+	}
+
 	var project *types.Project
 	if space.Projects != nil && len(space.Projects) > 0 {
 		for _, proj := range space.Projects {
-			if proj.Name == pathSplit[1] {
+			if proj.Name == projectName {
 				project = &proj
 				project.Workflows = GetWorkflows(project.ID, "", "", false)
 				break
@@ -358,7 +370,7 @@ func ResolveObjectPath(path string, silent bool) (*types.SpaceDetailed, *types.P
 	var workflow *types.Workflow
 	if space.Workflows != nil && len(space.Workflows) > 0 {
 		for _, wf := range space.Workflows {
-			if wf.Name == pathSplit[1] {
+			if wf.Name == workflowName {
 				workflow = &wf
 				break
 			}
@@ -366,8 +378,11 @@ func ResolveObjectPath(path string, silent bool) (*types.SpaceDetailed, *types.P
 	}
 
 	if len(pathSplit) == 2 {
-		if project != nil || workflow != nil {
+		if project != nil && workflow != nil {
 			return space, project, workflow, true
+		}
+		if workflow != nil {
+			return space, nil, workflow, true
 		}
 		if !silent {
 			fmt.Println("Couldn't find project or workflow named " + pathSplit[1] + " inside " +
