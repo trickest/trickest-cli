@@ -24,6 +24,11 @@ Current workflow categories are:
 * Static Code Analysis
 * ... and a lot more
 
+# Store
+
+[Trickest Store](https://trickest.io/dashboard/store) is a collection of all public tools, Trickest scripts, and Trickest workflows available on the platform. More info can be found at [Trickest workflows repository](https://github.com/trickest/workflows) <- (Coming soon!)
+
+
 # Installation
 
 #### **macOS**
@@ -161,7 +166,7 @@ trickest execute --workflow <workflow_or_tool_name> --space <space_name> --confi
 | --show-params | boolean | /       | Show parameters in the workflow tree                                                                                                        |
 | --watch       | boolean | /       | Option to track execution status in case workflow is in running state                                                                       |
 | --set-name    | string  | /       | Sets the new workflow name and will copy the workflow to space and project supplied                                                         |
-| --ci          | boolean | false   | un in CI mode (in-progreess executions will be stopped when the CLI is forcefully stopped - if not set, you will be asked for confirmation) |
+| --ci          | boolean | false   | Enable CI mode (in-progreess executions will be stopped when the CLI is forcefully stopped - if not set, you will be asked for confirmation) |
 
 Predefined config.yaml file content:
 ```
@@ -177,7 +182,7 @@ outputs:  # List of nodes whose outputs will be downloaded.
   - <node_name>
 ```
 
-##### Example workflow **config.yaml** files can be found in the [Trickest Workflows repository](https://github.com/trickest/workflows).
+**Coming Soon!**  Example workflow **config.yaml** files can be found in the [Trickest Workflows repository](https://github.com/trickest/workflows). 
 
 #### Provide parameters using **workflow.yaml** file
 
@@ -198,7 +203,6 @@ trickest export --space <space_name> --workflow <workflow_name> -o <output_file_
 | --space    | string  | /       | Space name containing workflow to be exported   |
 | --project  | string  | /       | Project name containing workflow to be exported |
       
-For each published Trickest workflow, **workflow.yaml** file can be also founded in [workflows repository](https://github.com/trickest/workflows).
 
 ### Continuous Integration 
 
@@ -245,9 +249,7 @@ trickest output --workflow <workflow_name> --space <space_name> [--config <confi
 
 When using the **output** command,  trickest-cli will keep the local directory/file structure the same as on the platform. All your spaces and projects will become directories with the appropriate outputs.
 
-
 ## Store
-[Trickest Store](https://trickest.io/dashboard/store) is a collection of all public tools, Trickest scripts, and Trickest workflows available on the platform. More info can be found at [Trickest workflows repository](https://github.com/trickest/workflows).
 
 Use the **store** command to get more info about Trickest workflows and public tools available in the [Trickest Store](https://trickest.io/dashboard/store).
 
