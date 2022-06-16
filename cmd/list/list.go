@@ -43,7 +43,17 @@ var ListCmd = &cobra.Command{
 			}
 		}
 
-		space, project, workflow, found := ResolveObjectPath(path, false)
+		var (
+			space    *types.SpaceDetailed
+			project  *types.Project
+			workflow *types.Workflow
+			found    bool
+		)
+		if util.WorkflowName == "" {
+			space, project, workflow, found = ResolveObjectPath(path, false, true)
+		} else {
+			space, project, workflow, found = ResolveObjectPath(path, false, false)
+		}
 		if !found {
 			return
 		}
@@ -325,7 +335,7 @@ func GetWorkflowByID(id string) *types.Workflow {
 	return &workflow
 }
 
-func ResolveObjectPath(path string, silent bool) (*types.SpaceDetailed, *types.Project, *types.Workflow, bool) {
+func ResolveObjectPath(path string, silent bool, isProject bool) (*types.SpaceDetailed, *types.Project, *types.Workflow, bool) {
 	pathSplit := strings.Split(strings.Trim(path, "/"), "/")
 	if len(pathSplit) > 3 {
 		if !silent {
@@ -349,8 +359,13 @@ func ResolveObjectPath(path string, silent bool) (*types.SpaceDetailed, *types.P
 	var projectName string
 	var workflowName string
 	if len(pathSplit) == 2 {
-		projectName = ""
-		workflowName = pathSplit[1]
+		if isProject {
+			projectName = pathSplit[1]
+			workflowName = ""
+		} else {
+			projectName = ""
+			workflowName = pathSplit[1]
+		}
 	} else {
 		projectName = pathSplit[1]
 		workflowName = pathSplit[2]
@@ -378,7 +393,7 @@ func ResolveObjectPath(path string, silent bool) (*types.SpaceDetailed, *types.P
 	}
 
 	if len(pathSplit) == 2 {
-		if project != nil && workflow != nil {
+		if project != nil || workflow != nil {
 			return space, project, workflow, true
 		}
 		if workflow != nil {

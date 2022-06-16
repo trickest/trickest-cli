@@ -221,7 +221,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 		workflowName = wf.Name
 	}
 
-	space, project, workflow, _ := list.ResolveObjectPath(objectPath, true)
+	space, project, workflow, _ := list.ResolveObjectPath(objectPath, true, false)
 	if space == nil {
 		fmt.Println("Space " + strings.Split(objectPath, "/")[0] + " doesn't exist!")
 		os.Exit(0)
@@ -1237,7 +1237,7 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 	var primitiveNodes map[string]*types.PrimitiveNode
 	projectCreated := false
 
-	space, project, workflow, _ := list.ResolveObjectPath(objectPath, false)
+	space, project, workflow, _ := list.ResolveObjectPath(objectPath, false, false)
 	if space == nil {
 		os.Exit(0)
 	}
