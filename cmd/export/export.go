@@ -53,7 +53,7 @@ var ExportCmd = &cobra.Command{
 			}
 		}
 
-		_, _, workflow, found := list.ResolveObjectPath(path, false)
+		_, _, workflow, found := list.ResolveObjectPath(path, false, false)
 		if !found {
 			return
 		}

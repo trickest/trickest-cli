@@ -2,13 +2,14 @@ package get
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"strings"
 	"time"
 	"trickest-cli/cmd/execute"
 	"trickest-cli/cmd/list"
 	"trickest-cli/cmd/output"
 	"trickest-cli/util"
+
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -36,7 +37,7 @@ var GetCmd = &cobra.Command{
 			}
 		}
 
-		_, _, workflow, found := list.ResolveObjectPath(path, false)
+		_, _, workflow, found := list.ResolveObjectPath(path, false, false)
 		if !found {
 			return
 		}

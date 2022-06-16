@@ -2,11 +2,13 @@ package delete
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"net/http"
 	"strings"
 	"trickest-cli/cmd/list"
+	"trickest-cli/types"
 	"trickest-cli/util"
+
+	"github.com/spf13/cobra"
 )
 
 // DeleteCmd represents the delete command
@@ -29,8 +31,17 @@ var DeleteCmd = &cobra.Command{
 			}
 		}
 
-		space, project, workflow, found := list.ResolveObjectPath(path, false)
-
+		var (
+			space    *types.SpaceDetailed
+			project  *types.Project
+			workflow *types.Workflow
+			found    bool
+		)
+		if util.WorkflowName == "" {
+			space, project, workflow, found = list.ResolveObjectPath(path, false, true)
+		} else {
+			space, project, workflow, found = list.ResolveObjectPath(path, false, false)
+		}
 		if !found {
 			return
 		}
