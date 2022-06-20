@@ -150,6 +150,7 @@ trickest execute --workflow <workflow_or_tool_name> --space <space_name> --confi
 | ------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | --config      | file    | /       | YAML file for run configuration                                                                                                             |
 | --workflow    | string  | /       | Workflow from the Store to be executed                                                                                                      |
+| --file        | file    | /       | Workflow YAML file to execute                                                                                                               |
 | --max         | boolean | /       | Use maximum number of machines for workflow execution                                                                                       |
 | --output      | string  | /       | A comma-separated list of nodes whose outputs should be downloaded when the execution is finished                                           |
 | --output-all  | boolean | /       | Download all outputs when the execution is finished                                                                                         |
@@ -158,6 +159,7 @@ trickest execute --workflow <workflow_or_tool_name> --space <space_name> --confi
 | --watch       | boolean | /       | Option to track execution status in case workflow is in running state                                                                       |
 | --set-name    | string  | /       | Sets the new workflow name and will copy the workflow to space and project supplied                                                         |
 | --ci          | boolean | false   | Enable CI mode (in-progreess executions will be stopped when the CLI is forcefully stopped - if not set, you will be asked for confirmation) |
+
 
 #### Provide parameters using **config.yaml** file
 
@@ -183,6 +185,46 @@ outputs:  # List of nodes whose outputs will be downloaded.
 You can use [example-config.yaml](example-config.yaml) as a starting point and edit it according to your workflow.
 
 More example workflow **config.yaml** files can be found in the [Trickest Workflows repository](https://github.com/trickest/workflows). (Coming Soon :sparkles:)
+
+### Continuous Integration 
+
+You can find the Github Action for the `trickest-cli` at https://github.com/trickest/action and the Docker image at https://quay.io/trickest/trickest-cli.
+
+The `execute` command can be used as part of a CI pipeline to execute your Trickest workflows whenever your code or infrastructure changes. Optionally, you can use the `--watch` command inside the action to watch a workflow's progress until it completes. 
+
+The `--output`, `--output-all`, and `--output-dir` commands will fetch the outputs of one or more nodes to a particular directory, respectively.
+
+Example GitHub action usage
+```
+    - name: Trickest Execute
+      id: trickest
+      uses: trickest/action@main
+      env:
+        TRICKEST_TOKEN: "${{ secrets.TRICKEST_TOKEN }}"
+      with:
+        workflow_path: workflow.yaml
+        space: "Example Space"
+        project: "Example Project"
+        watch: true
+        output_dir: reports
+        output_all: true
+        output: "report"
+```
+
+## Export
+
+Use the **export** command to download the workflow file for your particular workflow. You can also change parameters in your favorite IDE and execute the workflow again.
+
+```
+trickest export --space <space_name> --workflow <workflow_name> -o <output_file_path>
+```
+| Flag       | Type    | Default | Description                                     |
+| ---------- | ------- | ------- | ----------------------------------------------- |
+| --workflow | string  | /       | Workflow to be exported                         |
+| --space    | string  | /       | Space name containing workflow to be exported   |
+| --project  | string  | /       | Project name containing workflow to be exported |
+      
+For each published Trickest workflow, **workflow.yaml** file can be also founded in [workflows repository](https://github.com/trickest/workflows).
 
 ### Continuous Integration 
 
