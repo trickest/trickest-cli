@@ -1,7 +1,7 @@
 <h1 align="center">Trickest Client<a href="#"> <img src="https://img.shields.io/badge/Tweet--lightgrey?logo=twitter&style=social" alt="Tweet" height="20"/></a></h1>
 
 <h3 align="center">
-Client used for executing, listing, downloading, getting, creating, deleting and searching objects on the <a href=https://trickest.com>Trickest</a> platform.
+Execute <a href=https://trickest.com>Trickest</a> workflows right from your terminal.
 </h3>
 <br>
 
@@ -26,7 +26,7 @@ Current workflow categories are:
 
 # Store
 
-[Trickest Store](https://trickest.io/dashboard/store) is a collection of all public tools, Trickest scripts, and Trickest workflows available on the platform. More info can be found at [Trickest workflows repository](https://github.com/trickest/workflows) <- (Coming soon!)
+[Trickest Store](https://trickest.io/dashboard/store) is a collection of public tools, Trickest scripts, and Trickest workflows available on the platform. More info can be found at [Trickest workflows repository](https://github.com/trickest/workflows) <- (Coming soon!)
 
 
 # Installation
@@ -120,11 +120,11 @@ trickest list --project <project_name> --space <space_name>
 | --project | string | /       | The name of the project to be listed.              |
 | --space   | string | /       | The name of the space to which the project belongs |
 
-##### Note: When passing values that have spaces, they need to be double-quoted (e.g. "Alpine Testing").
+##### Note: When passing values that have spaces in their names (e.g. "Alpine Testing"), they need to be double-quoted.
 
 ## GET
 
-Use the **get** command to get details of your particular workflow (current status, node structure,  etc.).
+Use the **get** command to get details of a particular workflow (current status, node structure,  etc.).
 
 ```
 trickest get --workflow <workflow_name> --space <space_name> [--watch]
@@ -142,14 +142,6 @@ trickest get --workflow <workflow_name> --space <space_name> [--watch]
 ## Execute
 Use the **execute** command to execute a particular workflow or tool.
 
-#### Provide parameters using **config.yaml** file
-
-Use config.yaml file provided using **--config** flag to specify:
-
-- inputs values,
-- execution parallelism by machine type,
-- outputs to be downloaded.
-
 ```
 trickest execute --workflow <workflow_or_tool_name> --space <space_name> --config <config_file_path> --set-name "New Name" [--watch]
 ```
@@ -158,7 +150,6 @@ trickest execute --workflow <workflow_or_tool_name> --space <space_name> --confi
 | ------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | --config      | file    | /       | YAML file for run configuration                                                                                                             |
 | --workflow    | string  | /       | Workflow from the Store to be executed                                                                                                      |
-| --file        | file    | /       | Workflow YAML file to execute                                                                                                               |
 | --max         | boolean | /       | Use maximum number of machines for workflow execution                                                                                       |
 | --output      | string  | /       | A comma-separated list of nodes whose outputs should be downloaded when the execution is finished                                           |
 | --output-all  | boolean | /       | Download all outputs when the execution is finished                                                                                         |
@@ -168,7 +159,14 @@ trickest execute --workflow <workflow_or_tool_name> --space <space_name> --confi
 | --set-name    | string  | /       | Sets the new workflow name and will copy the workflow to space and project supplied                                                         |
 | --ci          | boolean | false   | Enable CI mode (in-progreess executions will be stopped when the CLI is forcefully stopped - if not set, you will be asked for confirmation) |
 
-Predefined config.yaml file content:
+#### Provide parameters using **config.yaml** file
+
+Use config.yaml file provided using `--config`` flag to specify:
+- inputs values
+- execution parallelism by machine type
+- outputs to be downloaded.
+
+The structure of you `config.yaml` file should look like this:
 ```
 inputs:   # List of input values for the particular workflow nodes.
   <node_name>:
@@ -182,27 +180,9 @@ outputs:  # List of nodes whose outputs will be downloaded.
   - <node_name>
 ```
 
-**Coming Soon!**  Example workflow **config.yaml** files can be found in the [Trickest Workflows repository](https://github.com/trickest/workflows). 
+You can use [example-config.yaml](example-config.yaml) as a starting point and edit it according to your workflow.
 
-#### Provide parameters using **workflow.yaml** file
-
-Use workflow.yaml file provided using **--file** option to specify:
-- inputs values,
-- outputs to be downloaded
-
-## Export
-
-Use the **export** command to download the workflow file for your particular workflow. You can also change parameters in your favorite IDE and execute the workflow again.
-
-```
-trickest export --space <space_name> --workflow <workflow_name> -o <output_file_path>
-```
-| Flag       | Type    | Default | Description                                     |
-| ---------- | ------- | ------- | ----------------------------------------------- |
-| --workflow | string  | /       | Workflow to be exported                         |
-| --space    | string  | /       | Space name containing workflow to be exported   |
-| --project  | string  | /       | Project name containing workflow to be exported |
-      
+More example workflow **config.yaml** files can be found in the [Trickest Workflows repository](https://github.com/trickest/workflows). (Coming Soon :sparkles:)
 
 ### Continuous Integration 
 

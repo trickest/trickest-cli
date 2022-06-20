@@ -105,7 +105,7 @@ func init() {
 	ExecuteCmd.Flags().StringVar(&configFile, "config", "", "YAML file for run configuration")
 	ExecuteCmd.Flags().BoolVar(&watch, "watch", false, "Watch the execution running")
 	ExecuteCmd.Flags().BoolVar(&showParams, "show-params", false, "Show parameters in the workflow tree")
-	ExecuteCmd.Flags().StringVar(&workflowYAML, "file", "", "Workflow YAML file to execute")
+	// ExecuteCmd.Flags().StringVar(&workflowYAML, "file", "", "Workflow YAML file to execute")
 	ExecuteCmd.Flags().BoolVar(&maxMachines, "max", false, "Use maximum number of machines for workflow execution")
 	ExecuteCmd.Flags().BoolVar(&downloadAllNodes, "output-all", false, "Download all outputs when the execution is finished")
 	ExecuteCmd.Flags().StringVar(&outputNodesFlag, "output", "", "A comma separated list of nodes which outputs should be downloaded when the execution is finished")
