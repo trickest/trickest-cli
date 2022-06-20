@@ -1,7 +1,0 @@
-inputs:   # List of input values for the particular workflow nodes.
-  amass-1.domain:
-    - example.com
-machines: # Machines configuration by type related to execution parallelisam.
-  large:  1
-outputs:  # List of nodes whose outputs will be downloaded.
-  - zip-to-out
