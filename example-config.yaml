@@ -1,0 +1,7 @@
+inputs:   # List of input values for a particular workflow nodes (node-id.parameter-name)
+  amass-1.domain:
+    - example.com
+machines: # Number of machines to assign to the workflow
+  large:  1
+outputs:  # List of nodes whose outputs will be downloaded.
+  - zip-to-out 

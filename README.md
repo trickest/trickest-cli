@@ -145,10 +145,11 @@ Use the **execute** command to execute a particular workflow or tool.
 #### Provide parameters using **config.yaml** file
 
 Use config.yaml file provided using **--config** flag to specify:
-
 - inputs values,
 - execution parallelism by machine type,
 - outputs to be downloaded.
+
+You can use [example-config.yaml](example-config.yaml) as a starting point and edit it according to your workflow.
 
 ```
 trickest execute --workflow <workflow_or_tool_name> --space <space_name> --config <config_file_path> --set-name "New Name" [--watch]
