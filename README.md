@@ -150,7 +150,6 @@ trickest execute --workflow <workflow_or_tool_name> --space <space_name> --confi
 | ------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | --config      | file    | /       | YAML file for run configuration                                                                                                             |
 | --workflow    | string  | /       | Workflow from the Store to be executed                                                                                                      |
-| --file        | file    | /       | Workflow YAML file to execute                                                                                                               |
 | --max         | boolean | /       | Use maximum number of machines for workflow execution                                                                                       |
 | --output      | string  | /       | A comma-separated list of nodes whose outputs should be downloaded when the execution is finished                                           |
 | --output-all  | boolean | /       | Download all outputs when the execution is finished                                                                                         |
@@ -184,26 +183,6 @@ outputs:  # List of nodes whose outputs will be downloaded.
 You can use [example-config.yaml](example-config.yaml) as a starting point and edit it according to your workflow.
 
 More example workflow **config.yaml** files can be found in the [Trickest Workflows repository](https://github.com/trickest/workflows). (Coming Soon :sparkles:)
-
-#### Provide parameters using **workflow.yaml** file
-
-Use workflow.yaml file provided using **--file** option to specify:
-- inputs values,
-- outputs to be downloaded
-
-## Export
-
-Use the **export** command to download the workflow file for your particular workflow. You can also change parameters in your favorite IDE and execute the workflow again.
-
-```
-trickest export --space <space_name> --workflow <workflow_name> -o <output_file_path>
-```
-| Flag       | Type    | Default | Description                                     |
-| ---------- | ------- | ------- | ----------------------------------------------- |
-| --workflow | string  | /       | Workflow to be exported                         |
-| --space    | string  | /       | Space name containing workflow to be exported   |
-| --project  | string  | /       | Project name containing workflow to be exported |
-      
 
 ### Continuous Integration 
 
