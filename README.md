@@ -200,7 +200,7 @@ Example GitHub action usage
       env:
         TRICKEST_TOKEN: "${{ secrets.TRICKEST_TOKEN }}"
       with:
-        workflow_path: workflow.yaml
+        workflow: "Example Workflow"
         space: "Example Space"
         project: "Example Project"
         watch: true
