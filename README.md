@@ -168,10 +168,9 @@ Use config.yaml file provided using `--config`` flag to specify:
 
 The structure of you `config.yaml` file should look like this:
 ```
-inputs:   # List of input values for the particular workflow nodes.
+inputs:   # Input values for the particular workflow nodes.
   <node_name>:
-    <input_name>:
-    - <input_value>
+    <input_name>: <input_value>
 machines: # Machines configuration by type related to execution parallelisam.
   small:  <number>
   medium: <number>
