@@ -193,14 +193,15 @@ func createNewVersion(version *types.WorkflowVersionDetailed) *types.WorkflowVer
 		pNode.ParamName = nil
 	}
 
-	s := strings.Split(*version.Name, " ")
-	if len(s) > 1 {
-		*version.Name = s[0]
+	strippedVersion := *&types.WorkflowVersionStripped{
+		Data:         version.Data,
+		Description:  version.Description,
+		WorkflowInfo: version.WorkflowInfo,
 	}
 
 	buf := new(bytes.Buffer)
 
-	err := json.NewEncoder(buf).Encode(version)
+	err := json.NewEncoder(buf).Encode(strippedVersion)
 	if err != nil {
 		fmt.Println("Error encoding create version request!")
 		os.Exit(0)
