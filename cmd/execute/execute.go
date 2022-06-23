@@ -1252,6 +1252,7 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 			if update {
 				uploadFilesIfNeeded(newPrimitiveNodes)
 				wfVersion = createNewVersion(updatedWfVersion)
+				return wfVersion
 			}
 		}
 	} else {
@@ -1359,6 +1360,7 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 		return wfVersion
 	}
 
+	wfVersion = createNewVersion(wfVersion)
 	return wfVersion
 }
 
@@ -1547,7 +1549,7 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 				isSplitter := strings.HasPrefix(node.Name, "file-splitter") || strings.HasPrefix(node.Name, "split-to-string")
 				if node.Script == nil && !isSplitter {
 					oldParam, paramExists := node.Inputs[paramName]
-					paramExists = paramExists && oldParam.Value != nil
+					// paramExists = paramExists && oldParam.Value != nil
 					if !paramExists {
 						fmt.Println("Parameter " + paramName + " doesn't exist for node " + nodeName)
 						os.Exit(0)
@@ -1783,9 +1785,9 @@ func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPri
 			connectionFound = true
 			primitiveNodeName := getNodeNameFromConnectionID(connection.Source.ID)
 			if strings.HasSuffix(connection.Destination.ID, node.Name+"/"+paramName) && newPNode.Name != primitiveNodeName {
-				delete(wfVersion.Data.PrimitiveNodes, newPNode.Name)
+				// delete(wfVersion.Data.PrimitiveNodes, newPNode.Name)
 				newPNode.Name = primitiveNodeName
-				wfVersion.Data.PrimitiveNodes[newPNode.Name] = &newPNode
+				wfVersion.Data.PrimitiveNodes[primitiveNodeName] = &newPNode
 			}
 			var primitiveNode *types.PrimitiveNode
 			primitiveNode, pNodeExists = wfVersion.Data.PrimitiveNodes[primitiveNodeName]
@@ -1841,9 +1843,28 @@ func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPri
 				wfVersion.Name = nil
 				updateNeeded = true
 			}
+			wfVersion.Data.PrimitiveNodes[primitiveNodeName] = &newPNode
 			break
 		}
 	}
+
+	if !pNodeExists {
+		id := getAvailablePrimitiveNodeID(strings.ToLower(newPNode.Type), wfVersion.Data.Connections)
+		nodeID := newPNode.Type + "-input-" + fmt.Sprint(id)
+		nodeID = strings.ToLower(nodeID)
+
+		pNode := createNewPrimitiveNode(newPNode.Type, newPNode.Value, id)
+
+		wfVersion.Data.PrimitiveNodes[nodeID] = &pNode
+
+		connection := createPrimitiveNodeConnection(nodeID, node.Name, paramName)
+		wfVersion.Data.Connections = append(wfVersion.Data.Connections, connection)
+
+		wfVersion.Data.Nodes[node.Name].Inputs[paramName].Value = newPNode.Value
+		connectionFound = true
+		pNodeExists = true
+	}
+
 	if !connectionFound {
 		fmt.Println(node.Name + " is not connected to any input!")
 		os.Exit(0)
@@ -1852,6 +1873,41 @@ func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPri
 		os.Exit(0)
 	}
 	return updateNeeded
+}
+
+func createNewPrimitiveNode(nodeType string, value interface{}, id int) types.PrimitiveNode {
+	var node types.PrimitiveNode
+
+	node.Name = strings.ToLower(nodeType) + "-input-" + fmt.Sprint(id)
+	node.Value = value
+	node.Label = value.(string)
+	node.Type = nodeType
+	node.TypeName = nodeType
+
+	return node
+}
+
+func getAvailablePrimitiveNodeID(nodeType string, connections []types.Connection) int {
+	availableID := 1
+	for _, connection := range connections {
+		if strings.HasPrefix(connection.Source.ID, "output/"+nodeType+"-input-") {
+			nodeID := strings.Split(connection.Source.ID, "/")[1]
+			numericID, _ := strconv.Atoi(strings.Split(nodeID, "-")[2])
+			if numericID >= availableID {
+				availableID = numericID + 1
+			}
+		}
+	}
+	return availableID
+}
+
+func createPrimitiveNodeConnection(source, destinationNode, destinationInput string) types.Connection {
+	var c types.Connection
+
+	c.Source.ID = "output/" + source + "/output"
+	c.Destination.ID = "input/" + destinationNode + "/" + destinationInput
+
+	return c
 }
 
 func readConfigOutputs(config *map[string]interface{}) map[string]output.NodeInfo {
