@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/schollz/progressbar/v3"
 	"io"
 	"io/ioutil"
 	"math"
@@ -19,6 +18,8 @@ import (
 	"trickest-cli/cmd/output"
 	"trickest-cli/types"
 	"trickest-cli/util"
+
+	"github.com/schollz/progressbar/v3"
 )
 
 func getSplitter() *types.Splitter {
@@ -191,6 +192,12 @@ func createNewVersion(version *types.WorkflowVersionDetailed) *types.WorkflowVer
 	for _, pNode := range version.Data.PrimitiveNodes {
 		pNode.ParamName = nil
 	}
+
+	s := strings.Split(*version.Name, " ")
+	if len(s) > 1 {
+		*version.Name = s[0]
+	}
+
 	buf := new(bytes.Buffer)
 
 	err := json.NewEncoder(buf).Encode(version)
