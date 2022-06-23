@@ -48,6 +48,19 @@ type WorkflowVersionDetailed struct {
 	} `json:"data"`
 }
 
+type WorkflowVersionStripped struct {
+	ID           string  `json:"id"`
+	WorkflowInfo string  `json:"workflow_info"`
+	Name         *string `json:"name,omitempty"`
+	Description  string  `json:"description"`
+	MaxMachines  Bees    `json:"max_machines"`
+	Data         struct {
+		Nodes          map[string]*Node          `json:"nodes"`
+		Connections    []Connection              `json:"connections"`
+		PrimitiveNodes map[string]*PrimitiveNode `json:"primitiveNodes"`
+	} `json:"data"`
+}
+
 type Connection struct {
 	Source struct {
 		ID string `json:"id"`
