@@ -1316,7 +1316,7 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 					if update && updatedWfVersion != nil {
 						uploadFilesIfNeeded(primitiveNodes)
 						updatedWfVersion.WorkflowInfo = newWorkflow.ID
-						wfVersion = createNewVersion(updatedWfVersion)
+						// wfVersion = createNewVersion(updatedWfVersion)
 					}
 					return wfVersion
 				}
@@ -1359,7 +1359,7 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 		return wfVersion
 	}
 
-	wfVersion = createNewVersion(wfVersion)
+	// wfVersion = createNewVersion(wfVersion)
 	return wfVersion
 }
 
