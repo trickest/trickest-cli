@@ -1252,6 +1252,7 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 			if update {
 				uploadFilesIfNeeded(newPrimitiveNodes)
 				wfVersion = createNewVersion(updatedWfVersion)
+				return wfVersion
 			}
 		}
 	} else {
