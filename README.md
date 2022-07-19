@@ -24,6 +24,8 @@ Current workflow categories are:
 * Static Code Analysis
 * ... and a lot more
 
+[<img src="./banner.png" />](https://trickest-access.paperform.co/)
+
 # Store
 
 [Trickest Store](https://trickest.io/dashboard/store) is a collection of public tools, Trickest scripts, and Trickest workflows available on the platform. More info can be found at [Trickest workflows repository](https://github.com/trickest/workflows) <- (Coming soon!)
@@ -245,6 +247,8 @@ Use **store search** to search all Trickest tools & workflows available in the [
 ```
 trickest store search subdomain takeover
 ```
+
+[<img src="./banner.png" />](https://trickest-access.paperform.co/)
 
 ## Report Bugs / Feedback
 We look forward to any feedback you want to share with us or if you're stuck with a problem you can contact us at [support@trickest.com](mailto:support@trickest.com).
