@@ -87,9 +87,8 @@ var ExecuteCmd = &cobra.Command{
 		}
 
 		allNodes, roots = CreateTrees(version, false)
-		executionMachines = version.MaxMachines
-		if !maxMachines {
-			setMachinesToMinimum(&executionMachines)
+		if maxMachines {
+			executionMachines = version.MaxMachines
 		}
 
 		outputNodes := make([]string, 0)
