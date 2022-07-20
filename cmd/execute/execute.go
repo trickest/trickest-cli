@@ -87,9 +87,8 @@ var ExecuteCmd = &cobra.Command{
 		}
 
 		allNodes, roots = CreateTrees(version, false)
-		executionMachines = version.MaxMachines
-		if !maxMachines {
-			setMachinesToMinimum(&executionMachines)
+		if maxMachines {
+			executionMachines = version.MaxMachines
 		}
 
 		outputNodes := make([]string, 0)
@@ -1786,7 +1785,13 @@ func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPri
 			primitiveNodeName := getNodeNameFromConnectionID(connection.Source.ID)
 			if strings.HasSuffix(connection.Destination.ID, node.Name+"/"+paramName) && newPNode.Name != primitiveNodeName {
 				// delete(wfVersion.Data.PrimitiveNodes, newPNode.Name)
-				newPNode.Name = primitiveNodeName
+				pNode, ok := wfVersion.Data.PrimitiveNodes[primitiveNodeName]
+				if !ok {
+					fmt.Println("Couldn't find primitive node: " + primitiveNodeName)
+					os.Exit(0)
+				}
+				newPNode.Name = pNode.Name
+				newPNode.Coordinates = pNode.Coordinates
 				wfVersion.Data.PrimitiveNodes[primitiveNodeName] = &newPNode
 			}
 			var primitiveNode *types.PrimitiveNode
@@ -1811,6 +1816,7 @@ func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPri
 				}
 			}
 			newPNode.Name = primitiveNode.Name
+			newPNode.Coordinates = primitiveNode.Coordinates
 			(*newPrimitiveNodes)[primitiveNode.Name] = &newPNode
 
 			if (oldParam != nil && oldParam.Value != newPNode.Value) ||
