@@ -200,7 +200,7 @@ func GetSpaceByName(name string) *types.SpaceDetailed {
 }
 
 func getSpaceByID(id uuid.UUID) *types.SpaceDetailed {
-	resp := request.Trickest.Get().DoF("spaces/%s", id.String())
+	resp := request.Trickest.Get().DoF("spaces/%s/", id.String())
 	if resp == nil {
 		fmt.Println("Error: Couldn't get space by ID!")
 		os.Exit(0)
@@ -258,7 +258,7 @@ func GetWorkflows(projectID, spaceID uuid.UUID, search string, store bool) []typ
 }
 
 func GetWorkflowByID(id uuid.UUID) *types.Workflow {
-	resp := request.Trickest.Get().DoF("store/workflow/%s", id.String())
+	resp := request.Trickest.Get().DoF("store/workflow/%s/", id.String())
 	if resp == nil {
 		fmt.Println("Error: Couldn't get workflow by ID!")
 		os.Exit(0)

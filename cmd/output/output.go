@@ -346,7 +346,7 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []ty
 	}
 
 	for i, output := range subJobOutputs.Results {
-		resp := request.Trickest.Post().DoF("subjob-output/%s/signed_url", output.ID)
+		resp := request.Trickest.Post().DoF("subjob-output/%s/signed_url/", output.ID)
 		if resp == nil {
 			fmt.Println("Error: Couldn't get sub-job outputs signed URL.")
 			continue
@@ -505,7 +505,7 @@ func GetRuns(workflowID uuid.UUID, pageSize int) []types.Run {
 }
 
 func GetWorkflowVersionByID(id uuid.UUID) *types.WorkflowVersionDetailed {
-	resp := request.Trickest.Get().DoF("store/workflow-version/%s", id)
+	resp := request.Trickest.Get().DoF("store/workflow-version/%s/", id)
 	if resp == nil {
 		fmt.Println("Error: Couldn't get workflow version!")
 		return nil
@@ -550,7 +550,7 @@ func getChildrenSubJobs(subJobID uuid.UUID) []types.SubJob {
 }
 
 func getSubJobByID(id uuid.UUID) *types.SubJob {
-	resp := request.Trickest.Get().DoF("subjob/%s", id)
+	resp := request.Trickest.Get().DoF("subjob/%s/", id)
 	if resp == nil {
 		fmt.Println("Error: Couldn't get sub-job!")
 		return nil

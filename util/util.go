@@ -71,7 +71,7 @@ func GetVault() uuid.UUID {
 }
 
 func GetMe() *types.User {
-	resp := request.Trickest.Get().DoF("users/me")
+	resp := request.Trickest.Get().DoF("users/me/")
 	if resp == nil || resp.Status() != http.StatusOK {
 		request.ProcessUnexpectedResponse(resp)
 	}

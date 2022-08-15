@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"strconv"
+	"strings"
 	"time"
 )
 
@@ -52,7 +52,7 @@ func (r *Request) Version(version string) *Request {
 }
 
 func (r *Request) Endpoint(endpoint string) *Request {
-	r.endpoint = endpoint
+	r.endpoint = strings.Trim(endpoint, "/")
 	return r
 }
 
@@ -145,15 +145,15 @@ func (r *Request) newRequest(url string) (*http.Request, error) {
 }
 
 func ProcessUnexpectedResponse(resp *Response) {
-	if resp == nil {
+	if resp == nil || resp.response == nil {
 		fmt.Println("Response is nil")
 		os.Exit(0)
 	}
 
-	fmt.Println(resp.response.Request.Method + " " + resp.response.Request.URL.Path + " " + strconv.Itoa(resp.response.StatusCode))
-	if len(resp.body) > 0 {
-		fmt.Println("Response body:\n" + string(resp.body))
-	}
+	//fmt.Println(resp.response.Request.Method + " " + resp.response.Request.URL.Path + " " + strconv.Itoa(resp.response.StatusCode))
+	//if len(resp.body) > 0 {
+	//	fmt.Println("Response body:\n" + string(resp.body))
+	//}
 
 	if resp.response.StatusCode >= http.StatusInternalServerError {
 		fmt.Println("Sorry, something went wrong!")

@@ -25,7 +25,7 @@ import (
 )
 
 func getSplitter() *types.Splitter {
-	resp := request.Trickest.Get().DoF("store/splitter")
+	resp := request.Trickest.Get().DoF("store/splitter/")
 	if resp == nil {
 		fmt.Println("Error: Couldn't get splitter.")
 	}
@@ -160,7 +160,7 @@ func createNewVersion(version *types.WorkflowVersionDetailed) *types.WorkflowVer
 		os.Exit(0)
 	}
 
-	resp := request.Trickest.Post().Body(data).DoF("store/workflow-version")
+	resp := request.Trickest.Post().Body(data).DoF("store/workflow-version/")
 	if resp == nil {
 		fmt.Println("Error: Couldn't create version!")
 		os.Exit(0)
@@ -275,7 +275,7 @@ func copyWorkflow(destinationSpaceID, destinationProjectID, workflowID uuid.UUID
 		os.Exit(0)
 	}
 
-	resp := request.Trickest.Post().Body(data).DoF("store/workflow/%s/copy", workflowID)
+	resp := request.Trickest.Post().Body(data).DoF("store/workflow/%s/copy/", workflowID)
 	if resp == nil {
 		fmt.Println("Error: Couldn't copy workflow!")
 		os.Exit(0)
@@ -304,7 +304,7 @@ func updateWorkflow(workflow *types.Workflow, deleteProjectOnError bool) {
 		os.Exit(0)
 	}
 
-	resp := request.Trickest.Patch().Body(data).DoF("store/workflow/%s", workflow.ID)
+	resp := request.Trickest.Patch().Body(data).DoF("store/workflow/%s/", workflow.ID)
 	if resp == nil {
 		fmt.Println("Error: Couldn't update workflow!")
 		os.Exit(0)
@@ -398,7 +398,7 @@ func GetAvailableMachines() types.Bees {
 }
 
 func GetRunByID(id uuid.UUID) *types.Run {
-	resp := request.Trickest.Get().DoF("run/%s", id)
+	resp := request.Trickest.Get().DoF("run/%s/", id)
 	if resp == nil {
 		fmt.Println("Error: Couldn't get run!")
 		os.Exit(0)
@@ -447,7 +447,7 @@ func GetSubJobs(runID uuid.UUID) []types.SubJob {
 }
 
 func stopRun(runID uuid.UUID) {
-	resp := request.Trickest.Post().DoF("run/%s/stop", runID)
+	resp := request.Trickest.Post().DoF("run/%s/stop/", runID)
 	if resp == nil {
 		fmt.Println("Error: Couldn't stop run!")
 		os.Exit(0)
