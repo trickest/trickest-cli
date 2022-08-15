@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -167,7 +168,7 @@ func CreateProjectIfNotExists(space *types.SpaceDetailed, projectName string) *t
 	return CreateProject(projectName, "", space.Name)
 }
 
-func CreateWorkflow(name, description, spaceID, projectID string, deleteProjectOnError bool) *types.CreateWorkflowResponse {
+func CreateWorkflow(name, description string, spaceID, projectID uuid.UUID, deleteProjectOnError bool) *types.CreateWorkflowResponse {
 	workflow := types.CreateWorkflowRequest{
 		Name:        name,
 		Description: description,
@@ -215,7 +216,7 @@ func CreateWorkflow(name, description, spaceID, projectID string, deleteProjectO
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		if deleteProjectOnError && projectID != "" {
+		if deleteProjectOnError && projectID != uuid.Nil {
 			delete.DeleteProject(projectID)
 		}
 		util.ProcessUnexpectedResponse(resp)

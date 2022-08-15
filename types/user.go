@@ -1,13 +1,14 @@
 package types
 
 import (
+	"github.com/google/uuid"
 	"time"
 )
 
 type Config struct {
 	User struct {
 		Token   string
-		VaultId string
+		VaultId uuid.UUID
 	}
 	BaseUrl string
 }
@@ -32,7 +33,7 @@ type Profile struct {
 }
 
 type VaultInfo struct {
-	ID           string    `json:"id"`
+	ID           uuid.UUID `json:"id"`
 	Name         string    `json:"name"`
 	Type         int       `json:"type"`
 	Metadata     string    `json:"metadata"`
@@ -50,10 +51,10 @@ type Hives struct {
 }
 
 type Hive struct {
-	ID           string    `json:"id"`
+	ID           uuid.UUID `json:"id"`
 	Name         string    `json:"name"`
 	HiveType     string    `json:"hive_type"`
-	VaultInfo    string    `json:"vault_info"`
+	VaultInfo    uuid.UUID `json:"vault_info"`
 	Cluster      string    `json:"cluster"`
 	State        string    `json:"state"`
 	CreatedDate  time.Time `json:"created_date"`

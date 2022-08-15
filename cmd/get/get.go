@@ -42,7 +42,7 @@ var GetCmd = &cobra.Command{
 			return
 		}
 
-		version := execute.GetLatestWorkflowVersion(workflow)
+		version := execute.GetLatestWorkflowVersion(workflow.ID)
 		allNodes, roots := execute.CreateTrees(version, false)
 
 		runs := output.GetRuns(version.WorkflowInfo, 1)

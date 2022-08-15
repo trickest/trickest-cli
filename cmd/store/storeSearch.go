@@ -2,6 +2,7 @@ package store
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"math"
 	"trickest-cli/cmd/list"
@@ -18,7 +19,7 @@ var storeSearchCmd = &cobra.Command{
 			search = args[0]
 		}
 		tools := list.GetTools(math.MaxInt, search, "")
-		workflows := list.GetWorkflows("", "", search, true)
+		workflows := list.GetWorkflows(uuid.Nil, uuid.Nil, search, true)
 		if len(tools) > 0 {
 			printTools(tools)
 		} else {

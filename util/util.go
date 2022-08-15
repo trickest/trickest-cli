@@ -3,9 +3,11 @@ package util
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 	"trickest-cli/types"
@@ -52,8 +54,8 @@ func GetToken() string {
 	return Cfg.User.Token
 }
 
-func GetVault() string {
-	if Cfg.User.VaultId == "" {
+func GetVault() uuid.UUID {
+	if Cfg.User.VaultId == uuid.Nil {
 		user := GetMe()
 		if user != nil {
 			Cfg.User.VaultId = user.Profile.VaultInfo.ID
@@ -104,7 +106,7 @@ func GetMe() *types.User {
 func GetHiveInfo() *types.Hive {
 	client := &http.Client{}
 
-	req, err := http.NewRequest("GET", Cfg.BaseUrl+"v1/hive/?vault="+GetVault()+"&demo=true", nil)
+	req, err := http.NewRequest("GET", Cfg.BaseUrl+"v1/hive/?vault="+GetVault().String()+"&demo=true", nil)
 	req.Header.Add("Authorization", "Token "+GetToken())
 	req.Header.Add("Accept", "application/json")
 
@@ -143,7 +145,16 @@ func GetHiveInfo() *types.Hive {
 }
 
 func ProcessUnexpectedResponse(resp *http.Response) {
-	// fmt.Println(resp.Request.Method + " " + resp.Request.URL.Path + " " + strconv.Itoa(resp.StatusCode))
+	fmt.Println(resp.Request.Method + " " + resp.Request.URL.Path + " " + strconv.Itoa(resp.StatusCode))
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error: Couldn't read unexpected response.")
+		os.Exit(0)
+	}
+	if len(body) > 0 {
+		fmt.Println("Unexpected response body:\n" + string(body))
+	}
+
 	if resp.StatusCode >= http.StatusInternalServerError {
 		fmt.Println("Sorry, something went wrong!")
 		os.Exit(0)

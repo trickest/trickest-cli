@@ -1,6 +1,9 @@
 package types
 
-import "time"
+import (
+	"github.com/google/uuid"
+	"time"
+)
 
 type OutputsConfig struct {
 	Outputs []string `yaml:"outputs"`
@@ -22,25 +25,26 @@ type SubJobOutputs struct {
 }
 
 type SubJobOutput struct {
-	ID         string `json:"id"`
-	FileName   string `json:"file_name"`
-	Size       int    `json:"size"`
-	PrettySize string `json:"pretty_size"`
-	Format     string `json:"format"`
-	Path       string `json:"path"`
-	SignedURL  string `json:"signed_url,omitempty"`
+	ID         uuid.UUID `json:"id"`
+	FileName   string    `json:"file_name"`
+	Size       int       `json:"size"`
+	PrettySize string    `json:"pretty_size"`
+	Format     string    `json:"format"`
+	Path       string    `json:"path"`
+	SignedURL  string    `json:"signed_url,omitempty"`
 }
 
 type WorkflowVersionDetailed struct {
-	ID           string    `json:"id"`
+	ID           uuid.UUID `json:"id"`
 	Version      int       `json:"version"`
-	WorkflowInfo string    `json:"workflow_info"`
+	WorkflowInfo uuid.UUID `json:"workflow_info"`
 	Name         *string   `json:"name,omitempty"`
 	Description  string    `json:"description"`
 	Public       bool      `json:"public"`
 	CreatedDate  time.Time `json:"created_date"`
 	RunCount     int       `json:"run_count"`
 	MaxMachines  Bees      `json:"max_machines"`
+	Snapshot     bool      `json:"snapshot"`
 	Data         struct {
 		Nodes          map[string]*Node          `json:"nodes"`
 		Connections    []Connection              `json:"connections"`
@@ -49,11 +53,12 @@ type WorkflowVersionDetailed struct {
 }
 
 type WorkflowVersionStripped struct {
-	ID           string  `json:"id"`
-	WorkflowInfo string  `json:"workflow_info"`
-	Name         *string `json:"name,omitempty"`
-	Description  string  `json:"description"`
-	MaxMachines  Bees    `json:"max_machines"`
+	ID           uuid.UUID `json:"id"`
+	WorkflowInfo uuid.UUID `json:"workflow_info"`
+	Name         *string   `json:"name,omitempty"`
+	Description  string    `json:"description"`
+	MaxMachines  Bees      `json:"max_machines"`
+	Snapshot     bool      `json:"snapshot"`
 	Data         struct {
 		Nodes          map[string]*Node          `json:"nodes"`
 		Connections    []Connection              `json:"connections"`
@@ -85,8 +90,8 @@ type PrimitiveNode struct {
 }
 
 type Node struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
 	Meta struct {
 		Label       string `json:"label"`
 		Coordinates struct {

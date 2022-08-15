@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"io"
 	"io/ioutil"
 	"math"
@@ -125,7 +126,7 @@ func getScripts(pageSize int, search string, name string) []types.Script {
 	return scripts.Results
 }
 
-func createRun(versionID string, watch bool, machines *types.Bees, outputNodes []string, outputsDir string) {
+func createRun(versionID uuid.UUID, watch bool, machines *types.Bees, outputNodes []string, outputsDir string) {
 	run := types.CreateRun{
 		VersionID: versionID,
 		HiveInfo:  hive.ID,
@@ -182,7 +183,7 @@ func createRun(versionID string, watch bool, machines *types.Bees, outputNodes [
 		WatchRun(createRunResp.ID, outputsDir, nodesToDownload, false, &executionMachines, showParams)
 	} else {
 		availableBees := GetAvailableMachines()
-		fmt.Println("Run successfully created! ID: " + createRunResp.ID)
+		fmt.Println("Run successfully created! ID: " + createRunResp.ID.String())
 		fmt.Print("Machines:\n" + FormatMachines(machines, false))
 		fmt.Print("\nAvailable:\n" + FormatMachines(&availableBees, false))
 	}
@@ -197,6 +198,7 @@ func createNewVersion(version *types.WorkflowVersionDetailed) *types.WorkflowVer
 		Data:         version.Data,
 		Description:  version.Description,
 		WorkflowInfo: version.WorkflowInfo,
+		Snapshot:     false,
 	}
 
 	buf := new(bytes.Buffer)
@@ -304,54 +306,24 @@ func uploadFile(filePath string) string {
 	return filepath.Base(file.Name())
 }
 
-func GetLatestWorkflowVersion(workflow *types.Workflow) *types.WorkflowVersionDetailed {
-	if workflow == nil {
-		fmt.Println("No workflow provided, couldn't find the latest version!")
-		os.Exit(0)
-	}
-
-	if workflow.VersionCount == nil || *workflow.VersionCount == 0 {
-		fmt.Println("This workflow has no versions!")
-		os.Exit(0)
-	}
-
-	versions := getWorkflowVersions(workflow.ID, 1)
-
-	if versions == nil || len(versions) == 0 {
-		fmt.Println("Couldn't find any versions of the workflow: " + workflow.Name)
-		os.Exit(0)
-	}
-
-	latestVersion := output.GetWorkflowVersionByID(versions[0].ID)
-
-	return latestVersion
-}
-
-func getWorkflowVersions(workflowID string, pageSize int) []types.WorkflowVersion {
-	if workflowID == "" {
-		fmt.Println("No workflow ID provided, couldn't find versions!")
-		os.Exit(0)
-	}
-	urlReq := util.Cfg.BaseUrl + "v1/store/workflow-version/?workflow=" + workflowID
-	urlReq += "&page_size=" + strconv.Itoa(pageSize)
-
-	client := &http.Client{}
+func GetLatestWorkflowVersion(workflowID uuid.UUID) *types.WorkflowVersionDetailed {
+	urlReq := util.Cfg.BaseUrl + "v1/store/workflow-version/latest/?workflow=" + workflowID.String()
 	req, err := http.NewRequest("GET", urlReq, nil)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Token "+util.GetToken())
+	req.Header.Add("Content-Type", "application/json")
 
 	var resp *http.Response
-	resp, err = client.Do(req)
+	resp, err = http.DefaultClient.Do(req)
 	if err != nil {
-		fmt.Println("Error: Couldn't get workflow versions.")
+		fmt.Println("Error: Couldn't get latest workflow version!")
 		os.Exit(0)
 	}
-	defer resp.Body.Close()
 
+	defer resp.Body.Close()
 	var bodyBytes []byte
 	bodyBytes, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("Error: Couldn't read workflow versions.")
+		fmt.Println("Error: Couldn't read latest workflow version!")
 		os.Exit(0)
 	}
 
@@ -359,17 +331,17 @@ func getWorkflowVersions(workflowID string, pageSize int) []types.WorkflowVersio
 		util.ProcessUnexpectedResponse(resp)
 	}
 
-	var versions types.WorkflowVersions
-	err = json.Unmarshal(bodyBytes, &versions)
+	var latestVersion types.WorkflowVersionDetailed
+	err = json.Unmarshal(bodyBytes, &latestVersion)
 	if err != nil {
-		fmt.Println("Error unmarshalling workflow versions response!")
-		os.Exit(0)
+		fmt.Println("Error unmarshalling latest workflow version!")
+		return nil
 	}
 
-	return versions.Results
+	return &latestVersion
 }
 
-func copyWorkflow(destinationSpaceID string, destinationProjectID string, workflowID string) string {
+func copyWorkflow(destinationSpaceID, destinationProjectID, workflowID uuid.UUID) uuid.UUID {
 	copyWf := types.CopyWorkflowRequest{
 		SpaceID:   destinationSpaceID,
 		ProjectID: destinationProjectID,
@@ -380,13 +352,13 @@ func copyWorkflow(destinationSpaceID string, destinationProjectID string, workfl
 	err := json.NewEncoder(buf).Encode(&copyWf)
 	if err != nil {
 		fmt.Println("Error encoding copy workflow request!")
-		return ""
+		return uuid.Nil
 	}
 
 	bodyData := bytes.NewReader(buf.Bytes())
 
 	client := &http.Client{}
-	req, err := http.NewRequest("POST", util.Cfg.BaseUrl+"v1/store/workflow/"+workflowID+"/copy/", bodyData)
+	req, err := http.NewRequest("POST", util.Cfg.BaseUrl+"v1/store/workflow/"+workflowID.String()+"/copy/", bodyData)
 	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Content-Type", "application/json")
@@ -395,14 +367,14 @@ func copyWorkflow(destinationSpaceID string, destinationProjectID string, workfl
 	resp, err = client.Do(req)
 	if err != nil {
 		fmt.Println("Error: Couldn't copy workflow.")
-		return ""
+		return uuid.Nil
 	}
 
 	var bodyBytes []byte
 	bodyBytes, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println("Error: Couldn't read response body!")
-		return ""
+		return uuid.Nil
 	}
 
 	if resp.StatusCode != http.StatusCreated {
@@ -414,7 +386,7 @@ func copyWorkflow(destinationSpaceID string, destinationProjectID string, workfl
 	err = json.Unmarshal(bodyBytes, &copyWorkflowResp)
 	if err != nil {
 		fmt.Println("Error unmarshalling copy workflow response!")
-		return ""
+		return uuid.Nil
 	}
 
 	return copyWorkflowResp.ID
@@ -431,7 +403,7 @@ func updateWorkflow(workflow *types.Workflow, deleteProjectOnError bool) {
 	bodyData := bytes.NewReader(buf.Bytes())
 
 	client := &http.Client{}
-	req, err := http.NewRequest("PATCH", util.Cfg.BaseUrl+"v1/store/workflow/"+workflow.ID+"/", bodyData)
+	req, err := http.NewRequest("PATCH", util.Cfg.BaseUrl+"v1/store/workflow/"+workflow.ID.String()+"/", bodyData)
 	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
 	req.Header.Add("Content-Type", "application/json")
 
@@ -529,10 +501,10 @@ func GetAvailableMachines() types.Bees {
 	return availableBees
 }
 
-func GetRunByID(id string) *types.Run {
+func GetRunByID(id uuid.UUID) *types.Run {
 	client := &http.Client{}
 
-	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/run/"+id+"/", nil)
+	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/run/"+id.String()+"/", nil)
 	req.Header.Add("Authorization", "Token "+util.GetToken())
 	req.Header.Add("Accept", "application/json")
 
@@ -566,12 +538,12 @@ func GetRunByID(id string) *types.Run {
 	return &run
 }
 
-func GetSubJobs(runID string) []types.SubJob {
-	if runID == "" {
+func GetSubJobs(runID uuid.UUID) []types.SubJob {
+	if runID == uuid.Nil {
 		fmt.Println("Couldn't list sub-jobs, no run ID parameter specified!")
 		os.Exit(0)
 	}
-	urlReq := util.Cfg.BaseUrl + "v1/subjob/?run=" + runID
+	urlReq := util.Cfg.BaseUrl + "v1/subjob/?run=" + runID.String()
 	urlReq = urlReq + "&page_size=" + strconv.Itoa(math.MaxInt)
 
 	client := &http.Client{}
@@ -608,9 +580,9 @@ func GetSubJobs(runID string) []types.SubJob {
 	return subJobs.Results
 }
 
-func stopRun(runID string) {
+func stopRun(runID uuid.UUID) {
 	client := &http.Client{}
-	urlReq := util.Cfg.BaseUrl + "v1/run/" + runID + "/stop/"
+	urlReq := util.Cfg.BaseUrl + "v1/run/" + runID.String() + "/stop/"
 	req, err := http.NewRequest("POST", urlReq, nil)
 	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
 	req.Header.Add("Accept", "application/json")
@@ -695,7 +667,7 @@ func getNodeNameFromConnectionID(id string) string {
 }
 
 func getFiles() []types.TrickestFile {
-	urlReq := util.Cfg.BaseUrl + "v1/file/?vault=" + util.GetVault()
+	urlReq := util.Cfg.BaseUrl + "v1/file/?vault=" + util.GetVault().String()
 	urlReq = urlReq + "&page_size=" + strconv.Itoa(math.MaxInt)
 
 	client := &http.Client{}
@@ -758,4 +730,20 @@ func uploadFilesIfNeeded(primitiveNodes map[string]*types.PrimitiveNode) {
 			pNode.UpdateFile = nil
 		}
 	}
+}
+
+func maxMachinesTypeCompatible(machines, maxMachines *types.Bees) bool {
+	if (machines.Small != nil && maxMachines.Small == nil) ||
+		(machines.Medium != nil && maxMachines.Medium == nil) ||
+		(machines.Large != nil && maxMachines.Large == nil) {
+		return false
+	}
+
+	if (machines.Small == nil && maxMachines.Small != nil) ||
+		(machines.Medium == nil && maxMachines.Medium != nil) ||
+		(machines.Large == nil && maxMachines.Large != nil) {
+		return false
+	}
+
+	return true
 }

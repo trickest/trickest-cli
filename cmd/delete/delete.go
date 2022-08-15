@@ -2,6 +2,7 @@ package delete
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"net/http"
 	"strings"
 	"trickest-cli/cmd/list"
@@ -61,8 +62,8 @@ func init() {
 
 }
 
-func deleteSpace(name string, id string) {
-	if id == "" {
+func deleteSpace(name string, id uuid.UUID) {
+	if id == uuid.Nil {
 		space := list.GetSpaceByName(name)
 		if space == nil {
 			fmt.Println("Couldn't find space named " + name + "!")
@@ -73,14 +74,14 @@ func deleteSpace(name string, id string) {
 
 	client := &http.Client{}
 
-	req, err := http.NewRequest("DELETE", util.Cfg.BaseUrl+"v1/spaces/"+id+"/", nil)
+	req, err := http.NewRequest("DELETE", util.Cfg.BaseUrl+"v1/spaces/"+id.String()+"/", nil)
 	req.Header.Add("Authorization", "Token "+util.GetToken())
 	req.Header.Add("Content-Type", "application/json")
 
 	var resp *http.Response
 	resp, err = client.Do(req)
 	if err != nil {
-		fmt.Println("Error: Couldn't delete space with ID: " + id)
+		fmt.Println("Error: Couldn't delete space with ID: " + id.String())
 		return
 	}
 	defer resp.Body.Close()
@@ -92,17 +93,17 @@ func deleteSpace(name string, id string) {
 	}
 }
 
-func DeleteProject(id string) {
+func DeleteProject(id uuid.UUID) {
 	client := &http.Client{}
 
-	req, err := http.NewRequest("DELETE", util.Cfg.BaseUrl+"v1/projects/"+id+"/", nil)
+	req, err := http.NewRequest("DELETE", util.Cfg.BaseUrl+"v1/projects/"+id.String()+"/", nil)
 	req.Header.Add("Authorization", "Token "+util.GetToken())
 	req.Header.Add("Content-Type", "application/json")
 
 	var resp *http.Response
 	resp, err = client.Do(req)
 	if err != nil {
-		fmt.Println("Error: Couldn't delete project with ID: " + id)
+		fmt.Println("Error: Couldn't delete project with ID: " + id.String())
 		return
 	}
 	defer resp.Body.Close()
@@ -114,17 +115,17 @@ func DeleteProject(id string) {
 	}
 }
 
-func deleteWorkflow(id string) {
+func deleteWorkflow(id uuid.UUID) {
 	client := &http.Client{}
 
-	req, err := http.NewRequest("DELETE", util.Cfg.BaseUrl+"v1/store/workflow/"+id+"/", nil)
+	req, err := http.NewRequest("DELETE", util.Cfg.BaseUrl+"v1/store/workflow/"+id.String()+"/", nil)
 	req.Header.Add("Authorization", "Token "+util.GetToken())
 	req.Header.Add("Content-Type", "application/json")
 
 	var resp *http.Response
 	resp, err = client.Do(req)
 	if err != nil {
-		fmt.Println("Error: Couldn't delete workflow with ID: " + id)
+		fmt.Println("Error: Couldn't delete workflow with ID: " + id.String())
 		return
 	}
 	defer resp.Body.Close()

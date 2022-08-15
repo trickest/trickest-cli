@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"io/ioutil"
 	"math"
 	"os"
@@ -797,9 +798,9 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 		nodes[node.ID] = newNode
 	}
 
-	workflowID := ""
+	workflowID := uuid.Nil
 	if workflow == nil {
-		projectID := ""
+		projectID := uuid.Nil
 		if project != nil {
 			projectID = project.ID
 		}
@@ -833,7 +834,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 	return version
 }
 
-func WatchRun(runID, downloadPath string, nodesToDownload map[string]output.NodeInfo, timestampOnly bool, machines *types.Bees, showParameters bool) {
+func WatchRun(runID uuid.UUID, downloadPath string, nodesToDownload map[string]output.NodeInfo, timestampOnly bool, machines *types.Bees, showParameters bool) {
 	const fmtStr = "%-12s %v\n"
 	writer := uilive.New()
 	writer.Start()
@@ -1182,8 +1183,8 @@ func createToolWorkflow(wfName string, space *types.SpaceDetailed, project *type
 	}
 
 	wfExists := false
-	workflowID := ""
-	projectID := ""
+	workflowID := uuid.Nil
+	projectID := uuid.Nil
 	if project != nil {
 		projectID = project.ID
 		for _, wf := range project.Workflows {
@@ -1243,7 +1244,7 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 
 	if workflow != nil && newWorkflowName == "" {
 		// Executing an existing workflow
-		wfVersion = GetLatestWorkflowVersion(workflow)
+		wfVersion = GetLatestWorkflowVersion(workflow.ID)
 		if configFile == "" {
 			executionMachines = wfVersion.MaxMachines
 		} else {
@@ -1257,28 +1258,23 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 	} else {
 		// Executing from store
 		wfName := pathSplit[len(pathSplit)-1]
-		storeWorkflows := list.GetWorkflows("", "", wfName, true)
+		storeWorkflows := list.GetWorkflows(uuid.Nil, uuid.Nil, wfName, true)
 		if storeWorkflows != nil && len(storeWorkflows) > 0 {
 			// Executing from store
 			for _, wf := range storeWorkflows {
 				if strings.ToLower(wf.Name) == strings.ToLower(wfName) {
-					storeWfVersion := GetLatestWorkflowVersion(list.GetWorkflowByID(wf.ID))
-					update := false
-					var updatedWfVersion *types.WorkflowVersionDetailed
-					if configFile == "" {
-						executionMachines = storeWfVersion.MaxMachines
-					} else {
-						update, updatedWfVersion, primitiveNodes = readConfig(configFile, storeWfVersion, nil)
-					}
-
 					if project == nil {
-						fmt.Println("Would you like to create a project named " + wfName +
+						projectName := pathSplit[len(pathSplit)-2]
+						if projectName == "" {
+							projectName = wfName
+						}
+						fmt.Println("Would you like to create a project named " + projectName +
 							" and save the new workflow in there? (Y/N)")
 						var answer string
 						for {
 							_, _ = fmt.Scan(&answer)
 							if strings.ToLower(answer) == "y" || strings.ToLower(answer) == "yes" {
-								project = create.CreateProjectIfNotExists(space, wfName)
+								project = create.CreateProjectIfNotExists(space, projectName)
 								projectCreated = true
 								break
 							} else if strings.ToLower(answer) == "n" || strings.ToLower(answer) == "no" {
@@ -1296,12 +1292,12 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 					}
 					copyDestination += "/" + newWorkflowName
 					fmt.Println("Copying " + wf.Name + " from the store to " + copyDestination)
-					projID := ""
+					projID := uuid.Nil
 					if project != nil {
 						projID = project.ID
 					}
 					newWorkflowID := copyWorkflow(space.ID, projID, wf.ID)
-					if newWorkflowID == "" {
+					if newWorkflowID == uuid.Nil {
 						fmt.Println("Couldn't copy workflow from the store!")
 						os.Exit(0)
 					}
@@ -1312,7 +1308,19 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 						updateWorkflow(newWorkflow, projectCreated)
 					}
 
-					wfVersion = GetLatestWorkflowVersion(newWorkflow)
+					copiedWfVersion := GetLatestWorkflowVersion(newWorkflow.ID)
+					if copiedWfVersion == nil {
+						fmt.Println("No workflow version found for " + newWorkflow.Name)
+						os.Exit(0)
+					}
+					update := false
+					var updatedWfVersion *types.WorkflowVersionDetailed
+					if configFile == "" {
+						executionMachines = copiedWfVersion.MaxMachines
+					} else {
+						update, updatedWfVersion, primitiveNodes = readConfig(configFile, copiedWfVersion, nil)
+					}
+
 					if update && updatedWfVersion != nil {
 						uploadFilesIfNeeded(primitiveNodes)
 						updatedWfVersion.WorkflowInfo = newWorkflow.ID
@@ -1521,7 +1529,7 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 						fmt.Println("      ...\n   ]")
 						os.Exit(0)
 					}
-					if strings.HasPrefix(node.ID, "file-splitter") || strings.HasPrefix(node.ID, "split-to-string") {
+					if strings.HasPrefix(node.Name, "file-splitter") || strings.HasPrefix(node.Name, "split-to-string") {
 						fmt.Println(param)
 						fmt.Println("Node is a file splitter, use the following syntax:")
 						fmt.Println("<splitter name or ID>:")
@@ -1776,6 +1784,12 @@ func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPri
 	updateNeeded := false
 	for _, connection := range wfVersion.Data.Connections {
 		source := getNodeNameFromConnectionID(connection.Source.ID)
+		if !(strings.HasPrefix(source, "http-input") ||
+			strings.HasPrefix(source, "git-input") ||
+			strings.HasPrefix(source, "string-input") ||
+			strings.HasPrefix(source, "boolean-input")) {
+			continue
+		}
 		isSplitter := strings.HasPrefix(node.Name, "file-splitter") || strings.HasPrefix(node.Name, "split-to-string")
 		if strings.HasSuffix(connection.Destination.ID, node.Name+"/"+paramName) ||
 			(isSplitter && strings.HasSuffix(connection.Destination.ID, node.Name+"/multiple/"+source)) ||
@@ -1796,12 +1810,6 @@ func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPri
 			}
 			var primitiveNode *types.PrimitiveNode
 			primitiveNode, pNodeExists = wfVersion.Data.PrimitiveNodes[primitiveNodeName]
-			if !(strings.HasPrefix(primitiveNodeName, "http-input") ||
-				strings.HasPrefix(primitiveNodeName, "git-input") ||
-				strings.HasPrefix(primitiveNodeName, "string-input") ||
-				strings.HasPrefix(primitiveNodeName, "boolean-input")) {
-				continue
-			}
 			if !pNodeExists {
 				fmt.Println("Couldn't find primitive node: " + primitiveNodeName)
 				os.Exit(0)
@@ -1884,7 +1892,21 @@ func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPri
 func createNewPrimitiveNode(nodeType string, value interface{}, id int) types.PrimitiveNode {
 	var node types.PrimitiveNode
 
-	node.Name = strings.ToLower(nodeType) + "-input-" + fmt.Sprint(id)
+	nodeType = strings.ToLower(nodeType)
+	switch nodeType {
+	case "file":
+		node.Name = "http-input-" + fmt.Sprint(id)
+	case "folder":
+		node.Name = "git-input-" + fmt.Sprint(id)
+	case "string":
+		node.Name = "string-input-" + fmt.Sprint(id)
+	case "boolean":
+		node.Name = "boolean-input-" + fmt.Sprint(id)
+	default:
+		fmt.Println("Unknown primitive node type: " + nodeType)
+		os.Exit(0)
+	}
+
 	node.Value = value
 	node.Label = value.(string)
 	node.Type = nodeType
@@ -2049,6 +2071,13 @@ func readConfigMachines(config *map[string]interface{}, isTool bool, maximumMach
 				setMachinesToMinimum(execMachines)
 			}
 		}
+	}
+
+	if !maxMachinesTypeCompatible(execMachines, maximumMachines) {
+		fmt.Println("Workflow maximum machines types are not compatible with config machines!")
+		fmt.Println("Workflow max machines: " + FormatMachines(maximumMachines, true))
+		fmt.Println("Config machines: " + FormatMachines(execMachines, true))
+		os.Exit(0)
 	}
 
 	return execMachines

@@ -3,6 +3,7 @@ package output
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"io"
 	"io/ioutil"
 	"math"
@@ -123,7 +124,7 @@ The YAML config file should be formatted like:
 			return
 		}
 
-		if numberOfRuns == 1 && wfRuns[0].Status == "SCHEDULED" {
+		if numberOfRuns == 1 && (wfRuns[0].Status == "SCHEDULED" || wfRuns[0].CreationType == types.RunCreationScheduled) {
 			wfRuns = GetRuns(workflow.ID, numberOfRuns+1)
 			runs = append(runs, wfRuns...)
 		}
@@ -151,7 +152,7 @@ func init() {
 func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, version *types.WorkflowVersionDetailed, destinationPath string) {
 	if run.Status != "COMPLETED" && run.Status != "STOPPED" && run.Status != "FAILED" {
 		fmt.Println("The workflow run hasn't been completed yet!")
-		fmt.Println("Run ID: " + run.ID + "   Status: " + run.Status)
+		fmt.Println("Run ID: " + run.ID.String() + "   Status: " + run.Status)
 		return
 	}
 
@@ -275,7 +276,7 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []ty
 	}
 	client := &http.Client{}
 
-	urlReq := util.Cfg.BaseUrl + "v1/subjob-output/?subjob=" + subJob.ID
+	urlReq := util.Cfg.BaseUrl + "v1/subjob-output/?subjob=" + subJob.ID.String()
 	urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
 
 	req, err := http.NewRequest("GET", urlReq, nil)
@@ -358,7 +359,7 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []ty
 	}
 
 	for i, output := range subJobOutputs.Results {
-		req, err = http.NewRequest("POST", util.Cfg.BaseUrl+"v1/subjob-output/"+output.ID+"/signed_url/", nil)
+		req, err = http.NewRequest("POST", util.Cfg.BaseUrl+"v1/subjob-output/"+output.ID.String()+"/signed_url/", nil)
 		req.Header.Add("Authorization", "Token "+util.GetToken())
 		req.Header.Add("Accept", "application/json")
 
@@ -461,12 +462,12 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []ty
 	return subJobOutputs.Results
 }
 
-func getSubJobs(runID string) []types.SubJob {
-	if runID == "" {
+func getSubJobs(runID uuid.UUID) []types.SubJob {
+	if runID == uuid.Nil {
 		fmt.Println("Couldn't list sub-jobs, no run ID parameter specified!")
 		return nil
 	}
-	urlReq := util.Cfg.BaseUrl + "v1/subjob/?run=" + runID
+	urlReq := util.Cfg.BaseUrl + "v1/subjob/?run=" + runID.String()
 	urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
 
 	client := &http.Client{}
@@ -503,11 +504,11 @@ func getSubJobs(runID string) []types.SubJob {
 	return subJobs.Results
 }
 
-func GetRuns(workflowID string, pageSize int) []types.Run {
-	urlReq := util.Cfg.BaseUrl + "v1/run/?vault=" + util.GetVault()
+func GetRuns(workflowID uuid.UUID, pageSize int) []types.Run {
+	urlReq := util.Cfg.BaseUrl + "v1/run/?vault=" + util.GetVault().String()
 
-	if workflowID != "" {
-		urlReq += "&workflow=" + workflowID
+	if workflowID != uuid.Nil {
+		urlReq += "&workflow=" + workflowID.String()
 	}
 
 	if pageSize != 0 {
@@ -550,10 +551,10 @@ func GetRuns(workflowID string, pageSize int) []types.Run {
 	return runs.Results
 }
 
-func GetWorkflowVersionByID(id string) *types.WorkflowVersionDetailed {
+func GetWorkflowVersionByID(id uuid.UUID) *types.WorkflowVersionDetailed {
 	client := &http.Client{}
 
-	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/store/workflow-version/"+id+"/", nil)
+	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/store/workflow-version/"+id.String()+"/", nil)
 	req.Header.Add("Authorization", "Token "+util.GetToken())
 	req.Header.Add("Accept", "application/json")
 
@@ -582,10 +583,10 @@ func GetWorkflowVersionByID(id string) *types.WorkflowVersionDetailed {
 	return &workflowVersion
 }
 
-func getChildrenSubJobs(subJobID string) []types.SubJob {
+func getChildrenSubJobs(subJobID uuid.UUID) []types.SubJob {
 	client := &http.Client{}
 
-	urlReq := util.Cfg.BaseUrl + "v1/subjob/" + subJobID + "/children/"
+	urlReq := util.Cfg.BaseUrl + "v1/subjob/" + subJobID.String() + "/children/"
 	urlReq += "?page_size=" + strconv.Itoa(math.MaxInt)
 
 	req, err := http.NewRequest("GET", urlReq, nil)
@@ -621,10 +622,10 @@ func getChildrenSubJobs(subJobID string) []types.SubJob {
 	return subJobs.Results
 }
 
-func getSubJobByID(id string) *types.SubJob {
+func getSubJobByID(id uuid.UUID) *types.SubJob {
 	client := &http.Client{}
 
-	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/subjob/"+id+"/", nil)
+	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/subjob/"+id.String()+"/", nil)
 	req.Header.Add("Authorization", "Token "+util.GetToken())
 	req.Header.Add("Accept", "application/json")
 

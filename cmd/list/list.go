@@ -3,6 +3,7 @@ package list
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"io/ioutil"
 	"math"
 	"net/http"
@@ -162,7 +163,7 @@ func printSpaces(spaces []types.Space) {
 }
 
 func getSpaces(name string) []types.Space {
-	urlReq := util.Cfg.BaseUrl + "v1/spaces/?vault=" + util.GetVault()
+	urlReq := util.Cfg.BaseUrl + "v1/spaces/?vault=" + util.GetVault().String()
 	urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
 
 	if name != "" {
@@ -212,10 +213,10 @@ func GetSpaceByName(name string) *types.SpaceDetailed {
 	return getSpaceByID(spaces[0].ID)
 }
 
-func getSpaceByID(id string) *types.SpaceDetailed {
+func getSpaceByID(id uuid.UUID) *types.SpaceDetailed {
 	client := &http.Client{}
 
-	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/spaces/"+id+"/", nil)
+	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/spaces/"+id.String()+"/", nil)
 	req.Header.Add("Authorization", "Token "+util.GetToken())
 	req.Header.Add("Accept", "application/json")
 
@@ -248,21 +249,21 @@ func getSpaceByID(id string) *types.SpaceDetailed {
 	return &space
 }
 
-func GetWorkflows(projectID, spaceID, search string, store bool) []types.WorkflowListResponse {
+func GetWorkflows(projectID, spaceID uuid.UUID, search string, store bool) []types.WorkflowListResponse {
 	urlReq := util.Cfg.BaseUrl + "v1/store/workflow/"
 	urlReq += "?page_size=" + strconv.Itoa(math.MaxInt)
 	if !store {
-		urlReq += "&vault=" + util.GetVault()
+		urlReq += "&vault=" + util.GetVault().String()
 	}
 
 	if search != "" {
 		urlReq += "&search=" + url.QueryEscape(search)
 	}
 
-	if projectID != "" {
-		urlReq += "&project=" + projectID
-	} else if spaceID != "" {
-		urlReq += "&space=" + spaceID
+	if projectID != uuid.Nil {
+		urlReq += "&project=" + projectID.String()
+	} else if spaceID != uuid.Nil {
+		urlReq += "&space=" + spaceID.String()
 	}
 
 	client := &http.Client{}
@@ -299,10 +300,10 @@ func GetWorkflows(projectID, spaceID, search string, store bool) []types.Workflo
 	return workflows.Results
 }
 
-func GetWorkflowByID(id string) *types.Workflow {
+func GetWorkflowByID(id uuid.UUID) *types.Workflow {
 	client := &http.Client{}
 
-	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/store/workflow/"+id+"/", nil)
+	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/store/workflow/"+id.String()+"/", nil)
 	req.Header.Add("Authorization", "Token "+util.GetToken())
 	req.Header.Add("Accept", "application/json")
 
@@ -376,7 +377,7 @@ func ResolveObjectPath(path string, silent bool, isProject bool) (*types.SpaceDe
 		for _, proj := range space.Projects {
 			if proj.Name == projectName {
 				project = &proj
-				project.Workflows = GetWorkflows(project.ID, "", "", false)
+				project.Workflows = GetWorkflows(project.ID, uuid.Nil, "", false)
 				break
 			}
 		}
