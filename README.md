@@ -1,4 +1,4 @@
-<h1 align="center">Trickest Client<a href="#"> <img src="https://img.shields.io/badge/Tweet--lightgrey?logo=twitter&style=social" alt="Tweet" height="20"/></a></h1>
+<h1 align="center">Trickest ClI<a href="https://twitter.com/intent/tweet?text=Trickest%20CLI%20-%20Execute%20workflows%20right%20from%20your%20terminal%20%40trick3st%0Ahttps%3A%2F%2Fgithub.com%2Ftrickest%2Ftrickest-cli"> <img src="https://img.shields.io/badge/Tweet--lightgrey?logo=twitter&style=social" alt="Tweet" height="20"/></a></h1>
 
 <h3 align="center">
 Execute <a href=https://trickest.com>Trickest</a> workflows right from your terminal.
