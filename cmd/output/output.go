@@ -12,6 +12,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"trickest-cli/client/request"
 	"trickest-cli/cmd/list"
 	"trickest-cli/types"
 	"trickest-cli/util"
@@ -274,36 +275,22 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []ty
 	if subJob.OutputsStatus != "SAVED" && !subJob.TaskGroup {
 		return nil
 	}
-	client := &http.Client{}
 
-	urlReq := util.Cfg.BaseUrl + "v1/subjob-output/?subjob=" + subJob.ID.String()
+	urlReq := "subjob-output/?subjob=" + subJob.ID.String()
 	urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
 
-	req, err := http.NewRequest("GET", urlReq, nil)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
+	resp := request.Trickest.Get().DoF(urlReq)
+	if resp == nil {
 		fmt.Println("Error: Couldn't get sub-job output data.")
 		return nil
 	}
-	defer resp.Body.Close()
 
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read sub-job output data.")
-		return nil
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var subJobOutputs types.SubJobOutputs
-	err = json.Unmarshal(bodyBytes, &subJobOutputs)
+	err := json.Unmarshal(resp.Body(), &subJobOutputs)
 	if err != nil {
 		fmt.Println("Error unmarshalling sub-job output response!")
 		return nil
@@ -359,30 +346,24 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []ty
 	}
 
 	for i, output := range subJobOutputs.Results {
-		req, err = http.NewRequest("POST", util.Cfg.BaseUrl+"v1/subjob-output/"+output.ID.String()+"/signed_url/", nil)
-		req.Header.Add("Authorization", "Token "+util.GetToken())
-		req.Header.Add("Accept", "application/json")
-
-		resp, err = client.Do(req)
-		if err != nil {
+		resp := request.Trickest.Post().DoF("subjob-output/%s/signed_url", output.ID)
+		if resp == nil {
 			fmt.Println("Error: Couldn't get sub-job outputs signed URL.")
 			continue
 		}
 
-		bodyBytes, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Println("Error: Couldn't read sub-job output signed URL.")
-			continue
+		if resp.Status() != http.StatusNotFound && resp.Status() != http.StatusCreated {
+			request.ProcessUnexpectedResponse(resp)
 		}
 
 		var signedURL types.SignedURL
-		err = json.Unmarshal(bodyBytes, &signedURL)
+		err = json.Unmarshal(resp.Body(), &signedURL)
 		if err != nil {
 			fmt.Println("Error unmarshalling sub-job output signed URL response!")
 			continue
 		}
 
-		if resp.StatusCode == http.StatusNotFound {
+		if resp.Status() == http.StatusNotFound {
 			subJobOutputs.Results[i].SignedURL = "expired"
 		} else {
 			subJobOutputs.Results[i].SignedURL = signedURL.Url
@@ -467,35 +448,21 @@ func getSubJobs(runID uuid.UUID) []types.SubJob {
 		fmt.Println("Couldn't list sub-jobs, no run ID parameter specified!")
 		return nil
 	}
-	urlReq := util.Cfg.BaseUrl + "v1/subjob/?run=" + runID.String()
+	urlReq := "subjob/?run=" + runID.String()
 	urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
 
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", urlReq, nil)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
+	resp := request.Trickest.Get().DoF(urlReq)
+	if resp == nil {
 		fmt.Println("Error: Couldn't get sub-jobs!")
 		return nil
 	}
-	defer resp.Body.Close()
 
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read sub-jobs response.")
-		return nil
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var subJobs types.SubJobs
-	err = json.Unmarshal(bodyBytes, &subJobs)
+	err := json.Unmarshal(resp.Body(), &subJobs)
 	if err != nil {
 		fmt.Println("Error unmarshalling sub-jobs response!")
 		return nil
@@ -505,7 +472,7 @@ func getSubJobs(runID uuid.UUID) []types.SubJob {
 }
 
 func GetRuns(workflowID uuid.UUID, pageSize int) []types.Run {
-	urlReq := util.Cfg.BaseUrl + "v1/run/?vault=" + util.GetVault().String()
+	urlReq := "run/?vault=" + util.GetVault().String()
 
 	if workflowID != uuid.Nil {
 		urlReq += "&workflow=" + workflowID.String()
@@ -517,32 +484,18 @@ func GetRuns(workflowID uuid.UUID, pageSize int) []types.Run {
 		urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
 	}
 
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", urlReq, nil)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
+	resp := request.Trickest.Get().DoF(urlReq)
+	if resp == nil {
 		fmt.Println("Error: Couldn't get runs!")
 		return nil
 	}
-	defer resp.Body.Close()
 
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read runs response.")
-		return nil
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var runs types.Runs
-	err = json.Unmarshal(bodyBytes, &runs)
+	err := json.Unmarshal(resp.Body(), &runs)
 	if err != nil {
 		fmt.Println("Error unmarshalling runs response!")
 		return nil
@@ -552,29 +505,18 @@ func GetRuns(workflowID uuid.UUID, pageSize int) []types.Run {
 }
 
 func GetWorkflowVersionByID(id uuid.UUID) *types.WorkflowVersionDetailed {
-	client := &http.Client{}
-
-	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/store/workflow-version/"+id.String()+"/", nil)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't get workflow version.")
+	resp := request.Trickest.Get().DoF("store/workflow-version/%s", id)
+	if resp == nil {
+		fmt.Println("Error: Couldn't get workflow version!")
 		return nil
 	}
-	defer resp.Body.Close()
 
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read workflow version.")
-		return nil
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var workflowVersion types.WorkflowVersionDetailed
-	err = json.Unmarshal(bodyBytes, &workflowVersion)
+	err := json.Unmarshal(resp.Body(), &workflowVersion)
 	if err != nil {
 		fmt.Println("Error unmarshalling workflow version response!")
 		return nil
@@ -584,36 +526,21 @@ func GetWorkflowVersionByID(id uuid.UUID) *types.WorkflowVersionDetailed {
 }
 
 func getChildrenSubJobs(subJobID uuid.UUID) []types.SubJob {
-	client := &http.Client{}
-
-	urlReq := util.Cfg.BaseUrl + "v1/subjob/" + subJobID.String() + "/children/"
+	urlReq := "subjob/" + subJobID.String() + "/children/"
 	urlReq += "?page_size=" + strconv.Itoa(math.MaxInt)
 
-	req, err := http.NewRequest("GET", urlReq, nil)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't get sub-job children.")
-		return nil
-	}
-	defer resp.Body.Close()
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read sub-job children.")
+	resp := request.Trickest.Get().DoF(urlReq)
+	if resp == nil {
+		fmt.Println("Error: Couldn't get children sub-jobs!")
 		return nil
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var subJobs types.SubJobs
-	err = json.Unmarshal(bodyBytes, &subJobs)
+	err := json.Unmarshal(resp.Body(), &subJobs)
 	if err != nil {
 		fmt.Println("Error unmarshalling sub-job children response!")
 		return nil
@@ -623,33 +550,18 @@ func getChildrenSubJobs(subJobID uuid.UUID) []types.SubJob {
 }
 
 func getSubJobByID(id uuid.UUID) *types.SubJob {
-	client := &http.Client{}
-
-	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/subjob/"+id.String()+"/", nil)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't get sub-job info.")
-		return nil
-	}
-	defer resp.Body.Close()
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read sub-job info.")
+	resp := request.Trickest.Get().DoF("subjob/%s", id)
+	if resp == nil {
+		fmt.Println("Error: Couldn't get sub-job!")
 		return nil
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var subJob types.SubJob
-	err = json.Unmarshal(bodyBytes, &subJob)
+	err := json.Unmarshal(resp.Body(), &subJob)
 	if err != nil {
 		fmt.Println("Error unmarshalling sub-job response!")
 		return nil

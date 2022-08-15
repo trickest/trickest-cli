@@ -1,14 +1,13 @@
 package create
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
+	"trickest-cli/client/request"
 	"trickest-cli/cmd/delete"
 	"trickest-cli/cmd/list"
 	"trickest-cli/types"
@@ -65,29 +64,20 @@ func createSpace(name string, description string) {
 		VaultInfo:   util.GetVault(),
 	}
 
-	buf := new(bytes.Buffer)
-
-	err := json.NewEncoder(buf).Encode(&space)
+	data, err := json.Marshal(space)
 	if err != nil {
-		fmt.Println("Error encoding create space request!")
+		fmt.Println("Error marshaling create space request!")
 		return
 	}
 
-	bodyData := bytes.NewReader(buf.Bytes())
-
-	client := &http.Client{}
-	req, err := http.NewRequest("POST", util.Cfg.BaseUrl+"v1/spaces/", bodyData)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Content-Type", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
+	resp := request.Trickest.Post().Body(data).DoF("spaces/?vault=%s", util.GetVault())
+	if resp == nil {
 		fmt.Println("Error: Couldn't create space.")
 		return
 	}
-	if resp.StatusCode != http.StatusCreated {
-		util.ProcessUnexpectedResponse(resp)
+
+	if resp.Status() != http.StatusCreated {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	fmt.Println("Space successfully created! ")
@@ -115,42 +105,25 @@ func CreateProject(name string, description string, spaceName string) *types.Pro
 		SpaceID:     space.ID,
 	}
 
-	buf := new(bytes.Buffer)
-
-	err := json.NewEncoder(buf).Encode(&project)
+	data, err := json.Marshal(project)
 	if err != nil {
-		fmt.Println("Error encoding create project request!")
+		fmt.Println("Error marshaling create project request!")
 		os.Exit(0)
 	}
 
-	bodyData := bytes.NewReader(buf.Bytes())
-
-	client := &http.Client{}
-	req, err := http.NewRequest("POST", util.Cfg.BaseUrl+"v1/projects/", bodyData)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Content-Type", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
+	resp := request.Trickest.Post().Body(data).DoF("projects/?vault=%s", util.GetVault())
+	if resp == nil {
 		fmt.Println("Error: Couldn't create project.")
 		os.Exit(0)
 	}
 
-	if resp.StatusCode != http.StatusCreated {
-		util.ProcessUnexpectedResponse(resp)
-	}
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read response body!")
-		os.Exit(0)
+	if resp.Status() != http.StatusCreated {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	fmt.Println("Project successfully created!")
 	var newProject types.Project
-	err = json.Unmarshal(bodyBytes, &newProject)
+	err = json.Unmarshal(resp.Body(), &newProject)
 	if err != nil {
 		fmt.Println("Error unmarshalling create project response!")
 		os.Exit(0)
@@ -186,45 +159,28 @@ func CreateWorkflow(name, description string, spaceID, projectID uuid.UUID, dele
 		}
 	}
 
-	buf := new(bytes.Buffer)
-
-	err := json.NewEncoder(buf).Encode(&workflow)
+	data, err := json.Marshal(workflow)
 	if err != nil {
-		fmt.Println("Error encoding create workflow request!")
+		fmt.Println("Error marshaling create workflow request!")
 		os.Exit(0)
 	}
 
-	bodyData := bytes.NewReader(buf.Bytes())
-
-	client := &http.Client{}
-	req, err := http.NewRequest("POST", util.Cfg.BaseUrl+"v1/store/workflow/", bodyData)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Content-Type", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
+	resp := request.Trickest.Post().Body(data).DoF("store/workflow/vault=%s", util.GetVault())
+	if resp == nil {
 		fmt.Println("Error: Couldn't create workflow.")
 		os.Exit(0)
 	}
 
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read response body!")
-		os.Exit(0)
-	}
-
-	if resp.StatusCode != http.StatusCreated {
+	if resp.Status() != http.StatusCreated {
 		if deleteProjectOnError && projectID != uuid.Nil {
 			delete.DeleteProject(projectID)
 		}
-		util.ProcessUnexpectedResponse(resp)
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	fmt.Print("Workflow successfully created!\n\n")
 	var createWorkflowResp types.CreateWorkflowResponse
-	err = json.Unmarshal(bodyBytes, &createWorkflowResp)
+	err = json.Unmarshal(resp.Body(), &createWorkflowResp)
 	if err != nil {
 		fmt.Println("Error unmarshalling create workflow response!")
 		os.Exit(0)

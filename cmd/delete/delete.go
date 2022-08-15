@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"net/http"
+	"os"
 	"strings"
+	"trickest-cli/client/request"
 	"trickest-cli/cmd/list"
-	"trickest-cli/types"
 	"trickest-cli/util"
 
 	"github.com/spf13/cobra"
@@ -32,17 +33,7 @@ var DeleteCmd = &cobra.Command{
 			}
 		}
 
-		var (
-			space    *types.SpaceDetailed
-			project  *types.Project
-			workflow *types.Workflow
-			found    bool
-		)
-		if util.WorkflowName == "" {
-			space, project, workflow, found = list.ResolveObjectPath(path, false, true)
-		} else {
-			space, project, workflow, found = list.ResolveObjectPath(path, false, false)
-		}
+		space, project, workflow, found := list.ResolveObjectPath(path, false, util.WorkflowName == "")
 		if !found {
 			return
 		}
@@ -51,15 +42,10 @@ var DeleteCmd = &cobra.Command{
 			deleteWorkflow(workflow.ID)
 		} else if project != nil {
 			DeleteProject(project.ID)
-			return
 		} else if space != nil {
 			deleteSpace("", space.ID)
 		}
 	},
-}
-
-func init() {
-
 }
 
 func deleteSpace(name string, id uuid.UUID) {
@@ -67,71 +53,47 @@ func deleteSpace(name string, id uuid.UUID) {
 		space := list.GetSpaceByName(name)
 		if space == nil {
 			fmt.Println("Couldn't find space named " + name + "!")
-			return
+			os.Exit(0)
 		}
 		id = space.ID
 	}
 
-	client := &http.Client{}
-
-	req, err := http.NewRequest("DELETE", util.Cfg.BaseUrl+"v1/spaces/"+id.String()+"/", nil)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Content-Type", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't delete space with ID: " + id.String())
-		return
+	resp := request.Trickest.Delete().DoF("spaces/%s/", id.String())
+	if resp == nil {
+		fmt.Println("Couldn't delete space with ID: " + id.String())
+		os.Exit(0)
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusNoContent {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusNoContent {
+		request.ProcessUnexpectedResponse(resp)
 	} else {
 		fmt.Println("Space deleted successfully!")
 	}
 }
 
 func DeleteProject(id uuid.UUID) {
-	client := &http.Client{}
-
-	req, err := http.NewRequest("DELETE", util.Cfg.BaseUrl+"v1/projects/"+id.String()+"/", nil)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Content-Type", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't delete project with ID: " + id.String())
-		return
+	resp := request.Trickest.Delete().DoF("projects/%s/", id.String())
+	if resp == nil {
+		fmt.Println("Couldn't delete project with ID: " + id.String())
+		os.Exit(0)
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusNoContent {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusNoContent {
+		request.ProcessUnexpectedResponse(resp)
 	} else {
 		fmt.Println("Project deleted successfully!")
 	}
 }
 
 func deleteWorkflow(id uuid.UUID) {
-	client := &http.Client{}
-
-	req, err := http.NewRequest("DELETE", util.Cfg.BaseUrl+"v1/store/workflow/"+id.String()+"/", nil)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Content-Type", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't delete workflow with ID: " + id.String())
-		return
+	resp := request.Trickest.Delete().DoF("store/workflow/%s/", id.String())
+	if resp == nil {
+		fmt.Println("Couldn't delete workflow with ID: " + id.String())
+		os.Exit(0)
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusNoContent {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusNoContent {
+		request.ProcessUnexpectedResponse(resp)
 	} else {
 		fmt.Println("Workflow deleted successfully!")
 	}

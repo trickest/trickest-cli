@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"io"
-	"io/ioutil"
 	"math"
 	"mime/multipart"
 	"net/http"
@@ -15,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"trickest-cli/client/request"
 	"trickest-cli/cmd/delete"
 	"trickest-cli/cmd/output"
 	"trickest-cli/types"
@@ -24,33 +24,17 @@ import (
 )
 
 func getSplitter() *types.Splitter {
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/store/splitter/", nil)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println(err)
+	resp := request.Trickest.Get().DoF("store/splitter")
+	if resp == nil {
 		fmt.Println("Error: Couldn't get splitter.")
-		return nil
-	}
-	defer resp.Body.Close()
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read splitter response.")
-		return nil
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var splitters types.SplitterResponse
-	err = json.Unmarshal(bodyBytes, &splitters)
+	err := json.Unmarshal(resp.Body(), &splitters)
 	if err != nil {
 		fmt.Println("Error unmarshalling splitter response!")
 		return nil
@@ -74,7 +58,7 @@ func getScriptByName(name string) *types.Script {
 }
 
 func getScripts(pageSize int, search string, name string) []types.Script {
-	urlReq := util.Cfg.BaseUrl + "v1/store/script/"
+	urlReq := "store/script/"
 	if pageSize > 0 {
 		urlReq = urlReq + "?page_size=" + strconv.Itoa(pageSize)
 	} else {
@@ -91,33 +75,18 @@ func getScripts(pageSize int, search string, name string) []types.Script {
 		urlReq += "&name=" + name
 	}
 
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", urlReq, nil)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println(err)
-		fmt.Println("Error: Couldn't get scripts.")
-		return nil
-	}
-	defer resp.Body.Close()
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read scripts response.")
+	resp := request.Trickest.Get().DoF(urlReq)
+	if resp == nil {
+		fmt.Println("Error: Couldn't get scripts!")
 		return nil
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var scripts types.Scripts
-	err = json.Unmarshal(bodyBytes, &scripts)
+	err := json.Unmarshal(resp.Body(), &scripts)
 	if err != nil {
 		fmt.Println("Error unmarshalling scripts response!")
 		return nil
@@ -133,41 +102,24 @@ func createRun(versionID uuid.UUID, watch bool, machines *types.Bees, outputNode
 		Bees:      executionMachines,
 	}
 
-	buf := new(bytes.Buffer)
-
-	err := json.NewEncoder(buf).Encode(&run)
+	data, err := json.Marshal(run)
 	if err != nil {
 		fmt.Println("Error encoding create run request!")
 		os.Exit(0)
 	}
 
-	bodyData := bytes.NewReader(buf.Bytes())
-
-	client := &http.Client{}
-	req, err := http.NewRequest("POST", util.Cfg.BaseUrl+"v1/run/", bodyData)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Content-Type", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
+	resp := request.Trickest.Post().Body(data).DoF("run")
+	if resp == nil {
 		fmt.Println("Error: Couldn't create run!")
 		os.Exit(0)
 	}
 
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read response body!")
-		os.Exit(0)
-	}
-
-	if resp.StatusCode != http.StatusCreated {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusCreated {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var createRunResp types.CreateRunResponse
-	err = json.Unmarshal(bodyBytes, &createRunResp)
+	err = json.Unmarshal(resp.Body(), &createRunResp)
 	if err != nil {
 		fmt.Println("Error unmarshalling create run response!")
 		os.Exit(0)
@@ -201,43 +153,24 @@ func createNewVersion(version *types.WorkflowVersionDetailed) *types.WorkflowVer
 		Snapshot:     false,
 	}
 
-	buf := new(bytes.Buffer)
-
-	err := json.NewEncoder(buf).Encode(strippedVersion)
+	data, err := json.Marshal(strippedVersion)
 	if err != nil {
 		fmt.Println("Error encoding create version request!")
 		os.Exit(0)
 	}
 
-	bodyData := bytes.NewReader(buf.Bytes())
-
-	client := &http.Client{}
-	urlReq := util.Cfg.BaseUrl + "v1/store/workflow-version/"
-	req, err := http.NewRequest("POST", urlReq, bodyData)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Content-Type", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't get create version response.")
-		os.Exit(0)
-	}
-	defer resp.Body.Close()
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read create version response.")
+	resp := request.Trickest.Post().Body(data).DoF("store/workflow-version")
+	if resp == nil {
+		fmt.Println("Error: Couldn't create version!")
 		os.Exit(0)
 	}
 
-	if resp.StatusCode != http.StatusCreated {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusCreated {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var newVersionInfo types.WorkflowVersion
-	err = json.Unmarshal(bodyBytes, &newVersionInfo)
+	err = json.Unmarshal(resp.Body(), &newVersionInfo)
 	if err != nil {
 		fmt.Println("Error unmarshalling create version response!")
 		return nil
@@ -297,9 +230,11 @@ func uploadFile(filePath string) string {
 		fmt.Println("Error: Couldn't upload file!")
 		os.Exit(0)
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		util.ProcessUnexpectedResponse(resp)
+		fmt.Println("Error: Couldn't upload file!")
+		os.Exit(0)
 	}
 
 	fmt.Println(filepath.Base(file.Name()) + " successfully uploaded!\n")
@@ -307,32 +242,18 @@ func uploadFile(filePath string) string {
 }
 
 func GetLatestWorkflowVersion(workflowID uuid.UUID) *types.WorkflowVersionDetailed {
-	urlReq := util.Cfg.BaseUrl + "v1/store/workflow-version/latest/?workflow=" + workflowID.String()
-	req, err := http.NewRequest("GET", urlReq, nil)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Content-Type", "application/json")
-
-	var resp *http.Response
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
+	resp := request.Trickest.Get().DoF("store/workflow-version/latest/?workflow=%s", workflowID)
+	if resp == nil {
 		fmt.Println("Error: Couldn't get latest workflow version!")
 		os.Exit(0)
 	}
 
-	defer resp.Body.Close()
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read latest workflow version!")
-		os.Exit(0)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var latestVersion types.WorkflowVersionDetailed
-	err = json.Unmarshal(bodyBytes, &latestVersion)
+	err := json.Unmarshal(resp.Body(), &latestVersion)
 	if err != nil {
 		fmt.Println("Error unmarshalling latest workflow version!")
 		return nil
@@ -347,43 +268,25 @@ func copyWorkflow(destinationSpaceID, destinationProjectID, workflowID uuid.UUID
 		ProjectID: destinationProjectID,
 	}
 
-	buf := new(bytes.Buffer)
-
-	err := json.NewEncoder(buf).Encode(&copyWf)
+	data, err := json.Marshal(copyWf)
 	if err != nil {
-		fmt.Println("Error encoding copy workflow request!")
-		return uuid.Nil
+		fmt.Println("Error marshaling copy workflow request!")
+		os.Exit(0)
 	}
 
-	bodyData := bytes.NewReader(buf.Bytes())
-
-	client := &http.Client{}
-	req, err := http.NewRequest("POST", util.Cfg.BaseUrl+"v1/store/workflow/"+workflowID.String()+"/copy/", bodyData)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Content-Type", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't copy workflow.")
-		return uuid.Nil
+	resp := request.Trickest.Post().Body(data).DoF("store/workflow/%s/copy", workflowID)
+	if resp == nil {
+		fmt.Println("Error: Couldn't copy workflow!")
+		os.Exit(0)
 	}
 
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read response body!")
-		return uuid.Nil
-	}
-
-	if resp.StatusCode != http.StatusCreated {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusCreated {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	fmt.Println("Workflow copied successfully!")
 	var copyWorkflowResp types.CopyWorkflowResponse
-	err = json.Unmarshal(bodyBytes, &copyWorkflowResp)
+	err = json.Unmarshal(resp.Body(), &copyWorkflowResp)
 	if err != nil {
 		fmt.Println("Error unmarshalling copy workflow response!")
 		return uuid.Nil
@@ -394,31 +297,23 @@ func copyWorkflow(destinationSpaceID, destinationProjectID, workflowID uuid.UUID
 
 func updateWorkflow(workflow *types.Workflow, deleteProjectOnError bool) {
 	workflow.WorkflowCategory = nil
-	buf := new(bytes.Buffer)
-	err := json.NewEncoder(buf).Encode(workflow)
+	data, err := json.Marshal(workflow)
 	if err != nil {
-		fmt.Println("Error encoding update workflow request!")
-		return
-	}
-	bodyData := bytes.NewReader(buf.Bytes())
-
-	client := &http.Client{}
-	req, err := http.NewRequest("PATCH", util.Cfg.BaseUrl+"v1/store/workflow/"+workflow.ID.String()+"/", bodyData)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Content-Type", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't update workflow.")
-		return
+		fmt.Println("Error marshaling update workflow request!")
+		os.Exit(0)
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	resp := request.Trickest.Patch().Body(data).DoF("store/workflow/%s", workflow.ID)
+	if resp == nil {
+		fmt.Println("Error: Couldn't update workflow!")
+		os.Exit(0)
+	}
+
+	if resp.Status() != http.StatusOK {
 		if deleteProjectOnError {
 			delete.DeleteProject(workflow.ProjectInfo)
 		}
-		util.ProcessUnexpectedResponse(resp)
+		request.ProcessUnexpectedResponse(resp)
 	}
 }
 
@@ -502,34 +397,18 @@ func GetAvailableMachines() types.Bees {
 }
 
 func GetRunByID(id uuid.UUID) *types.Run {
-	client := &http.Client{}
-
-	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/run/"+id.String()+"/", nil)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't get run info.")
-		return nil
-	}
-	defer resp.Body.Close()
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err)
-		fmt.Println("Error: Couldn't read run info.")
-		return nil
+	resp := request.Trickest.Get().DoF("run/%s", id)
+	if resp == nil {
+		fmt.Println("Error: Couldn't get run!")
+		os.Exit(0)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var run types.Run
-	err = json.Unmarshal(bodyBytes, &run)
+	err := json.Unmarshal(resp.Body(), &run)
 	if err != nil {
 		fmt.Println("Error unmarshalling run response!")
 		return nil
@@ -543,35 +422,21 @@ func GetSubJobs(runID uuid.UUID) []types.SubJob {
 		fmt.Println("Couldn't list sub-jobs, no run ID parameter specified!")
 		os.Exit(0)
 	}
-	urlReq := util.Cfg.BaseUrl + "v1/subjob/?run=" + runID.String()
+	urlReq := "subjob/?run=" + runID.String()
 	urlReq = urlReq + "&page_size=" + strconv.Itoa(math.MaxInt)
 
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", urlReq, nil)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't get sub-jobs info!")
-		os.Exit(0)
-	}
-	defer resp.Body.Close()
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read sub-jobs info.")
+	resp := request.Trickest.Get().DoF(urlReq)
+	if resp == nil {
+		fmt.Println("Error: Couldn't get sub-jobs!")
 		os.Exit(0)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var subJobs types.SubJobs
-	err = json.Unmarshal(bodyBytes, &subJobs)
+	err := json.Unmarshal(resp.Body(), &subJobs)
 	if err != nil {
 		fmt.Println("Error unmarshalling sub-jobs response!")
 		os.Exit(0)
@@ -581,22 +446,14 @@ func GetSubJobs(runID uuid.UUID) []types.SubJob {
 }
 
 func stopRun(runID uuid.UUID) {
-	client := &http.Client{}
-	urlReq := util.Cfg.BaseUrl + "v1/run/" + runID.String() + "/stop/"
-	req, err := http.NewRequest("POST", urlReq, nil)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't stop run.")
+	resp := request.Trickest.Post().DoF("run/%s/stop", runID)
+	if resp == nil {
+		fmt.Println("Error: Couldn't stop run!")
 		os.Exit(0)
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusAccepted {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusAccepted {
+		request.ProcessUnexpectedResponse(resp)
 	}
 }
 
@@ -667,35 +524,21 @@ func getNodeNameFromConnectionID(id string) string {
 }
 
 func getFiles() []types.TrickestFile {
-	urlReq := util.Cfg.BaseUrl + "v1/file/?vault=" + util.GetVault().String()
+	urlReq := "file/?vault=" + util.GetVault().String()
 	urlReq = urlReq + "&page_size=" + strconv.Itoa(math.MaxInt)
 
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", urlReq, nil)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
+	resp := request.Trickest.Get().DoF(urlReq)
+	if resp == nil {
 		fmt.Println("Error: Couldn't get files!")
 		os.Exit(0)
 	}
-	defer resp.Body.Close()
 
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read files response.")
-		os.Exit(0)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var files types.FilesResponse
-	err = json.Unmarshal(bodyBytes, &files)
+	err := json.Unmarshal(resp.Body(), &files)
 	if err != nil {
 		fmt.Println("Error unmarshalling sub-jobs response!")
 		os.Exit(0)
