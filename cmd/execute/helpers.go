@@ -109,7 +109,7 @@ func createRun(versionID uuid.UUID, watch bool, machines *types.Bees, outputNode
 		os.Exit(0)
 	}
 
-	resp := request.Trickest.Post().Body(data).DoF("run")
+	resp := request.Trickest.Post().Body(data).DoF("run/")
 	if resp == nil {
 		fmt.Println("Error: Couldn't create run!")
 		os.Exit(0)
