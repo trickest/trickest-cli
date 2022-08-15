@@ -16,6 +16,7 @@ import (
 	"strings"
 	"trickest-cli/client/request"
 	"trickest-cli/cmd/delete"
+	"trickest-cli/cmd/list"
 	"trickest-cli/cmd/output"
 	"trickest-cli/types"
 	"trickest-cli/util"
@@ -589,4 +590,86 @@ func maxMachinesTypeCompatible(machines, maxMachines *types.Bees) bool {
 	}
 
 	return true
+}
+
+func getToolScriptOrSplitterFromYAMLNode(node types.WorkflowYAMLNode) (*types.Tool, *types.Script, *types.Splitter) {
+	var tool *types.Tool
+	var script *types.Script
+	var splitter *types.Splitter
+	idSplit := strings.Split(node.ID, "-")
+	if len(idSplit) == 1 {
+		fmt.Println("Invalid node ID format: " + node.ID)
+		os.Exit(0)
+	}
+	storeName := strings.TrimSuffix(node.ID, "-"+idSplit[len(idSplit)-1])
+
+	if node.Script == nil {
+		tools := list.GetTools(1, "", storeName)
+		if tools == nil || len(tools) == 0 {
+			splitter = getSplitter()
+			if splitter == nil {
+				fmt.Println("Couldn't find a tool named " + storeName + " in the store!")
+				fmt.Println("Use \"trickest store list\" to see all available workflows and tools, " +
+					"or search the store using \"trickest store search <name/description>\"")
+				os.Exit(0)
+			}
+		} else {
+			tool = &tools[0]
+		}
+	} else {
+		script = getScriptByName(storeName)
+		if script == nil {
+			os.Exit(0)
+		}
+	}
+
+	return tool, script, splitter
+}
+
+func setConnectedSplitters(version *types.WorkflowVersionDetailed, splitterIDs *map[string]string) {
+	if splitterIDs == nil {
+		tempMap := make(map[string]string, 0)
+		splitterIDs = &tempMap
+		for _, node := range version.Data.Nodes {
+			if strings.HasPrefix(node.Name, "file-splitter") || strings.HasPrefix(node.Name, "split-to-string") {
+				(*splitterIDs)[node.Name] = node.Name
+				continue
+			}
+			if node.WorkerConnected != nil {
+				(*splitterIDs)[node.Name] = *node.WorkerConnected
+			}
+		}
+		setConnectedSplitters(version, splitterIDs)
+	} else {
+		newConnectionFound := false
+		for nodeName, splitterID := range *splitterIDs {
+			for _, connection := range version.Data.Connections {
+				if strings.Contains(connection.Source.ID, nodeName) {
+					destinationNodeID := getNodeNameFromConnectionID(connection.Destination.ID)
+					_, exists := (*splitterIDs)[destinationNodeID]
+					isSplitter := strings.HasPrefix(destinationNodeID, "file-splitter-") || strings.HasPrefix(destinationNodeID, "split-to-string-")
+					if isSplitter ||
+						(strings.Contains(connection.Destination.ID, "folder") &&
+							version.Data.Nodes[destinationNodeID].Script != nil) || exists {
+						continue
+					}
+					version.Data.Nodes[destinationNodeID].WorkerConnected = &splitterID
+					(*splitterIDs)[destinationNodeID] = splitterID
+					newConnectionFound = true
+				}
+			}
+		}
+		if newConnectionFound {
+			setConnectedSplitters(version, splitterIDs)
+		}
+	}
+}
+
+func nodeExists(nodes []types.WorkflowYAMLNode, id string) bool {
+	for _, node := range nodes {
+		if node.ID == id {
+			return true
+		}
+	}
+	return false
 }
