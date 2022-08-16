@@ -913,7 +913,7 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 			for _, wf := range storeWorkflows {
 				if strings.ToLower(wf.Name) == strings.ToLower(wfName) {
 					if project == nil {
-						projectName := pathSplit[len(pathSplit)-2]
+						projectName := util.ProjectName
 						if projectName == "" {
 							projectName = wfName
 						}
