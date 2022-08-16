@@ -18,10 +18,10 @@ type CreateProjectRequest struct {
 }
 
 type CreateWorkflowRequest struct {
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	SpaceID     uuid.UUID `json:"space_info"`
-	ProjectID   uuid.UUID `json:"project_info"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	SpaceID     uuid.UUID  `json:"space_info"`
+	ProjectID   *uuid.UUID `json:"project_info,omitempty"`
 }
 
 type CreateWorkflowResponse struct {

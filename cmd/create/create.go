@@ -146,7 +146,10 @@ func CreateWorkflow(name, description string, spaceID, projectID uuid.UUID, dele
 		Name:        name,
 		Description: description,
 		SpaceID:     spaceID,
-		ProjectID:   projectID,
+	}
+
+	if projectID != uuid.Nil {
+		workflow.ProjectID = &projectID
 	}
 
 	workflows := list.GetWorkflows(projectID, spaceID, name, false)
@@ -165,7 +168,7 @@ func CreateWorkflow(name, description string, spaceID, projectID uuid.UUID, dele
 		os.Exit(0)
 	}
 
-	resp := request.Trickest.Post().Body(data).DoF("store/workflow/vault=%s", util.GetVault())
+	resp := request.Trickest.Post().Body(data).DoF("store/workflow/?vault=%s", util.GetVault())
 	if resp == nil {
 		fmt.Println("Error: Couldn't create workflow.")
 		os.Exit(0)
