@@ -35,7 +35,7 @@ func init() {
 	RootCmd.PersistentFlags().StringVar(&util.ProjectName, "project", "", "Project name")
 	RootCmd.PersistentFlags().StringVar(&util.WorkflowName, "workflow", "", "Workflow name")
 
-	cobra.OnInitialize(initVaultID)
+	cobra.OnInitialize(util.CreateRequest, initVaultID)
 
 	RootCmd.AddCommand(list.ListCmd)
 	RootCmd.AddCommand(store.StoreCmd)

@@ -3,6 +3,7 @@ module trickest-cli
 go 1.17
 
 require (
+	github.com/google/uuid v1.1.2
 	github.com/gosuri/uilive v0.0.4
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	github.com/schollz/progressbar/v3 v3.8.6

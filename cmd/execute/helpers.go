@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"io"
-	"io/ioutil"
 	"math"
 	"mime/multipart"
 	"net/http"
@@ -14,7 +14,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"trickest-cli/client/request"
 	"trickest-cli/cmd/delete"
+	"trickest-cli/cmd/list"
 	"trickest-cli/cmd/output"
 	"trickest-cli/types"
 	"trickest-cli/util"
@@ -23,33 +25,17 @@ import (
 )
 
 func getSplitter() *types.Splitter {
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/store/splitter/", nil)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println(err)
+	resp := request.Trickest.Get().DoF("store/splitter/")
+	if resp == nil {
 		fmt.Println("Error: Couldn't get splitter.")
-		return nil
-	}
-	defer resp.Body.Close()
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read splitter response.")
-		return nil
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var splitters types.SplitterResponse
-	err = json.Unmarshal(bodyBytes, &splitters)
+	err := json.Unmarshal(resp.Body(), &splitters)
 	if err != nil {
 		fmt.Println("Error unmarshalling splitter response!")
 		return nil
@@ -73,7 +59,7 @@ func getScriptByName(name string) *types.Script {
 }
 
 func getScripts(pageSize int, search string, name string) []types.Script {
-	urlReq := util.Cfg.BaseUrl + "v1/store/script/"
+	urlReq := "store/script/"
 	if pageSize > 0 {
 		urlReq = urlReq + "?page_size=" + strconv.Itoa(pageSize)
 	} else {
@@ -90,33 +76,18 @@ func getScripts(pageSize int, search string, name string) []types.Script {
 		urlReq += "&name=" + name
 	}
 
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", urlReq, nil)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println(err)
-		fmt.Println("Error: Couldn't get scripts.")
-		return nil
-	}
-	defer resp.Body.Close()
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read scripts response.")
+	resp := request.Trickest.Get().DoF(urlReq)
+	if resp == nil {
+		fmt.Println("Error: Couldn't get scripts!")
 		return nil
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var scripts types.Scripts
-	err = json.Unmarshal(bodyBytes, &scripts)
+	err := json.Unmarshal(resp.Body(), &scripts)
 	if err != nil {
 		fmt.Println("Error unmarshalling scripts response!")
 		return nil
@@ -125,48 +96,31 @@ func getScripts(pageSize int, search string, name string) []types.Script {
 	return scripts.Results
 }
 
-func createRun(versionID string, watch bool, machines *types.Bees, outputNodes []string, outputsDir string) {
+func createRun(versionID uuid.UUID, watch bool, machines *types.Bees, outputNodes []string, outputsDir string) {
 	run := types.CreateRun{
 		VersionID: versionID,
 		HiveInfo:  hive.ID,
 		Bees:      executionMachines,
 	}
 
-	buf := new(bytes.Buffer)
-
-	err := json.NewEncoder(buf).Encode(&run)
+	data, err := json.Marshal(run)
 	if err != nil {
 		fmt.Println("Error encoding create run request!")
 		os.Exit(0)
 	}
 
-	bodyData := bytes.NewReader(buf.Bytes())
-
-	client := &http.Client{}
-	req, err := http.NewRequest("POST", util.Cfg.BaseUrl+"v1/run/", bodyData)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Content-Type", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
+	resp := request.Trickest.Post().Body(data).DoF("run/")
+	if resp == nil {
 		fmt.Println("Error: Couldn't create run!")
 		os.Exit(0)
 	}
 
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read response body!")
-		os.Exit(0)
-	}
-
-	if resp.StatusCode != http.StatusCreated {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusCreated {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var createRunResp types.CreateRunResponse
-	err = json.Unmarshal(bodyBytes, &createRunResp)
+	err = json.Unmarshal(resp.Body(), &createRunResp)
 	if err != nil {
 		fmt.Println("Error unmarshalling create run response!")
 		os.Exit(0)
@@ -182,9 +136,9 @@ func createRun(versionID string, watch bool, machines *types.Bees, outputNodes [
 		WatchRun(createRunResp.ID, outputsDir, nodesToDownload, false, &executionMachines, showParams)
 	} else {
 		availableBees := GetAvailableMachines()
-		fmt.Println("Run successfully created! ID: " + createRunResp.ID)
-		fmt.Print("Machines:\n" + FormatMachines(machines, false))
-		fmt.Print("\nAvailable:\n" + FormatMachines(&availableBees, false))
+		fmt.Println("Run successfully created! ID: " + createRunResp.ID.String())
+		fmt.Print("Machines:\n" + FormatMachines(*machines, false))
+		fmt.Print("\nAvailable:\n" + FormatMachines(availableBees, false))
 	}
 }
 
@@ -197,45 +151,27 @@ func createNewVersion(version *types.WorkflowVersionDetailed) *types.WorkflowVer
 		Data:         version.Data,
 		Description:  version.Description,
 		WorkflowInfo: version.WorkflowInfo,
+		Snapshot:     false,
 	}
 
-	buf := new(bytes.Buffer)
-
-	err := json.NewEncoder(buf).Encode(strippedVersion)
+	data, err := json.Marshal(strippedVersion)
 	if err != nil {
 		fmt.Println("Error encoding create version request!")
 		os.Exit(0)
 	}
 
-	bodyData := bytes.NewReader(buf.Bytes())
-
-	client := &http.Client{}
-	urlReq := util.Cfg.BaseUrl + "v1/store/workflow-version/"
-	req, err := http.NewRequest("POST", urlReq, bodyData)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Content-Type", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't get create version response.")
-		os.Exit(0)
-	}
-	defer resp.Body.Close()
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read create version response.")
+	resp := request.Trickest.Post().Body(data).DoF("store/workflow-version/")
+	if resp == nil {
+		fmt.Println("Error: Couldn't create version!")
 		os.Exit(0)
 	}
 
-	if resp.StatusCode != http.StatusCreated {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusCreated {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var newVersionInfo types.WorkflowVersion
-	err = json.Unmarshal(bodyBytes, &newVersionInfo)
+	err = json.Unmarshal(resp.Body(), &newVersionInfo)
 	if err != nil {
 		fmt.Println("Error unmarshalling create version response!")
 		return nil
@@ -295,126 +231,69 @@ func uploadFile(filePath string) string {
 		fmt.Println("Error: Couldn't upload file!")
 		os.Exit(0)
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		util.ProcessUnexpectedResponse(resp)
+		fmt.Println("Error: Couldn't upload file!")
+		os.Exit(0)
 	}
 
 	fmt.Println(filepath.Base(file.Name()) + " successfully uploaded!\n")
 	return filepath.Base(file.Name())
 }
 
-func GetLatestWorkflowVersion(workflow *types.Workflow) *types.WorkflowVersionDetailed {
-	if workflow == nil {
-		fmt.Println("No workflow provided, couldn't find the latest version!")
+func GetLatestWorkflowVersion(workflowID uuid.UUID) *types.WorkflowVersionDetailed {
+	resp := request.Trickest.Get().DoF("store/workflow-version/latest/?workflow=%s", workflowID)
+	if resp == nil {
+		fmt.Println("Error: Couldn't get latest workflow version!")
 		os.Exit(0)
 	}
 
-	if workflow.VersionCount == nil || *workflow.VersionCount == 0 {
-		fmt.Println("This workflow has no versions!")
-		os.Exit(0)
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
-	versions := getWorkflowVersions(workflow.ID, 1)
-
-	if versions == nil || len(versions) == 0 {
-		fmt.Println("Couldn't find any versions of the workflow: " + workflow.Name)
-		os.Exit(0)
+	var latestVersion types.WorkflowVersionDetailed
+	err := json.Unmarshal(resp.Body(), &latestVersion)
+	if err != nil {
+		fmt.Println("Error unmarshalling latest workflow version!")
+		return nil
 	}
 
-	latestVersion := output.GetWorkflowVersionByID(versions[0].ID)
-
-	return latestVersion
+	return &latestVersion
 }
 
-func getWorkflowVersions(workflowID string, pageSize int) []types.WorkflowVersion {
-	if workflowID == "" {
-		fmt.Println("No workflow ID provided, couldn't find versions!")
-		os.Exit(0)
-	}
-	urlReq := util.Cfg.BaseUrl + "v1/store/workflow-version/?workflow=" + workflowID
-	urlReq += "&page_size=" + strconv.Itoa(pageSize)
-
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", urlReq, nil)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't get workflow versions.")
-		os.Exit(0)
-	}
-	defer resp.Body.Close()
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read workflow versions.")
-		os.Exit(0)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(resp)
-	}
-
-	var versions types.WorkflowVersions
-	err = json.Unmarshal(bodyBytes, &versions)
-	if err != nil {
-		fmt.Println("Error unmarshalling workflow versions response!")
-		os.Exit(0)
-	}
-
-	return versions.Results
-}
-
-func copyWorkflow(destinationSpaceID string, destinationProjectID string, workflowID string) string {
+func copyWorkflow(destinationSpaceID, destinationProjectID, workflowID uuid.UUID) uuid.UUID {
 	copyWf := types.CopyWorkflowRequest{
-		SpaceID:   destinationSpaceID,
-		ProjectID: destinationProjectID,
+		SpaceID: destinationSpaceID,
 	}
 
-	buf := new(bytes.Buffer)
+	if destinationProjectID != uuid.Nil {
+		copyWf.ProjectID = &destinationProjectID
+	}
 
-	err := json.NewEncoder(buf).Encode(&copyWf)
+	data, err := json.Marshal(copyWf)
 	if err != nil {
-		fmt.Println("Error encoding copy workflow request!")
-		return ""
+		fmt.Println("Error marshaling copy workflow request!")
+		os.Exit(0)
 	}
 
-	bodyData := bytes.NewReader(buf.Bytes())
-
-	client := &http.Client{}
-	req, err := http.NewRequest("POST", util.Cfg.BaseUrl+"v1/store/workflow/"+workflowID+"/copy/", bodyData)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Content-Type", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't copy workflow.")
-		return ""
+	resp := request.Trickest.Post().Body(data).DoF("store/workflow/%s/copy/", workflowID)
+	if resp == nil {
+		fmt.Println("Error: Couldn't copy workflow!")
+		os.Exit(0)
 	}
 
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read response body!")
-		return ""
-	}
-
-	if resp.StatusCode != http.StatusCreated {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusCreated {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	fmt.Println("Workflow copied successfully!")
 	var copyWorkflowResp types.CopyWorkflowResponse
-	err = json.Unmarshal(bodyBytes, &copyWorkflowResp)
+	err = json.Unmarshal(resp.Body(), &copyWorkflowResp)
 	if err != nil {
 		fmt.Println("Error unmarshalling copy workflow response!")
-		return ""
+		return uuid.Nil
 	}
 
 	return copyWorkflowResp.ID
@@ -422,31 +301,23 @@ func copyWorkflow(destinationSpaceID string, destinationProjectID string, workfl
 
 func updateWorkflow(workflow *types.Workflow, deleteProjectOnError bool) {
 	workflow.WorkflowCategory = nil
-	buf := new(bytes.Buffer)
-	err := json.NewEncoder(buf).Encode(workflow)
+	data, err := json.Marshal(workflow)
 	if err != nil {
-		fmt.Println("Error encoding update workflow request!")
-		return
-	}
-	bodyData := bytes.NewReader(buf.Bytes())
-
-	client := &http.Client{}
-	req, err := http.NewRequest("PATCH", util.Cfg.BaseUrl+"v1/store/workflow/"+workflow.ID+"/", bodyData)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Content-Type", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't update workflow.")
-		return
+		fmt.Println("Error marshaling update workflow request!")
+		os.Exit(0)
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	resp := request.Trickest.Patch().Body(data).DoF("store/workflow/%s/", workflow.ID)
+	if resp == nil {
+		fmt.Println("Error: Couldn't update workflow!")
+		os.Exit(0)
+	}
+
+	if resp.Status() != http.StatusOK {
 		if deleteProjectOnError {
 			delete.DeleteProject(workflow.ProjectInfo)
 		}
-		util.ProcessUnexpectedResponse(resp)
+		request.ProcessUnexpectedResponse(resp)
 	}
 }
 
@@ -483,7 +354,7 @@ func processInvalidInputStructure() {
 	os.Exit(0)
 }
 
-func processMaxMachinesOverflow(maximumMachines *types.Bees) {
+func processMaxMachinesOverflow(maximumMachines types.Bees) {
 	fmt.Println("Invalid number or machines!")
 	fmt.Println("The maximum number of machines you can allocate for this workflow: ")
 	fmt.Println(FormatMachines(maximumMachines, false))
@@ -529,35 +400,19 @@ func GetAvailableMachines() types.Bees {
 	return availableBees
 }
 
-func GetRunByID(id string) *types.Run {
-	client := &http.Client{}
-
-	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/run/"+id+"/", nil)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't get run info.")
-		return nil
-	}
-	defer resp.Body.Close()
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err)
-		fmt.Println("Error: Couldn't read run info.")
-		return nil
+func GetRunByID(id uuid.UUID) *types.Run {
+	resp := request.Trickest.Get().DoF("run/%s/", id)
+	if resp == nil {
+		fmt.Println("Error: Couldn't get run!")
+		os.Exit(0)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var run types.Run
-	err = json.Unmarshal(bodyBytes, &run)
+	err := json.Unmarshal(resp.Body(), &run)
 	if err != nil {
 		fmt.Println("Error unmarshalling run response!")
 		return nil
@@ -566,40 +421,26 @@ func GetRunByID(id string) *types.Run {
 	return &run
 }
 
-func GetSubJobs(runID string) []types.SubJob {
-	if runID == "" {
+func GetSubJobs(runID uuid.UUID) []types.SubJob {
+	if runID == uuid.Nil {
 		fmt.Println("Couldn't list sub-jobs, no run ID parameter specified!")
 		os.Exit(0)
 	}
-	urlReq := util.Cfg.BaseUrl + "v1/subjob/?run=" + runID
+	urlReq := "subjob/?run=" + runID.String()
 	urlReq = urlReq + "&page_size=" + strconv.Itoa(math.MaxInt)
 
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", urlReq, nil)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't get sub-jobs info!")
-		os.Exit(0)
-	}
-	defer resp.Body.Close()
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read sub-jobs info.")
+	resp := request.Trickest.Get().DoF(urlReq)
+	if resp == nil {
+		fmt.Println("Error: Couldn't get sub-jobs!")
 		os.Exit(0)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var subJobs types.SubJobs
-	err = json.Unmarshal(bodyBytes, &subJobs)
+	err := json.Unmarshal(resp.Body(), &subJobs)
 	if err != nil {
 		fmt.Println("Error unmarshalling sub-jobs response!")
 		os.Exit(0)
@@ -608,23 +449,15 @@ func GetSubJobs(runID string) []types.SubJob {
 	return subJobs.Results
 }
 
-func stopRun(runID string) {
-	client := &http.Client{}
-	urlReq := util.Cfg.BaseUrl + "v1/run/" + runID + "/stop/"
-	req, err := http.NewRequest("POST", urlReq, nil)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't stop run.")
+func stopRun(runID uuid.UUID) {
+	resp := request.Trickest.Post().DoF("run/%s/stop/", runID)
+	if resp == nil {
+		fmt.Println("Error: Couldn't stop run!")
 		os.Exit(0)
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusAccepted {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusAccepted {
+		request.ProcessUnexpectedResponse(resp)
 	}
 }
 
@@ -640,7 +473,7 @@ func setMachinesToMinimum(machines *types.Bees) {
 	}
 }
 
-func FormatMachines(machines *types.Bees, inline bool) string {
+func FormatMachines(machines types.Bees, inline bool) string {
 	var small, medium, large string
 	if machines.Small != nil {
 		small = "small: " + strconv.Itoa(*machines.Small)
@@ -695,35 +528,21 @@ func getNodeNameFromConnectionID(id string) string {
 }
 
 func getFiles() []types.TrickestFile {
-	urlReq := util.Cfg.BaseUrl + "v1/file/?vault=" + util.GetVault()
+	urlReq := "file/?vault=" + util.GetVault().String()
 	urlReq = urlReq + "&page_size=" + strconv.Itoa(math.MaxInt)
 
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", urlReq, nil)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
+	resp := request.Trickest.Get().DoF(urlReq)
+	if resp == nil {
 		fmt.Println("Error: Couldn't get files!")
 		os.Exit(0)
 	}
-	defer resp.Body.Close()
 
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read files response.")
-		os.Exit(0)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var files types.FilesResponse
-	err = json.Unmarshal(bodyBytes, &files)
+	err := json.Unmarshal(resp.Body(), &files)
 	if err != nil {
 		fmt.Println("Error unmarshalling sub-jobs response!")
 		os.Exit(0)
@@ -758,4 +577,102 @@ func uploadFilesIfNeeded(primitiveNodes map[string]*types.PrimitiveNode) {
 			pNode.UpdateFile = nil
 		}
 	}
+}
+
+func maxMachinesTypeCompatible(machines, maxMachines types.Bees) bool {
+	if (machines.Small != nil && maxMachines.Small == nil) ||
+		(machines.Medium != nil && maxMachines.Medium == nil) ||
+		(machines.Large != nil && maxMachines.Large == nil) {
+		return false
+	}
+
+	if (machines.Small == nil && maxMachines.Small != nil) ||
+		(machines.Medium == nil && maxMachines.Medium != nil) ||
+		(machines.Large == nil && maxMachines.Large != nil) {
+		return false
+	}
+
+	return true
+}
+
+func getToolScriptOrSplitterFromYAMLNode(node types.WorkflowYAMLNode) (*types.Tool, *types.Script, *types.Splitter) {
+	var tool *types.Tool
+	var script *types.Script
+	var splitter *types.Splitter
+	idSplit := strings.Split(node.ID, "-")
+	if len(idSplit) == 1 {
+		fmt.Println("Invalid node ID format: " + node.ID)
+		os.Exit(0)
+	}
+	storeName := strings.TrimSuffix(node.ID, "-"+idSplit[len(idSplit)-1])
+
+	if node.Script == nil {
+		tools := list.GetTools(1, "", storeName)
+		if tools == nil || len(tools) == 0 {
+			splitter = getSplitter()
+			if splitter == nil {
+				fmt.Println("Couldn't find a tool named " + storeName + " in the store!")
+				fmt.Println("Use \"trickest store list\" to see all available workflows and tools, " +
+					"or search the store using \"trickest store search <name/description>\"")
+				os.Exit(0)
+			}
+		} else {
+			tool = &tools[0]
+		}
+	} else {
+		script = getScriptByName(storeName)
+		if script == nil {
+			os.Exit(0)
+		}
+	}
+
+	return tool, script, splitter
+}
+
+func setConnectedSplitters(version *types.WorkflowVersionDetailed, splitterIDs *map[string]string) {
+	if splitterIDs == nil {
+		tempMap := make(map[string]string, 0)
+		splitterIDs = &tempMap
+		for _, node := range version.Data.Nodes {
+			if strings.HasPrefix(node.Name, "file-splitter") || strings.HasPrefix(node.Name, "split-to-string") {
+				(*splitterIDs)[node.Name] = node.Name
+				continue
+			}
+			if node.WorkerConnected != nil {
+				(*splitterIDs)[node.Name] = *node.WorkerConnected
+			}
+		}
+		setConnectedSplitters(version, splitterIDs)
+	} else {
+		newConnectionFound := false
+		for nodeName, splitterID := range *splitterIDs {
+			for _, connection := range version.Data.Connections {
+				if strings.Contains(connection.Source.ID, nodeName) {
+					destinationNodeID := getNodeNameFromConnectionID(connection.Destination.ID)
+					_, exists := (*splitterIDs)[destinationNodeID]
+					isSplitter := strings.HasPrefix(destinationNodeID, "file-splitter-") || strings.HasPrefix(destinationNodeID, "split-to-string-")
+					if isSplitter ||
+						(strings.Contains(connection.Destination.ID, "folder") &&
+							version.Data.Nodes[destinationNodeID].Script != nil) || exists {
+						continue
+					}
+					version.Data.Nodes[destinationNodeID].WorkerConnected = &splitterID
+					(*splitterIDs)[destinationNodeID] = splitterID
+					newConnectionFound = true
+				}
+			}
+		}
+		if newConnectionFound {
+			setConnectedSplitters(version, splitterIDs)
+		}
+	}
+}
+
+func nodeExists(nodes []types.WorkflowYAMLNode, id string) bool {
+	for _, node := range nodes {
+		if node.ID == id {
+			return true
+		}
+	}
+	return false
 }

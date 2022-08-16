@@ -3,13 +3,14 @@ package list
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"github.com/google/uuid"
 	"math"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"trickest-cli/client/request"
 	"trickest-cli/types"
 	"trickest-cli/util"
 
@@ -162,39 +163,25 @@ func printSpaces(spaces []types.Space) {
 }
 
 func getSpaces(name string) []types.Space {
-	urlReq := util.Cfg.BaseUrl + "v1/spaces/?vault=" + util.GetVault()
+	urlReq := "spaces/?vault=" + util.GetVault().String()
 	urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
 
 	if name != "" {
 		urlReq += "&name=" + url.QueryEscape(name)
 	}
 
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", urlReq, nil)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
+	resp := request.Trickest.Get().DoF(urlReq)
+	if resp == nil {
 		fmt.Println("Error: Couldn't get spaces!")
 		os.Exit(0)
 	}
-	defer resp.Body.Close()
 
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read spaces response body!")
-		os.Exit(0)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var spaces types.Spaces
-	err = json.Unmarshal(bodyBytes, &spaces)
+	err := json.Unmarshal(resp.Body(), &spaces)
 	if err != nil {
 		fmt.Println("Error: Couldn't unmarshal spaces response!")
 		os.Exit(0)
@@ -212,34 +199,19 @@ func GetSpaceByName(name string) *types.SpaceDetailed {
 	return getSpaceByID(spaces[0].ID)
 }
 
-func getSpaceByID(id string) *types.SpaceDetailed {
-	client := &http.Client{}
-
-	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/spaces/"+id+"/", nil)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
+func getSpaceByID(id uuid.UUID) *types.SpaceDetailed {
+	resp := request.Trickest.Get().DoF("spaces/%s/", id.String())
+	if resp == nil {
 		fmt.Println("Error: Couldn't get space by ID!")
 		os.Exit(0)
 	}
-	defer resp.Body.Close()
 
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read space response!")
-		os.Exit(0)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var space types.SpaceDetailed
-	err = json.Unmarshal(bodyBytes, &space)
+	err := json.Unmarshal(resp.Body(), &space)
 	if err != nil {
 		fmt.Println("Error unmarshalling space response!")
 		os.Exit(0)
@@ -248,49 +220,35 @@ func getSpaceByID(id string) *types.SpaceDetailed {
 	return &space
 }
 
-func GetWorkflows(projectID, spaceID, search string, store bool) []types.WorkflowListResponse {
-	urlReq := util.Cfg.BaseUrl + "v1/store/workflow/"
+func GetWorkflows(projectID, spaceID uuid.UUID, search string, store bool) []types.WorkflowListResponse {
+	urlReq := "store/workflow/"
 	urlReq += "?page_size=" + strconv.Itoa(math.MaxInt)
 	if !store {
-		urlReq += "&vault=" + util.GetVault()
+		urlReq += "&vault=" + util.GetVault().String()
 	}
 
 	if search != "" {
 		urlReq += "&search=" + url.QueryEscape(search)
 	}
 
-	if projectID != "" {
-		urlReq += "&project=" + projectID
-	} else if spaceID != "" {
-		urlReq += "&space=" + spaceID
+	if projectID != uuid.Nil {
+		urlReq += "&project=" + projectID.String()
+	} else if spaceID != uuid.Nil {
+		urlReq += "&space=" + spaceID.String()
 	}
 
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", urlReq, nil)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
+	resp := request.Trickest.Get().DoF(urlReq)
+	if resp == nil {
 		fmt.Println("Error: Couldn't get workflows!")
 		os.Exit(0)
 	}
-	defer resp.Body.Close()
 
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read workflows response!")
-		os.Exit(0)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var workflows types.Workflows
-	err = json.Unmarshal(bodyBytes, &workflows)
+	err := json.Unmarshal(resp.Body(), &workflows)
 	if err != nil {
 		fmt.Println("Error: Couldn't unmarshal workflows response!")
 		os.Exit(0)
@@ -299,34 +257,19 @@ func GetWorkflows(projectID, spaceID, search string, store bool) []types.Workflo
 	return workflows.Results
 }
 
-func GetWorkflowByID(id string) *types.Workflow {
-	client := &http.Client{}
-
-	req, err := http.NewRequest("GET", util.Cfg.BaseUrl+"v1/store/workflow/"+id+"/", nil)
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't get workflow.")
-		os.Exit(0)
-	}
-	defer resp.Body.Close()
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read workflow.")
+func GetWorkflowByID(id uuid.UUID) *types.Workflow {
+	resp := request.Trickest.Get().DoF("store/workflow/%s/", id.String())
+	if resp == nil {
+		fmt.Println("Error: Couldn't get workflow by ID!")
 		os.Exit(0)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var workflow types.Workflow
-	err = json.Unmarshal(bodyBytes, &workflow)
+	err := json.Unmarshal(resp.Body(), &workflow)
 	if err != nil {
 		fmt.Println("Error: Couldn't unmarshal workflow response!")
 		os.Exit(0)
@@ -376,7 +319,7 @@ func ResolveObjectPath(path string, silent bool, isProject bool) (*types.SpaceDe
 		for _, proj := range space.Projects {
 			if proj.Name == projectName {
 				project = &proj
-				project.Workflows = GetWorkflows(project.ID, "", "", false)
+				project.Workflows = GetWorkflows(project.ID, uuid.Nil, "", false)
 				break
 			}
 		}
@@ -427,7 +370,7 @@ func ResolveObjectPath(path string, silent bool, isProject bool) (*types.SpaceDe
 }
 
 func GetTools(pageSize int, search string, name string) []types.Tool {
-	urlReq := util.Cfg.BaseUrl + "v1/store/tool/"
+	urlReq := "store/tool/"
 	if pageSize > 0 {
 		urlReq = urlReq + "?page_size=" + strconv.Itoa(pageSize)
 	} else {
@@ -444,32 +387,18 @@ func GetTools(pageSize int, search string, name string) []types.Tool {
 		urlReq += "&name=" + name
 	}
 
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", urlReq, nil)
-	req.Header.Add("Authorization", "Token "+util.Cfg.User.Token)
-	req.Header.Add("Accept", "application/json")
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		fmt.Println("Error: Couldn't get tools info.")
-		return nil
-	}
-	defer resp.Body.Close()
-
-	var bodyBytes []byte
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error: Couldn't read tools info.")
-		return nil
+	resp := request.Trickest.Get().DoF(urlReq)
+	if resp == nil {
+		fmt.Println("Error: Couldn't get tools!")
+		os.Exit(0)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		util.ProcessUnexpectedResponse(resp)
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
 	}
 
 	var tools types.Tools
-	err = json.Unmarshal(bodyBytes, &tools)
+	err := json.Unmarshal(resp.Body(), &tools)
 	if err != nil {
 		fmt.Println("Error unmarshalling tools response!")
 		return nil

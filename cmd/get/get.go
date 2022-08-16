@@ -42,7 +42,7 @@ var GetCmd = &cobra.Command{
 			return
 		}
 
-		version := execute.GetLatestWorkflowVersion(workflow)
+		version := execute.GetLatestWorkflowVersion(workflow.ID)
 		allNodes, roots := execute.CreateTrees(version, false)
 
 		runs := output.GetRuns(version.WorkflowInfo, 1)
@@ -59,8 +59,8 @@ var GetCmd = &cobra.Command{
 			}
 			out += fmt.Sprintf(fmtStr, "Status:", status)
 			availableBees := execute.GetAvailableMachines()
-			out += fmt.Sprintf(fmtStr, "Max machines:", execute.FormatMachines(&version.MaxMachines, true)+
-				" (currently available: "+execute.FormatMachines(&availableBees, true)+")")
+			out += fmt.Sprintf(fmtStr, "Max machines:", execute.FormatMachines(version.MaxMachines, true)+
+				" (currently available: "+execute.FormatMachines(availableBees, true)+")")
 			out += fmt.Sprintf(fmtStr, "Created:", workflow.CreatedDate.In(time.Local).Format(time.RFC1123)+
 				" ("+util.FormatDuration(time.Since(workflow.CreatedDate))+" ago)")
 

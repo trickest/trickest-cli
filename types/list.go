@@ -1,6 +1,9 @@
 package types
 
-import "time"
+import (
+	"github.com/google/uuid"
+	"time"
+)
 
 type Spaces struct {
 	Next     string  `json:"next"`
@@ -12,10 +15,10 @@ type Spaces struct {
 }
 
 type Space struct {
-	ID           string    `json:"id"`
+	ID           uuid.UUID `json:"id"`
 	Name         string    `json:"name"`
 	Description  string    `json:"description"`
-	VaultInfo    string    `json:"vault_info"`
+	VaultInfo    uuid.UUID `json:"vault_info"`
 	Metadata     string    `json:"metadata"`
 	CreatedDate  time.Time `json:"created_date"`
 	ModifiedDate time.Time `json:"modified_date"`
@@ -23,10 +26,10 @@ type Space struct {
 }
 
 type SpaceDetailed struct {
-	ID             string     `json:"id"`
+	ID             uuid.UUID  `json:"id"`
 	Name           string     `json:"name"`
 	Description    string     `json:"description"`
-	VaultInfo      string     `json:"vault_info"`
+	VaultInfo      uuid.UUID  `json:"vault_info"`
 	Playground     bool       `json:"playground"`
 	Projects       []Project  `json:"projects"`
 	ProjectsCount  int        `json:"projects_count"`
@@ -38,10 +41,10 @@ type SpaceDetailed struct {
 }
 
 type Project struct {
-	ID            string    `json:"id"`
+	ID            uuid.UUID `json:"id"`
 	Name          string    `json:"name"`
 	Description   string    `json:"description"`
-	SpaceInfo     string    `json:"space_info"`
+	SpaceInfo     uuid.UUID `json:"space_info"`
 	SpaceName     string    `json:"space_name"`
 	Metadata      string    `json:"metadata"`
 	WorkflowCount int       `json:"workflow_count"`
@@ -60,26 +63,33 @@ type Workflows struct {
 }
 
 type WorkflowListResponse struct {
-	ID               string    `json:"id"`
+	ID               uuid.UUID `json:"id"`
 	CreatedDate      time.Time `json:"created_date"`
 	Name             string    `json:"name"`
 	Description      string    `json:"description"`
 	SpaceName        string    `json:"space_name"`
+	SpaceInfo        uuid.UUID `json:"space_info"`
+	ProjectInfo      uuid.UUID `json:"project_info"`
 	RunCount         int       `json:"run_count"`
 	WorkflowCategory string    `json:"workflow_category"`
+	IsScheduled      bool      `json:"is_scheduled"`
+	Author           string    `json:"author"`
+	AuthorInfo       int       `json:"author_info"`
+	LatestVersion    uuid.UUID `json:"latest_version"`
 }
 
 type Workflow struct {
-	ID               string    `json:"id"`
+	ID               uuid.UUID `json:"id"`
 	CreatedDate      time.Time `json:"created_date"`
 	Name             string    `json:"name"`
 	Description      string    `json:"description"`
 	SpaceName        string    `json:"space_name"`
 	RunCount         int       `json:"run_count"`
+	LatestVersion    uuid.UUID `json:"latest_version"`
 	WorkflowCategory *struct {
-		ID          string `json:"id"`
-		Name        string `json:"name"`
-		Description string `json:"description"`
+		ID          uuid.UUID `json:"id"`
+		Name        string    `json:"name"`
+		Description string    `json:"description"`
 	} `json:"workflow_category,omitempty"`
 	WorkflowTags []string    `json:"workflow_tags,omitempty"`
 	Public       *bool       `json:"public,omitempty"`
@@ -87,10 +97,13 @@ type Workflow struct {
 	AuthorInfo   int         `json:"author_info,omitempty"`
 	Parameters   []Parameter `json:"parameters,omitempty"`
 	ModifiedDate *time.Time  `json:"modified_date,omitempty"`
-	SpaceInfo    string      `json:"space_info,omitempty"`
+	SpaceInfo    uuid.UUID   `json:"space_info,omitempty"`
 	ProjectName  string      `json:"project_name,omitempty"`
-	ProjectInfo  string      `json:"project_info,omitempty"`
+	ProjectInfo  uuid.UUID   `json:"project_info,omitempty"`
 	VersionCount *int        `json:"version_count,omitempty"`
+	ScheduleInfo uuid.UUID   `json:"schedule_info,omitempty"`
+	IsScheduled  bool        `json:"is_scheduled"`
+	Executing    bool        `json:"executing"`
 }
 type Parameter struct {
 	Value interface{} `json:"value"`
@@ -106,20 +119,25 @@ type Runs struct {
 	Results  []Run  `json:"results"`
 }
 
+const (
+	RunCreationManual    = "MANUAL"
+	RunCreationScheduled = "SCHEDULED"
+)
+
 type Run struct {
-	ID                  string    `json:"id"`
+	ID                  uuid.UUID `json:"id"`
 	Name                string    `json:"name"`
 	Status              string    `json:"status"`
 	UserInfo            int       `json:"user_info"`
-	SpaceInfo           string    `json:"space_info"`
+	SpaceInfo           uuid.UUID `json:"space_info"`
 	SpaceName           string    `json:"space_name"`
-	ProjectInfo         string    `json:"project_info"`
+	ProjectInfo         uuid.UUID `json:"project_info"`
 	ProjectName         string    `json:"project_name"`
-	WorkflowInfo        string    `json:"workflow_info"`
+	WorkflowInfo        uuid.UUID `json:"workflow_info"`
 	WorkflowName        string    `json:"workflow_name"`
 	WorkflowVersionName string    `json:"workflow_version_name"`
-	WorkflowVersionInfo string    `json:"workflow_version_info"`
-	HiveInfo            string    `json:"hive_info"`
+	WorkflowVersionInfo uuid.UUID `json:"workflow_version_info"`
+	HiveInfo            uuid.UUID `json:"hive_info"`
 	StartedDate         time.Time `json:"started_date"`
 	CompletedDate       time.Time `json:"completed_date"`
 	Parallelism         int       `json:"parallelism"`
@@ -127,6 +145,7 @@ type Run struct {
 	CreatedDate         time.Time `json:"created_date"`
 	ModifiedDate        time.Time `json:"modified_date"`
 	Finished            bool      `json:"finished"`
+	CreationType        string    `json:"creation_type"`
 }
 
 type Bees struct {
@@ -145,7 +164,7 @@ type SubJobs struct {
 }
 
 type SubJob struct {
-	ID            string            `json:"id"`
+	ID            uuid.UUID         `json:"id"`
 	Name          string            `json:"name"`
 	NodeName      string            `json:"node_name"`
 	Status        string            `json:"status"`
@@ -173,18 +192,18 @@ type Tools struct {
 }
 
 type Tool struct {
-	ID               string `json:"id"`
-	Name             string `json:"name"`
-	Description      string `json:"description"`
-	VaultInfo        string `json:"vault_info"`
-	Author           string `json:"author"`
-	AuthorInfo       int    `json:"author_info"`
-	ToolCategory     string `json:"tool_category"`
-	ToolCategoryName string `json:"tool_category_name"`
+	ID               uuid.UUID `json:"id"`
+	Name             string    `json:"name"`
+	Description      string    `json:"description"`
+	VaultInfo        uuid.UUID `json:"vault_info"`
+	Author           string    `json:"author"`
+	AuthorInfo       int       `json:"author_info"`
+	ToolCategory     string    `json:"tool_category"`
+	ToolCategoryName string    `json:"tool_category_name"`
 	ToolCategoryObj  struct {
-		ID          string `json:"id"`
-		Name        string `json:"name"`
-		Description string `json:"description"`
+		ID          uuid.UUID `json:"id"`
+		Name        string    `json:"name"`
+		Description string    `json:"description"`
 	} `json:"tool_category_obj"`
 	Type      string               `json:"type"`
 	Inputs    map[string]ToolInput `json:"inputs"`

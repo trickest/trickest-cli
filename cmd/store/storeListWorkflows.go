@@ -2,6 +2,7 @@ package store
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/xlab/treeprint"
 	"trickest-cli/cmd/list"
@@ -14,7 +15,7 @@ var storeListWorkflowsCmd = &cobra.Command{
 	Short: "List workflows from the Trickest store",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		workflows := list.GetWorkflows("", "", "", true)
+		workflows := list.GetWorkflows(uuid.Nil, uuid.Nil, "", true)
 		if len(workflows) > 0 {
 			printWorkflows(workflows)
 		} else {

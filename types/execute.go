@@ -1,6 +1,7 @@
 package types
 
 import (
+	"github.com/google/uuid"
 	"time"
 )
 
@@ -14,14 +15,15 @@ type WorkflowVersions struct {
 }
 
 type WorkflowVersion struct {
-	ID           string    `json:"id"`
+	ID           uuid.UUID `json:"id"`
 	CreatedDate  time.Time `json:"created_date"`
 	Version      int       `json:"version"`
-	WorkflowInfo string    `json:"workflow_info"`
+	WorkflowInfo uuid.UUID `json:"workflow_info"`
 	Name         string    `json:"name"`
 	Description  string    `json:"description"`
 	Public       bool      `json:"public"`
 	RunCount     int       `json:"run_count"`
+	Snapshot     bool      `json:"snapshot"`
 }
 
 type TreeNode struct {
@@ -39,17 +41,17 @@ type TreeNode struct {
 }
 
 type CreateRun struct {
-	Bees      Bees   `json:"bees"`
-	VersionID string `json:"workflow_version_info"`
-	HiveInfo  string `json:"hive_info"`
+	Bees      Bees      `json:"bees"`
+	VersionID uuid.UUID `json:"workflow_version_info"`
+	HiveInfo  uuid.UUID `json:"hive_info"`
 }
 
 type CreateRunResponse struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Bees      Bees   `json:"bees"`
-	VersionID string `json:"workflow_version_info"`
-	HiveInfo  string `json:"hive_info"`
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	Bees      Bees      `json:"bees"`
+	VersionID uuid.UUID `json:"workflow_version_info"`
+	HiveInfo  uuid.UUID `json:"hive_info"`
 }
 
 type WorkflowYAML struct {
@@ -76,13 +78,13 @@ type Scripts struct {
 }
 
 type Script struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	VaultInfo   string `json:"vault_info"`
-	Author      string `json:"author"`
-	AuthorInfo  int    `json:"author_info"`
-	Type        string `json:"type"`
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	VaultInfo   uuid.UUID `json:"vault_info"`
+	Author      string    `json:"author"`
+	AuthorInfo  int       `json:"author_info"`
+	Type        string    `json:"type"`
 	Inputs      struct {
 		File *struct {
 			Type  string `json:"type"`
@@ -118,13 +120,13 @@ type SplitterResponse struct {
 }
 
 type Splitter struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	VaultInfo   string `json:"vault_info"`
-	Author      string `json:"author"`
-	AuthorInfo  int    `json:"author_info"`
-	Type        string `json:"type"`
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	VaultInfo   uuid.UUID `json:"vault_info"`
+	Author      string    `json:"author"`
+	AuthorInfo  int       `json:"author_info"`
+	Type        string    `json:"type"`
 	Inputs      struct {
 		Multiple struct {
 			Type  string `json:"type"`
@@ -149,9 +151,9 @@ type FilesResponse struct {
 }
 
 type TrickestFile struct {
-	Id           string    `json:"id"`
+	Id           uuid.UUID `json:"id"`
 	Name         string    `json:"name"`
-	VaultInfo    string    `json:"vault_info"`
+	VaultInfo    uuid.UUID `json:"vault_info"`
 	Size         int       `json:"size"`
 	ModifiedDate time.Time `json:"modified_date"`
 }

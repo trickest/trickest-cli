@@ -92,7 +92,7 @@ func createYAML(workflow *types.Workflow, destinationPath string) {
 		w.Category = &workflow.WorkflowCategory.Name
 	}
 	w.Name = workflow.Name
-	version := execute.GetLatestWorkflowVersion(workflow)
+	version := execute.GetLatestWorkflowVersion(workflow.ID)
 	nodes := sortNodes(version.Data.Nodes)
 	for _, n := range nodes {
 		if n.Type == "TOOL" {
