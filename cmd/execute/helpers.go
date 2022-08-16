@@ -265,8 +265,11 @@ func GetLatestWorkflowVersion(workflowID uuid.UUID) *types.WorkflowVersionDetail
 
 func copyWorkflow(destinationSpaceID, destinationProjectID, workflowID uuid.UUID) uuid.UUID {
 	copyWf := types.CopyWorkflowRequest{
-		SpaceID:   destinationSpaceID,
-		ProjectID: destinationProjectID,
+		SpaceID: destinationSpaceID,
+	}
+
+	if destinationProjectID != uuid.Nil {
+		copyWf.ProjectID = &destinationProjectID
 	}
 
 	data, err := json.Marshal(copyWf)

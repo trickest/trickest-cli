@@ -36,8 +36,8 @@ type CreateWorkflowResponse struct {
 }
 
 type CopyWorkflowRequest struct {
-	SpaceID   uuid.UUID `json:"space_info"`
-	ProjectID uuid.UUID `json:"project_info"`
+	SpaceID   uuid.UUID  `json:"space_info"`
+	ProjectID *uuid.UUID `json:"project_info,omitempty"`
 }
 
 type CopyWorkflowResponse struct {
