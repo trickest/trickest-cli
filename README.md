@@ -37,16 +37,16 @@ Current workflow categories are:
 
 ```
 # Download the binary
-wget https://github.com/trickest/trickest-cli/releases/download/v1.0.4/trickest-cli-1.0.4-macOS-arm64.zip
+wget https://github.com/trickest/trickest-cli/releases/download/v1.1.0/trickest-cli-1.1.0-macOS-arm64.zip
 
 # Unzip
-unzip trickest-cli-1.0.4-macOS-arm64.zip
+unzip trickest-cli-1.1.0-macOS-arm64.zip
 
 # Make binary executable
-chmod +x trickest-cli-1.0.4-macOS-arm64
+chmod +x trickest-cli-macOS-arm64
 
 # Move binary to path
-mv ./trickest-cli-1.0.4-macOS-arm64 /usr/local/bin/trickest
+mv ./trickest-cli-macOS-arm64 /usr/local/bin/trickest
 
 # Test installation
 trickest --help
@@ -55,16 +55,16 @@ trickest --help
 #### **Linux**
 
 ```
-wget https://github.com/trickest/trickest-cli/releases/download/v1.0.4/trickest-cli-1.0.4-linux-amd64.zip
+wget https://github.com/trickest/trickest-cli/releases/download/v1.1.0/trickest-cli-1.1.0-linux-amd64.zip
 
 # Unzip
-unzip trickest-cli-1.0.4-linux-amd64.zip
+unzip trickest-cli-1.1.0-linux-amd64.zip
 
 # Make binary executable
-chmod +x trickest-cli-1.0.4-linux-amd64
+chmod +x trickest-cli-linux-amd64
 
 # Move binary to path
-mv ./trickest-cli-linux-1.0.4-amd64 /usr/local/bin/trickest
+mv ./trickest-cli-linux-amd64 /usr/local/bin/trickest
 
 # Test installation
 trickest --help
