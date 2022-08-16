@@ -603,7 +603,7 @@ func readConfigMachines(config *map[string]interface{}, isTool bool, maximumMach
 			}
 
 			if maxMachinesOverflow {
-				processMaxMachinesOverflow(maximumMachines)
+				processMaxMachinesOverflow(*maximumMachines)
 			}
 		}
 	} else {
@@ -622,13 +622,6 @@ func readConfigMachines(config *map[string]interface{}, isTool bool, maximumMach
 				setMachinesToMinimum(execMachines)
 			}
 		}
-	}
-
-	if !maxMachinesTypeCompatible(execMachines, maximumMachines) {
-		fmt.Println("Workflow maximum machines types are not compatible with config machines!")
-		fmt.Println("Workflow max machines: " + FormatMachines(maximumMachines, true))
-		fmt.Println("Config machines: " + FormatMachines(execMachines, true))
-		os.Exit(0)
 	}
 
 	return execMachines

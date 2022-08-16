@@ -120,8 +120,8 @@ type Runs struct {
 }
 
 const (
-	RunCreationManual    = 0
-	RunCreationScheduled = 1
+	RunCreationManual    = "MANUAL"
+	RunCreationScheduled = "SCHEDULED"
 )
 
 type Run struct {
@@ -145,7 +145,7 @@ type Run struct {
 	CreatedDate         time.Time `json:"created_date"`
 	ModifiedDate        time.Time `json:"modified_date"`
 	Finished            bool      `json:"finished"`
-	CreationType        int       `json:"creation_type"`
+	CreationType        string    `json:"creation_type"`
 }
 
 type Bees struct {

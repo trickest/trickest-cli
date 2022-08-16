@@ -88,6 +88,14 @@ var ExecuteCmd = &cobra.Command{
 		if outputNodesFlag != "" {
 			outputNodes = strings.Split(outputNodesFlag, ",")
 		}
+
+		if !maxMachinesTypeCompatible(executionMachines, version.MaxMachines) {
+			fmt.Println("Workflow maximum machines types are not compatible with config machines!")
+			fmt.Println("Workflow max machines: " + FormatMachines(version.MaxMachines, true))
+			fmt.Println("Config machines: " + FormatMachines(executionMachines, true))
+			os.Exit(0)
+		}
+
 		createRun(version.ID, watch, &executionMachines, outputNodes, outputsDirectory)
 	},
 }
@@ -962,10 +970,31 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 						update, updatedWfVersion, primitiveNodes = readConfig(configFile, copiedWfVersion, nil)
 					}
 
-					if update && updatedWfVersion != nil {
+					if update {
+						if updatedWfVersion == nil {
+							fmt.Println("Sorry, couldn't update workflow!")
+							os.Exit(0)
+						}
 						uploadFilesIfNeeded(primitiveNodes)
 						updatedWfVersion.WorkflowInfo = newWorkflow.ID
 						wfVersion = createNewVersion(updatedWfVersion)
+					} else {
+						copiedWfVersion.WorkflowInfo = newWorkflow.ID
+						if len(copiedWfVersion.Data.PrimitiveNodes) > 0 {
+							for _, pNode := range copiedWfVersion.Data.PrimitiveNodes {
+								pNode.Coordinates.X += 0.00001
+								break
+							}
+						} else if len(copiedWfVersion.Data.Nodes) > 0 {
+							for _, node := range copiedWfVersion.Data.Nodes {
+								node.Meta.Coordinates.X += 0.00001
+								break
+							}
+						} else {
+							fmt.Println("No nodes found in workflow version!")
+							os.Exit(0)
+						}
+						wfVersion = createNewVersion(copiedWfVersion)
 					}
 					return wfVersion
 				}

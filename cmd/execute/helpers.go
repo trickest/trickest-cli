@@ -137,8 +137,8 @@ func createRun(versionID uuid.UUID, watch bool, machines *types.Bees, outputNode
 	} else {
 		availableBees := GetAvailableMachines()
 		fmt.Println("Run successfully created! ID: " + createRunResp.ID.String())
-		fmt.Print("Machines:\n" + FormatMachines(machines, false))
-		fmt.Print("\nAvailable:\n" + FormatMachines(&availableBees, false))
+		fmt.Print("Machines:\n" + FormatMachines(*machines, false))
+		fmt.Print("\nAvailable:\n" + FormatMachines(availableBees, false))
 	}
 }
 
@@ -351,7 +351,7 @@ func processInvalidInputStructure() {
 	os.Exit(0)
 }
 
-func processMaxMachinesOverflow(maximumMachines *types.Bees) {
+func processMaxMachinesOverflow(maximumMachines types.Bees) {
 	fmt.Println("Invalid number or machines!")
 	fmt.Println("The maximum number of machines you can allocate for this workflow: ")
 	fmt.Println(FormatMachines(maximumMachines, false))
@@ -470,7 +470,7 @@ func setMachinesToMinimum(machines *types.Bees) {
 	}
 }
 
-func FormatMachines(machines *types.Bees, inline bool) string {
+func FormatMachines(machines types.Bees, inline bool) string {
 	var small, medium, large string
 	if machines.Small != nil {
 		small = "small: " + strconv.Itoa(*machines.Small)
@@ -576,7 +576,7 @@ func uploadFilesIfNeeded(primitiveNodes map[string]*types.PrimitiveNode) {
 	}
 }
 
-func maxMachinesTypeCompatible(machines, maxMachines *types.Bees) bool {
+func maxMachinesTypeCompatible(machines, maxMachines types.Bees) bool {
 	if (machines.Small != nil && maxMachines.Small == nil) ||
 		(machines.Medium != nil && maxMachines.Medium == nil) ||
 		(machines.Large != nil && maxMachines.Large == nil) {
