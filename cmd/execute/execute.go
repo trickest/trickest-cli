@@ -37,6 +37,7 @@ var (
 	outputsDirectory  string
 	outputNodesFlag   string
 	ci                bool
+	createProject     bool
 )
 
 // ExecuteCmd represents the execute command
@@ -111,6 +112,7 @@ func init() {
 	ExecuteCmd.Flags().StringVar(&outputNodesFlag, "output", "", "A comma separated list of nodes which outputs should be downloaded when the execution is finished")
 	ExecuteCmd.Flags().StringVar(&outputsDirectory, "output-dir", "", "Path to directory which should be used to store outputs")
 	ExecuteCmd.Flags().BoolVar(&ci, "ci", false, "Run in CI mode (in-progreess executions will be stopped when the CLI is forcefully stopped - if not set, you will be asked for confirmation)")
+	ExecuteCmd.Flags().BoolVar(&createProject, "create-project", false, "If the project doesn't exist, create it using the project flag as its name (or workflow name if not set)")
 }
 
 func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, objectPath string) *types.WorkflowVersionDetailed {
@@ -912,24 +914,13 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 			// Executing from store
 			for _, wf := range storeWorkflows {
 				if strings.ToLower(wf.Name) == strings.ToLower(wfName) {
-					if project == nil {
+					if project == nil && createProject {
 						projectName := util.ProjectName
 						if projectName == "" {
 							projectName = wfName
 						}
-						fmt.Println("Would you like to create a project named " + projectName +
-							" and save the new workflow in there? (Y/N)")
-						var answer string
-						for {
-							_, _ = fmt.Scan(&answer)
-							if strings.ToLower(answer) == "y" || strings.ToLower(answer) == "yes" {
-								project = create.CreateProjectIfNotExists(space, projectName)
-								projectCreated = true
-								break
-							} else if strings.ToLower(answer) == "n" || strings.ToLower(answer) == "no" {
-								break
-							}
-						}
+						project = create.CreateProjectIfNotExists(space, projectName)
+						projectCreated = true
 					}
 
 					if newWorkflowName == "" {
@@ -1014,20 +1005,13 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 		}
 		_, _, primitiveNodes = readConfig(configFile, nil, &tools[0])
 
-		if project == nil {
-			fmt.Println("Would you like to create a project named " + wfName +
-				" and save the new workflow in there? (Y/N)")
-			var answer string
-			for {
-				_, _ = fmt.Scan(&answer)
-				if strings.ToLower(answer) == "y" || strings.ToLower(answer) == "yes" {
-					project = create.CreateProjectIfNotExists(space, tools[0].Name)
-					projectCreated = true
-					break
-				} else if strings.ToLower(answer) == "n" || strings.ToLower(answer) == "no" {
-					break
-				}
+		if project == nil && createProject {
+			projectName := util.ProjectName
+			if projectName == "" {
+				projectName = wfName
 			}
+			project = create.CreateProjectIfNotExists(space, tools[0].Name)
+			projectCreated = true
 		}
 		if newWorkflowName == "" {
 			newWorkflowName = wfName
