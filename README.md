@@ -37,10 +37,10 @@ Current workflow categories are:
 
 ```
 # Download the binary
-wget https://github.com/trickest/trickest-cli/releases/download/v1.1.0/trickest-cli-1.1.0-macOS-arm64.zip
+wget https://github.com/trickest/trickest-cli/releases/download/v1.1.1/trickest-cli-1.1.1-macOS-arm64.zip
 
 # Unzip
-unzip trickest-cli-1.1.0-macOS-arm64.zip
+unzip trickest-cli-1.1.1-macOS-arm64.zip
 
 # Make binary executable
 chmod +x trickest-cli-macOS-arm64
@@ -55,10 +55,10 @@ trickest --help
 #### **Linux**
 
 ```
-wget https://github.com/trickest/trickest-cli/releases/download/v1.1.0/trickest-cli-1.1.0-linux-amd64.zip
+wget https://github.com/trickest/trickest-cli/releases/download/v1.1.1/trickest-cli-1.1.1-linux-amd64.zip
 
 # Unzip
-unzip trickest-cli-1.1.0-linux-amd64.zip
+unzip trickest-cli-1.1.1-linux-amd64.zip
 
 # Make binary executable
 chmod +x trickest-cli-linux-amd64
@@ -148,18 +148,19 @@ Use the **execute** command to execute a particular workflow or tool.
 trickest execute --workflow <workflow_or_tool_name> --space <space_name> --config <config_file_path> --set-name "New Name" [--watch]
 ```
 
-| Flag          | Type    | Default | Description                                                                                                                                 |
-| ------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| --config      | file    | /       | YAML file for run configuration                                                                                                             |
-| --workflow    | string  | /       | Workflow from the Store to be executed                                                                                                      |
-| --max         | boolean | /       | Use maximum number of machines for workflow execution                                                                                       |
-| --output      | string  | /       | A comma-separated list of nodes whose outputs should be downloaded when the execution is finished                                           |
-| --output-all  | boolean | /       | Download all outputs when the execution is finished                                                                                         |
-| --output-dir  | string  | .       | Path to the directory which should be used to store outputs                                                                                 |
-| --show-params | boolean | /       | Show parameters in the workflow tree                                                                                                        |
-| --watch       | boolean | /       | Option to track execution status in case workflow is in running state                                                                       |
-| --set-name    | string  | /       | Sets the new workflow name and will copy the workflow to space and project supplied                                                         |
-| --ci          | boolean | false   | Enable CI mode (in-progreess executions will be stopped when the CLI is forcefully stopped - if not set, you will be asked for confirmation) |
+| Flag             | Type    | Default | Description                                                                                                                                 |
+|------------------|---------|---------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| --config         | file    | /       | YAML file for run configuration                                                                                                             |
+| --workflow       | string  | /       | Workflow from the Store to be executed                                                                                                      |
+| --max            | boolean | /       | Use maximum number of machines for workflow execution                                                                                       |
+| --output         | string  | /       | A comma-separated list of nodes whose outputs should be downloaded when the execution is finished                                           |
+| --output-all     | boolean | /       | Download all outputs when the execution is finished                                                                                         |
+| --output-dir     | string  | .       | Path to the directory which should be used to store outputs                                                                                 |
+| --show-params    | boolean | /       | Show parameters in the workflow tree                                                                                                        |
+| --watch          | boolean | /       | Option to track execution status in case workflow is in running state                                                                       |
+| --set-name       | string  | /       | Sets the new workflow name and will copy the workflow to space and project supplied                                                         |
+| --ci             | boolean | false   | Enable CI mode (in-progress executions will be stopped when the CLI is forcefully stopped - if not set, you will be asked for confirmation) |
+| --create-project | boolean | false   | If the project doesn't exist, create one using the project flag as its name (or workflow/tool name if project flag is not set)              |
 
 #### Provide parameters using **config.yaml** file
 
