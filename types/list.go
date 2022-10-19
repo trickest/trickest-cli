@@ -101,7 +101,6 @@ type Workflow struct {
 	ProjectName  string      `json:"project_name,omitempty"`
 	ProjectInfo  uuid.UUID   `json:"project_info,omitempty"`
 	VersionCount *int        `json:"version_count,omitempty"`
-	ScheduleInfo uuid.UUID   `json:"schedule_info,omitempty"`
 	IsScheduled  bool        `json:"is_scheduled"`
 	Executing    bool        `json:"executing"`
 }
