@@ -134,10 +134,11 @@ trickest get --workflow <workflow_name> --space <space_name> [--watch]
 
 | Flag        | Type     | Default | Description                                                            |
 |-------------|----------|---------|------------------------------------------------------------------------|
+| --space     | string   | /       | The name of the space to which the workflow/project belongs            |
+| --project   | string   | /       | The name of the project to which the workflow belongs                  |
 | --workflow  | string   | /       | The name of the workflow                                               |
-| --space     | string   | /       | The name of the space to which the project belongs                     |
+| --run       | string   | /       | Get the status of a specific run                                       |
 | --watch     | boolean  | /       | Option to track execution status in case workflow is in running state  |
-
 
 ##### If the supplied workflow has a running execution, you can jump in and watch it running with the `--watch` flag!
 
