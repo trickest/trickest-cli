@@ -7,14 +7,17 @@ import (
 	"trickest-cli/cmd/execute"
 	"trickest-cli/cmd/list"
 	"trickest-cli/cmd/output"
+	"trickest-cli/types"
 	"trickest-cli/util"
 
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
 
 var (
 	watch          bool
 	showNodeParams bool
+	runID          string
 )
 
 // GetCmd represents the get command
@@ -45,8 +48,19 @@ var GetCmd = &cobra.Command{
 		version := execute.GetLatestWorkflowVersion(workflow.ID)
 		allNodes, roots := execute.CreateTrees(version, false)
 
-		runs := output.GetRuns(version.WorkflowInfo, 1)
-		if runs != nil && len(runs) > 0 && runs[0].Status == "RUNNING" {
+		var runs []types.Run
+		if runID == "" {
+			runs = output.GetRuns(version.WorkflowInfo, 1)
+		} else {
+			runUUID, err := uuid.Parse(runID)
+			if err != nil {
+				fmt.Println("Invalid run ID")
+				return
+			}
+			run := execute.GetRunByID(runUUID)
+			runs = []types.Run{*run}
+		}
+		if runs != nil && len(runs) > 0 && (runs[0].Status == "RUNNING" || runs[0].Status == "COMPLETED") {
 			execute.WatchRun(runs[0].ID, "", map[string]output.NodeInfo{}, !watch, &runs[0].Bees, showNodeParams)
 			return
 		} else {
@@ -77,4 +91,5 @@ var GetCmd = &cobra.Command{
 func init() {
 	GetCmd.Flags().BoolVar(&watch, "watch", false, "Watch the workflow execution if it's still running")
 	GetCmd.Flags().BoolVar(&showNodeParams, "show-params", false, "Show parameters in the workflow tree")
+	GetCmd.Flags().StringVar(&runID, "run", "", "Get the status of a specific run")
 }
