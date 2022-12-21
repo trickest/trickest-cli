@@ -3,7 +3,6 @@ package output
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
 	"io"
 	"io/ioutil"
 	"math"
@@ -16,6 +15,8 @@ import (
 	"trickest-cli/cmd/list"
 	"trickest-cli/types"
 	"trickest-cli/util"
+
+	"github.com/google/uuid"
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
@@ -36,6 +37,7 @@ var (
 	configFile   string
 	allRuns      bool
 	numberOfRuns int
+	runID        string
 )
 
 // OutputCmd represents the download command
@@ -117,17 +119,27 @@ The YAML config file should be formatted like:
 		if allRuns {
 			numberOfRuns = math.MaxInt
 		}
-		wfRuns := GetRuns(workflow.ID, numberOfRuns)
-		if wfRuns != nil && len(wfRuns) > 0 {
-			runs = append(runs, wfRuns...)
+		if runID == "" {
+			wfRuns := GetRuns(workflow.ID, numberOfRuns)
+			if wfRuns != nil && len(wfRuns) > 0 {
+				runs = append(runs, wfRuns...)
+			} else {
+				fmt.Println("This workflow has not been executed yet!")
+				return
+			}
 		} else {
-			fmt.Println("This workflow has not been executed yet!")
-			return
+			runUUID, err := uuid.Parse(runID)
+			if err != nil {
+				fmt.Println("Invalid run ID")
+				return
+			}
+			run := GetRunByID(runUUID)
+			runs = []types.Run{*run}
 		}
 
-		if numberOfRuns == 1 && (wfRuns[0].Status == "SCHEDULED" || wfRuns[0].CreationType == types.RunCreationScheduled) {
-			wfRuns = GetRuns(workflow.ID, numberOfRuns+1)
-			runs = append(runs, wfRuns...)
+		if numberOfRuns == 1 && (runs[0].Status == "SCHEDULED" || runs[0].CreationType == types.RunCreationScheduled) {
+			runs = GetRuns(workflow.ID, numberOfRuns+1)
+			runs = append(runs, runs...)
 		}
 
 		version := GetWorkflowVersionByID(runs[0].WorkflowVersionInfo)
@@ -148,6 +160,7 @@ func init() {
 	OutputCmd.Flags().StringVar(&configFile, "config", "", "YAML file to determine which nodes output(s) should be downloaded")
 	OutputCmd.Flags().BoolVar(&allRuns, "all", false, "Download output data for all runs")
 	OutputCmd.Flags().IntVar(&numberOfRuns, "runs", 1, "Number of recent runs which outputs should be downloaded")
+	OutputCmd.Flags().StringVar(&runID, "run", "", "Download output data of a specific run")
 }
 
 func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, version *types.WorkflowVersionDetailed, destinationPath string) {
@@ -441,6 +454,27 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []ty
 	}
 
 	return subJobOutputs.Results
+}
+
+func GetRunByID(id uuid.UUID) *types.Run {
+	resp := request.Trickest.Get().DoF("run/%s/", id)
+	if resp == nil {
+		fmt.Println("Error: Couldn't get run!")
+		os.Exit(0)
+	}
+
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
+	}
+
+	var run types.Run
+	err := json.Unmarshal(resp.Body(), &run)
+	if err != nil {
+		fmt.Println("Error unmarshalling run response!")
+		return nil
+	}
+
+	return &run
 }
 
 func getSubJobs(runID uuid.UUID) []types.SubJob {
