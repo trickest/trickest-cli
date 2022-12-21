@@ -61,6 +61,9 @@ var GetCmd = &cobra.Command{
 			runs = []types.Run{*run}
 		}
 		if runs != nil && len(runs) > 0 && (runs[0].Status == "RUNNING" || runs[0].Status == "COMPLETED") {
+			if runs[0].Status == "COMPLETED" && runs[0].CompletedDate.IsZero() {
+				runs[0].Status = "RUNNING"
+			}
 			execute.WatchRun(runs[0].ID, "", map[string]output.NodeInfo{}, !watch, &runs[0].Bees, showNodeParams)
 			return
 		} else {
