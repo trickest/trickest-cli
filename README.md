@@ -217,14 +217,13 @@ Use the **output** command to download the outputs of your particular workflow e
 ```
 trickest output --workflow <workflow_name> --space <space_name> [--config <config_file_path>] [--runs <number>]
 ```
-| Flag       | Type   | Default | Description                                                                                                                        |
-| ---------- | ------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| --workflow | string | /       | The name of the workflow.                                                                                                          |
-| --space    | string | /       | The name of the space to which workflow belongs                                                                                  |
-| --config   | file   | /       | YAML file for run configuration                                                                                                    |
+| Flag       | Type    | Default | Description                                                                                                                        |
+| ---------- | ------  | ------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| --workflow | string  | /       | The name of the workflow.                                                                                                          |
+| --space    | string  | /       | The name of the space to which workflow belongs                                                                                    |
+| --config   | file    | /       | YAML file for run configuration                                                                                                    |
+| --run      | string  | /       | Download output data of a specific run                                                                                             |
 | --runs     | integer | 1       | The number of executions to be downloaded sorted by newest |
-
-      
 
 
 ## Output Structure
