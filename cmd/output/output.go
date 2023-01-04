@@ -172,7 +172,7 @@ func init() {
 	OutputCmd.Flags().IntVar(&numberOfRuns, "runs", 1, "Number of recent runs which outputs should be downloaded")
 	OutputCmd.Flags().StringVar(&runID, "run", "", "Download output data of a specific run")
 	OutputCmd.Flags().StringVar(&outputDir, "output-dir", "", "Path to directory which should be used to store outputs")
-	OutputCmd.Flags().StringVar(&nodesFlag, "nodes", "", "A comma separated list of nodes which outputs should be downloaded")
+	OutputCmd.Flags().StringVar(&nodesFlag, "nodes", "", "A comma-separated list of nodes whose outputs should be downloaded")
 }
 
 func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, version *types.WorkflowVersionDetailed, destinationPath string) {
