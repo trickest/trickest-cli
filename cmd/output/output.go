@@ -38,6 +38,8 @@ var (
 	allRuns      bool
 	numberOfRuns int
 	runID        string
+	outputDir    string
+	nodesFlag    string
 )
 
 // OutputCmd represents the download command
@@ -59,6 +61,11 @@ The YAML config file should be formatted like:
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		nodes := make(map[string]NodeInfo, 0)
+		if nodesFlag != "" {
+			for _, node := range strings.Split(nodesFlag, ",") {
+				nodes[strings.ReplaceAll(node, "/", "-")] = NodeInfo{ToFetch: true, Found: false}
+			}
+		}
 
 		path := util.FormatPath()
 		if path == "" {
@@ -147,6 +154,9 @@ The YAML config file should be formatted like:
 			return
 		}
 
+		if outputDir != "" {
+			path = outputDir
+		}
 		for _, run := range runs {
 			if run.Status == "SCHEDULED" {
 				continue
@@ -161,6 +171,8 @@ func init() {
 	OutputCmd.Flags().BoolVar(&allRuns, "all", false, "Download output data for all runs")
 	OutputCmd.Flags().IntVar(&numberOfRuns, "runs", 1, "Number of recent runs which outputs should be downloaded")
 	OutputCmd.Flags().StringVar(&runID, "run", "", "Download output data of a specific run")
+	OutputCmd.Flags().StringVar(&outputDir, "output-dir", "", "Path to directory which should be used to store outputs")
+	OutputCmd.Flags().StringVar(&nodesFlag, "nodes", "", "A comma separated list of nodes which outputs should be downloaded")
 }
 
 func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, version *types.WorkflowVersionDetailed, destinationPath string) {
