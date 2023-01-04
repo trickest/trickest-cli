@@ -215,7 +215,7 @@ Example GitHub action usage
 Use the **output** command to download the outputs of your particular workflow execution(s) to your local environment.
 
 ```
-trickest output --workflow <workflow_name> --space <space_name> [--config <config_file_path>] [--runs <number>]
+trickest output --workflow <workflow_name> --space <space_name> [--nodes <comma_separated_list_of_nodes>] [--config <config_file_path>] [--runs <number>] [--output-dir <output_path_directory>]
 ```
 | Flag       | Type    | Default | Description                                                                                                                        |
 | ---------- | ------  | ------- | ---------------------------------------------------------------------------------------------------------------------------------- |
@@ -224,6 +224,8 @@ trickest output --workflow <workflow_name> --space <space_name> [--config <confi
 | --config   | file    | /       | YAML file for run configuration                                                                                                    |
 | --run      | string  | /       | Download output data of a specific run                                                                                             |
 | --runs     | integer | 1       | The number of executions to be downloaded sorted by newest |
+| --output-dir     | string | /       | Path to directory which should be used to store outputs |
+| --nodes     | string | /       | A comma separated list of nodes whose outputs should be downloaded |
 
 
 ## Output Structure
