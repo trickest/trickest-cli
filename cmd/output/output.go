@@ -229,21 +229,12 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, version *types
 	runDir = strings.TrimSuffix(runDir, "Z")
 	runDir = strings.Replace(runDir, "T", "-", 1)
 	runDir = path.Join(destinationPath, runDir)
-	runDirPath := strings.Split(runDir, "/")
-	toMerge := ""
-	for _, dir := range runDirPath {
-		toMerge = path.Join(toMerge, dir)
-		dirInfo, err := os.Stat(toMerge)
-		dirExists := !os.IsNotExist(err) && dirInfo.IsDir()
 
-		if !dirExists {
-			err = os.Mkdir(toMerge, 0755)
-			if err != nil {
-				fmt.Println(err)
-				fmt.Println("Couldn't create a directory to store run output!")
-				os.Exit(0)
-			}
-		}
+	err := os.MkdirAll(runDir, 0755)
+	if err != nil {
+		fmt.Println(err)
+		fmt.Println("Couldn't create a directory to store run output!")
+		os.Exit(0)
 	}
 
 	if len(nodes) == 0 {
@@ -398,21 +389,11 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []ty
 
 				if fileName != subJobOutputs.Results[i].Path {
 					subDirsPath := strings.TrimSuffix(subJobOutputs.Results[i].Path, fileName)
-					subDirs := strings.Split(strings.Trim(subDirsPath, "/"), "/")
-					toMerge := savePath
-					for _, subDir := range subDirs {
-						toMerge = path.Join(toMerge, subDir)
-						dirInfo, err := os.Stat(toMerge)
-						dirExists := !os.IsNotExist(err) && dirInfo.IsDir()
-
-						if !dirExists {
-							err = os.Mkdir(toMerge, 0755)
-							if err != nil {
-								fmt.Println(err)
-								fmt.Println("Couldn't create a directory to store run output!")
-								os.Exit(0)
-							}
-						}
+					err := os.MkdirAll(subDirsPath, 0755)
+					if err != nil {
+						fmt.Println(err)
+						fmt.Println("Couldn't create a directory to store run output!")
+						os.Exit(0)
 					}
 					fileName = subJobOutputs.Results[i].Path
 				}
