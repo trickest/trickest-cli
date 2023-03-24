@@ -33,44 +33,10 @@ Current workflow categories are:
 
 # Installation
 
-#### **macOS**
+## Binary
+Binaries are available in the [latest release](https://github.com/trickest/trickest-cli/releases/latest).
 
-```
-# Download the binary
-wget https://github.com/trickest/trickest-cli/releases/download/v1.1.3/trickest-cli-1.1.3-macOS-arm64.zip
-
-# Unzip
-unzip trickest-cli-1.1.3-macOS-arm64.zip
-
-# Make binary executable
-chmod +x trickest-cli-macOS-arm64
-
-# Move binary to path
-mv ./trickest-cli-macOS-arm64 /usr/local/bin/trickest
-
-# Test installation
-trickest --help
-```
-
-#### **Linux**
-
-```
-wget https://github.com/trickest/trickest-cli/releases/download/v1.1.3/trickest-cli-1.1.3-linux-amd64.zip
-
-# Unzip
-unzip trickest-cli-1.1.3-linux-amd64.zip
-
-# Make binary executable
-chmod +x trickest-cli-linux-amd64
-
-# Move binary to path
-mv ./trickest-cli-linux-amd64 /usr/local/bin/trickest
-
-# Test installation
-trickest --help
-```
-
-#### Docker
+## Docker
 ```
 docker run quay.io/trickest/trickest-cli
 ```
