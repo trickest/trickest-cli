@@ -40,6 +40,7 @@ var (
 	runID        string
 	outputDir    string
 	nodesFlag    string
+	filesFlag    string
 )
 
 // OutputCmd represents the download command
@@ -64,6 +65,13 @@ The YAML config file should be formatted like:
 		if nodesFlag != "" {
 			for _, node := range strings.Split(nodesFlag, ",") {
 				nodes[strings.ReplaceAll(node, "/", "-")] = NodeInfo{ToFetch: true, Found: false}
+			}
+		}
+
+		var files []string
+		if filesFlag != "" {
+			for _, file := range strings.Split(filesFlag, ",") {
+				files = append(files, file)
 			}
 		}
 
@@ -161,7 +169,7 @@ The YAML config file should be formatted like:
 			if run.Status == "SCHEDULED" {
 				continue
 			}
-			DownloadRunOutput(&run, nodes, version, path)
+			DownloadRunOutput(&run, nodes, files, version, path)
 		}
 	},
 }
@@ -173,9 +181,10 @@ func init() {
 	OutputCmd.Flags().StringVar(&runID, "run", "", "Download output data of a specific run")
 	OutputCmd.Flags().StringVar(&outputDir, "output-dir", "", "Path to directory which should be used to store outputs")
 	OutputCmd.Flags().StringVar(&nodesFlag, "nodes", "", "A comma-separated list of nodes whose outputs should be downloaded")
+	OutputCmd.Flags().StringVar(&filesFlag, "files", "", "A comma-separated list of file names that should be downloaded from the selected node")
 }
 
-func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, version *types.WorkflowVersionDetailed, destinationPath string) {
+func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string, version *types.WorkflowVersionDetailed, destinationPath string) {
 	if run.Status != "COMPLETED" && run.Status != "STOPPED" && run.Status != "FAILED" {
 		fmt.Println("The workflow run hasn't been completed yet!")
 		fmt.Println("Run ID: " + run.ID.String() + "   Status: " + run.Status)
@@ -246,7 +255,7 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, version *types
 				}
 				subJob.OutputsStatus = updatedSubJob.OutputsStatus
 			}
-			getSubJobOutput(runDir, &subJob, true)
+			getSubJobOutput(runDir, &subJob, files, true)
 		}
 	} else {
 		noneFound := true
@@ -272,7 +281,7 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, version *types
 					}
 					subJob.OutputsStatus = updatedSubJob.OutputsStatus
 				}
-				getSubJobOutput(runDir, &subJob, true)
+				getSubJobOutput(runDir, &subJob, files, true)
 			}
 		}
 		if noneFound {
@@ -287,7 +296,7 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, version *types
 	}
 }
 
-func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []types.SubJobOutput {
+func getSubJobOutput(savePath string, subJob *types.SubJob, files []string, fetchData bool) []types.SubJobOutput {
 	if subJob.OutputsStatus != "SAVED" && !subJob.TaskGroup {
 		return nil
 	}
@@ -339,7 +348,7 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []ty
 		results := make([]types.SubJobOutput, 0)
 		if subJob.Children != nil {
 			for _, child := range subJob.Children {
-				childRes := getSubJobOutput(savePath, &child, true)
+				childRes := getSubJobOutput(savePath, &child, files, true)
 				if childRes != nil {
 					results = append(results, childRes...)
 				}
@@ -361,7 +370,8 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []ty
 		}
 	}
 
-	for i, output := range subJobOutputs.Results {
+	subJobOutputResults := filterSubJobOutputsByFileNames(subJobOutputs.Results, files)
+	for i, output := range subJobOutputResults {
 		resp := request.Trickest.Post().DoF("subjob-output/%s/signed_url/", output.ID)
 		if resp == nil {
 			fmt.Println("Error: Couldn't get sub-job outputs signed URL.")
@@ -380,22 +390,22 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []ty
 		}
 
 		if resp.Status() == http.StatusNotFound {
-			subJobOutputs.Results[i].SignedURL = "expired"
+			subJobOutputResults[i].SignedURL = "expired"
 		} else {
-			subJobOutputs.Results[i].SignedURL = signedURL.Url
+			subJobOutputResults[i].SignedURL = signedURL.Url
 
 			if fetchData {
-				fileName := subJobOutputs.Results[i].FileName
+				fileName := subJobOutputResults[i].FileName
 
-				if fileName != subJobOutputs.Results[i].Path {
-					subDirsPath := strings.TrimSuffix(subJobOutputs.Results[i].Path, fileName)
+				if fileName != subJobOutputResults[i].Path {
+					subDirsPath := strings.TrimSuffix(subJobOutputResults[i].Path, fileName)
 					err := os.MkdirAll(subDirsPath, 0755)
 					if err != nil {
 						fmt.Println(err)
 						fmt.Println("Couldn't create a directory to store run output!")
 						os.Exit(0)
 					}
-					fileName = subJobOutputs.Results[i].Path
+					fileName = subJobOutputResults[i].Path
 				}
 
 				fileName = path.Join(savePath, fileName)
@@ -446,7 +456,25 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, fetchData bool) []ty
 		}
 	}
 
-	return subJobOutputs.Results
+	return subJobOutputResults
+}
+
+func filterSubJobOutputsByFileNames(outputs []types.SubJobOutput, fileNames []string) []types.SubJobOutput {
+	if fileNames == nil {
+		return outputs
+	}
+
+	var matchingOutputs []types.SubJobOutput
+	for _, output := range outputs {
+		for _, fileName := range fileNames {
+			if output.FileName == fileName {
+				matchingOutputs = append(matchingOutputs, output)
+				break
+			}
+		}
+	}
+
+	return matchingOutputs
 }
 
 func GetRunByID(id uuid.UUID) *types.Run {

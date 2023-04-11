@@ -3,9 +3,6 @@ package execute
 import (
 	"bytes"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/gosuri/uilive"
-	"github.com/xlab/treeprint"
 	"os"
 	"os/signal"
 	"regexp"
@@ -18,9 +15,13 @@ import (
 	"trickest-cli/cmd/output"
 	"trickest-cli/types"
 	"trickest-cli/util"
+
+	"github.com/google/uuid"
+	"github.com/gosuri/uilive"
+	"github.com/xlab/treeprint"
 )
 
-func WatchRun(runID uuid.UUID, downloadPath string, nodesToDownload map[string]output.NodeInfo, timestampOnly bool, machines *types.Bees, showParameters bool) {
+func WatchRun(runID uuid.UUID, downloadPath string, nodesToDownload map[string]output.NodeInfo, filesToDownload []string, timestampOnly bool, machines *types.Bees, showParameters bool) {
 	const fmtStr = "%-12s %v\n"
 	writer := uilive.New()
 	writer.Start()
@@ -121,9 +122,9 @@ func WatchRun(runID uuid.UUID, downloadPath string, nodesToDownload map[string]o
 			}
 			if downloadAllNodes {
 				// DownloadRunOutputs downloads all outputs if no nodes were specified
-				output.DownloadRunOutput(run, nil, nil, downloadPath)
+				output.DownloadRunOutput(run, nil, nil, nil, downloadPath)
 			} else if len(nodesToDownload) > 0 {
-				output.DownloadRunOutput(run, nodesToDownload, nil, downloadPath)
+				output.DownloadRunOutput(run, nodesToDownload, filesToDownload, nil, downloadPath)
 			}
 			mutex.Unlock()
 			return

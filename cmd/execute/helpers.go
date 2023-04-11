@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
 	"io"
 	"math"
 	"mime/multipart"
@@ -20,6 +19,8 @@ import (
 	"trickest-cli/cmd/output"
 	"trickest-cli/types"
 	"trickest-cli/util"
+
+	"github.com/google/uuid"
 
 	"github.com/schollz/progressbar/v3"
 )
@@ -133,7 +134,7 @@ func createRun(versionID uuid.UUID, watch bool, machines *types.Bees, outputNode
 		watch = true
 	}
 	if watch {
-		WatchRun(createRunResp.ID, outputsDir, nodesToDownload, false, &executionMachines, showParams)
+		WatchRun(createRunResp.ID, outputsDir, nodesToDownload, nil, false, &executionMachines, showParams)
 	} else {
 		availableBees := GetAvailableMachines()
 		fmt.Println("Run successfully created! ID: " + createRunResp.ID.String())
