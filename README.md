@@ -192,7 +192,7 @@ trickest output --workflow <workflow_name> --space <space_name> [--nodes <comma_
 | --runs     | integer | 1       | The number of executions to be downloaded sorted by newest |
 | --output-dir     | string | /       | Path to directory which should be used to store outputs |
 | --nodes     | string | /       | A comma separated list of nodes whose outputs should be downloaded |
-
+| --files     | string | /       | A comma-separated list of file names that should be downloaded from the selected node |
 
 ## Output Structure
 
