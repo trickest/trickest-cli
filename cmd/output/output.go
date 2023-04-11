@@ -144,7 +144,7 @@ The YAML config file should be formatted like:
 			runs = []types.Run{*run}
 		}
 
-		if numberOfRuns == 1 && (runs[0].Status == "SCHEDULED" || runs[0].CreationType == types.RunCreationScheduled) {
+		if numberOfRuns == 1 && runs[0].Status == "SCHEDULED" {
 			runs = GetRuns(workflow.ID, numberOfRuns+1)
 			runs = append(runs, runs...)
 		}
