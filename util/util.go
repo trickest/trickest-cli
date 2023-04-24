@@ -3,7 +3,6 @@ package util
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
 	"net/http"
 	"os"
 	"strings"
@@ -11,13 +10,15 @@ import (
 	"trickest-cli/client/request"
 	"trickest-cli/types"
 
+	"github.com/google/uuid"
+
 	"github.com/hako/durafmt"
 )
 
 type UnexpectedResponse map[string]interface{}
 
 const (
-	BaseURL = "https://hive-api.beta.trickest.com/"
+	BaseURL = "https://hive-api.trickest.io/"
 )
 
 var (
