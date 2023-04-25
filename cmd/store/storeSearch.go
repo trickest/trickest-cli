@@ -2,10 +2,11 @@ package store
 
 import (
 	"fmt"
+	"math"
+
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
-	"math"
-	"trickest-cli/cmd/list"
+	"github.com/trickest/trickest-cli/cmd/list"
 )
 
 // storeSearchCmd represents the storeSearch command

@@ -1,6 +1,6 @@
 package main
 
-import "trickest-cli/cmd"
+import "github.com/trickest/trickest-cli/cmd"
 
 func main() {
 	cmd.Execute()

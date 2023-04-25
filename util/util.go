@@ -7,8 +7,9 @@ import (
 	"os"
 	"strings"
 	"time"
-	"trickest-cli/client/request"
-	"trickest-cli/types"
+
+	"github.com/trickest/trickest-cli/client/request"
+	"github.com/trickest/trickest-cli/types"
 
 	"github.com/google/uuid"
 

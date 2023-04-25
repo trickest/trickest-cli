@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	"trickest-cli/cmd/execute"
-	"trickest-cli/cmd/list"
-	"trickest-cli/cmd/output"
-	"trickest-cli/types"
-	"trickest-cli/util"
+
+	"github.com/trickest/trickest-cli/cmd/execute"
+	"github.com/trickest/trickest-cli/cmd/list"
+	"github.com/trickest/trickest-cli/cmd/output"
+	"github.com/trickest/trickest-cli/types"
+	"github.com/trickest/trickest-cli/util"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"

@@ -2,12 +2,13 @@ package store
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
-	"github.com/xlab/treeprint"
 	"math"
 	"strings"
-	"trickest-cli/cmd/list"
-	"trickest-cli/types"
+
+	"github.com/spf13/cobra"
+	"github.com/trickest/trickest-cli/cmd/list"
+	"github.com/trickest/trickest-cli/types"
+	"github.com/xlab/treeprint"
 )
 
 // storeListToolsCmd represents the storeListTools command

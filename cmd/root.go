@@ -1,14 +1,14 @@
 package cmd
 
 import (
-	"trickest-cli/cmd/create"
-	"trickest-cli/cmd/delete"
-	"trickest-cli/cmd/execute"
-	"trickest-cli/cmd/get"
-	"trickest-cli/cmd/list"
-	"trickest-cli/cmd/output"
-	"trickest-cli/cmd/store"
-	"trickest-cli/util"
+	"github.com/trickest/trickest-cli/cmd/create"
+	"github.com/trickest/trickest-cli/cmd/delete"
+	"github.com/trickest/trickest-cli/cmd/execute"
+	"github.com/trickest/trickest-cli/cmd/get"
+	"github.com/trickest/trickest-cli/cmd/list"
+	"github.com/trickest/trickest-cli/cmd/output"
+	"github.com/trickest/trickest-cli/cmd/store"
+	"github.com/trickest/trickest-cli/util"
 
 	"github.com/spf13/cobra"
 )
