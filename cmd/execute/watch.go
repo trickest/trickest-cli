@@ -21,7 +21,7 @@ import (
 	"github.com/xlab/treeprint"
 )
 
-func WatchRun(runID uuid.UUID, downloadPath string, nodesToDownload map[string]output.NodeInfo, filesToDownload []string, timestampOnly bool, machines *types.Bees, showParameters bool) {
+func WatchRun(runID uuid.UUID, downloadPath string, nodesToDownload map[string]output.NodeInfo, filesToDownload []string, timestampOnly bool, machines *types.Machines, showParameters bool) {
 	const fmtStr = "%-12s %v\n"
 	writer := uilive.New()
 	writer.Start()
@@ -70,9 +70,9 @@ func WatchRun(runID uuid.UUID, downloadPath string, nodesToDownload map[string]o
 		out := ""
 		out += fmt.Sprintf(fmtStr, "Name:", run.WorkflowName)
 		out += fmt.Sprintf(fmtStr, "Status:", strings.ToLower(run.Status))
-		availableBees := GetAvailableMachines()
+		availableMachines := GetAvailableMachines()
 		out += fmt.Sprintf(fmtStr, "Machines:", FormatMachines(*machines, true)+
-			" (currently available: "+FormatMachines(availableBees, true)+")")
+			" (currently available: "+FormatMachines(availableMachines, true)+")")
 		out += fmt.Sprintf(fmtStr, "Created:", run.CreatedDate.In(time.Local).Format(time.RFC1123)+
 			" ("+util.FormatDuration(time.Since(run.CreatedDate))+" ago)")
 		if run.Status != "PENDING" {
@@ -94,12 +94,14 @@ func WatchRun(runID uuid.UUID, downloadPath string, nodesToDownload map[string]o
 
 		subJobs := GetSubJobs(runID)
 		for _, sj := range subJobs {
-			allNodes[sj.NodeName].Status = strings.ToLower(sj.Status)
-			allNodes[sj.NodeName].OutputStatus = strings.ReplaceAll(strings.ToLower(sj.OutputsStatus), "_", " ")
+			allNodes[sj.Name].Status = strings.ToLower(sj.Status)
+			allNodes[sj.Name].OutputStatus = strings.ReplaceAll(strings.ToLower(sj.OutputsStatus), "_", " ")
 			if sj.Finished {
-				allNodes[sj.NodeName].Duration = sj.FinishedDate.Sub(sj.StartedDate).Round(time.Second)
+				allNodes[sj.Name].Duration = sj.FinishedDate.Sub(sj.StartedDate).Round(time.Second)
+			} else if sj.StartedDate.IsZero() {
+				allNodes[sj.Name].Duration = *new(time.Duration)
 			} else {
-				allNodes[sj.NodeName].Duration = time.Since(sj.StartedDate).Round(time.Second)
+				allNodes[sj.Name].Duration = time.Since(sj.StartedDate).Round(time.Second)
 			}
 		}
 
@@ -185,7 +187,7 @@ func printTree(node *types.TreeNode, branch *treeprint.Tree, allNodes *map[strin
 		prefixSymbol = "\u274c " //❌
 	}
 
-	printValue := prefixSymbol + node.Label + " (" + node.NodeName + ")"
+	printValue := prefixSymbol + node.Label + " (" + node.Name + ")"
 	if branch == nil {
 		tree := treeprint.NewWithRoot(printValue)
 		branch = &tree
@@ -231,12 +233,12 @@ func printTree(node *types.TreeNode, branch *treeprint.Tree, allNodes *map[strin
 	}
 
 	for _, child := range node.Children {
-		if !(*allNodes)[node.NodeName].Printed {
+		if !(*allNodes)[node.Name].Printed {
 			printTree(child, branch, allNodes, showParameters)
 		}
 	}
 
-	(*allNodes)[node.NodeName].Printed = true
+	(*allNodes)[node.Name].Printed = true
 
 	return (*branch).String()
 }
@@ -247,7 +249,7 @@ func CreateTrees(wfVersion *types.WorkflowVersionDetailed, includePrimitiveNodes
 
 	for _, node := range wfVersion.Data.Nodes {
 		allNodes[node.Name] = &types.TreeNode{
-			NodeName:     node.Name,
+			Name:         node.Name,
 			Label:        node.Meta.Label,
 			Inputs:       &node.Inputs,
 			Status:       "pending",
@@ -260,8 +262,8 @@ func CreateTrees(wfVersion *types.WorkflowVersionDetailed, includePrimitiveNodes
 	if includePrimitiveNodes {
 		for _, node := range wfVersion.Data.PrimitiveNodes {
 			allNodes[node.Name] = &types.TreeNode{
-				NodeName: node.Name,
-				Label:    node.Label,
+				Name:  node.Name,
+				Label: node.Label,
 			}
 		}
 	}

@@ -1,8 +1,9 @@
 package types
 
 import (
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type OutputsConfig struct {
@@ -26,7 +27,7 @@ type SubJobOutputs struct {
 
 type SubJobOutput struct {
 	ID         uuid.UUID `json:"id"`
-	FileName   string    `json:"file_name"`
+	Name       string    `json:"name"`
 	Size       int       `json:"size"`
 	PrettySize string    `json:"pretty_size"`
 	Format     string    `json:"format"`
@@ -43,7 +44,7 @@ type WorkflowVersionDetailed struct {
 	Public       bool      `json:"public"`
 	CreatedDate  time.Time `json:"created_date"`
 	RunCount     int       `json:"run_count"`
-	MaxMachines  Bees      `json:"max_machines"`
+	MaxMachines  Machines  `json:"max_machines"`
 	Snapshot     bool      `json:"snapshot"`
 	Data         struct {
 		Nodes          map[string]*Node          `json:"nodes"`
@@ -57,7 +58,7 @@ type WorkflowVersionStripped struct {
 	WorkflowInfo uuid.UUID `json:"workflow_info"`
 	Name         *string   `json:"name,omitempty"`
 	Description  string    `json:"description"`
-	MaxMachines  Bees      `json:"max_machines"`
+	MaxMachines  Machines  `json:"max_machines"`
 	Snapshot     bool      `json:"snapshot"`
 	Data         struct {
 		Nodes          map[string]*Node          `json:"nodes"`

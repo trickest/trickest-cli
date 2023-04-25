@@ -64,7 +64,7 @@ var GetCmd = &cobra.Command{
 			if runs[0].Status == "COMPLETED" && runs[0].CompletedDate.IsZero() {
 				runs[0].Status = "RUNNING"
 			}
-			execute.WatchRun(runs[0].ID, "", map[string]output.NodeInfo{}, []string{}, !watch, &runs[0].Bees, showNodeParams)
+			execute.WatchRun(runs[0].ID, "", map[string]output.NodeInfo{}, []string{}, !watch, &runs[0].Machines, showNodeParams)
 			return
 		} else {
 			const fmtStr = "%-15s %v\n"

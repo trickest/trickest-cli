@@ -97,11 +97,11 @@ func getScripts(pageSize int, search string, name string) []types.Script {
 	return scripts.Results
 }
 
-func createRun(versionID uuid.UUID, watch bool, machines *types.Bees, outputNodes []string, outputsDir string) {
+func createRun(versionID uuid.UUID, watch bool, machines *types.Machines, outputNodes []string, outputsDir string) {
 	run := types.CreateRun{
 		VersionID: versionID,
-		HiveInfo:  hive.ID,
-		Bees:      executionMachines,
+		Vault:     fleet.Vault,
+		Machines:  executionMachines,
 	}
 
 	data, err := json.Marshal(run)
@@ -110,7 +110,7 @@ func createRun(versionID uuid.UUID, watch bool, machines *types.Bees, outputNode
 		os.Exit(0)
 	}
 
-	resp := request.Trickest.Post().Body(data).DoF("run/")
+	resp := request.Trickest.Post().Body(data).DoF("execution/")
 	if resp == nil {
 		fmt.Println("Error: Couldn't create run!")
 		os.Exit(0)
@@ -136,10 +136,10 @@ func createRun(versionID uuid.UUID, watch bool, machines *types.Bees, outputNode
 	if watch {
 		WatchRun(createRunResp.ID, outputsDir, nodesToDownload, nil, false, &executionMachines, showParams)
 	} else {
-		availableBees := GetAvailableMachines()
+		availableMachines := GetAvailableMachines()
 		fmt.Println("Run successfully created! ID: " + createRunResp.ID.String())
 		fmt.Print("Machines:\n" + FormatMachines(*machines, false))
-		fmt.Print("\nAvailable:\n" + FormatMachines(availableBees, false))
+		fmt.Print("\nAvailable:\n" + FormatMachines(availableMachines, false))
 	}
 }
 
@@ -355,7 +355,7 @@ func processInvalidInputStructure() {
 	os.Exit(0)
 }
 
-func processMaxMachinesOverflow(maximumMachines types.Bees) {
+func processMaxMachinesOverflow(maximumMachines types.Machines) {
 	fmt.Println("Invalid number or machines!")
 	fmt.Println("The maximum number of machines you can allocate for this workflow: ")
 	fmt.Println(FormatMachines(maximumMachines, false))
@@ -381,28 +381,28 @@ func processInvalidInputType(newPNode, existingPNode types.PrimitiveNode) {
 	os.Exit(0)
 }
 
-func GetAvailableMachines() types.Bees {
-	hiveInfo := util.GetHiveInfo()
-	availableBees := types.Bees{}
-	for _, bee := range hiveInfo.Bees {
-		if bee.Name == "small" {
-			available := bee.Total - bee.Running
-			availableBees.Small = &available
+func GetAvailableMachines() types.Machines {
+	hiveInfo := util.GetFleetInfo()
+	availableMachines := types.Machines{}
+	for _, machine := range hiveInfo.Machines {
+		if machine.Name == "small" {
+			available := machine.Total - machine.Running
+			availableMachines.Small = &available
 		}
-		if bee.Name == "medium" {
-			available := bee.Total - bee.Running
-			availableBees.Medium = &available
+		if machine.Name == "medium" {
+			available := machine.Total - machine.Running
+			availableMachines.Medium = &available
 		}
-		if bee.Name == "large" {
-			available := bee.Total - bee.Running
-			availableBees.Large = &available
+		if machine.Name == "large" {
+			available := machine.Total - machine.Running
+			availableMachines.Large = &available
 		}
 	}
-	return availableBees
+	return availableMachines
 }
 
 func GetRunByID(id uuid.UUID) *types.Run {
-	resp := request.Trickest.Get().DoF("run/%s/", id)
+	resp := request.Trickest.Get().DoF("execution/%s/", id)
 	if resp == nil {
 		fmt.Println("Error: Couldn't get run!")
 		os.Exit(0)
@@ -427,7 +427,7 @@ func GetSubJobs(runID uuid.UUID) []types.SubJob {
 		fmt.Println("Couldn't list sub-jobs, no run ID parameter specified!")
 		os.Exit(0)
 	}
-	urlReq := "subjob/?run=" + runID.String()
+	urlReq := "subjob/?execution=" + runID.String()
 	urlReq = urlReq + "&page_size=" + strconv.Itoa(math.MaxInt)
 
 	resp := request.Trickest.Get().DoF(urlReq)
@@ -451,7 +451,7 @@ func GetSubJobs(runID uuid.UUID) []types.SubJob {
 }
 
 func stopRun(runID uuid.UUID) {
-	resp := request.Trickest.Post().DoF("run/%s/stop/", runID)
+	resp := request.Trickest.Post().DoF("execution/%s/stop/", runID)
 	if resp == nil {
 		fmt.Println("Error: Couldn't stop run!")
 		os.Exit(0)
@@ -462,7 +462,7 @@ func stopRun(runID uuid.UUID) {
 	}
 }
 
-func setMachinesToMinimum(machines *types.Bees) {
+func setMachinesToMinimum(machines *types.Machines) {
 	if machines.Small != nil {
 		*machines.Small = 1
 	}
@@ -474,7 +474,7 @@ func setMachinesToMinimum(machines *types.Bees) {
 	}
 }
 
-func FormatMachines(machines types.Bees, inline bool) string {
+func FormatMachines(machines types.Machines, inline bool) string {
 	var small, medium, large string
 	if machines.Small != nil {
 		small = "small: " + strconv.Itoa(*machines.Small)
@@ -580,7 +580,7 @@ func uploadFilesIfNeeded(primitiveNodes map[string]*types.PrimitiveNode) {
 	}
 }
 
-func maxMachinesTypeCompatible(machines, maxMachines types.Bees) bool {
+func maxMachinesTypeCompatible(machines, maxMachines types.Machines) bool {
 	if (machines.Small != nil && maxMachines.Small == nil) ||
 		(machines.Medium != nil && maxMachines.Medium == nil) ||
 		(machines.Large != nil && maxMachines.Large == nil) {

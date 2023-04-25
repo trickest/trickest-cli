@@ -31,7 +31,7 @@ func adjustChildrenHeight(root *types.TreeNode, nodesPerHeight *map[int][]*types
 		child.Height = root.Height - 1
 		found := false
 		for _, node := range (*nodesPerHeight)[child.Height] {
-			if node.NodeName == child.NodeName {
+			if node.Name == child.Name {
 				found = true
 				break
 			}
@@ -104,8 +104,8 @@ func generateNodesCoordinates(version *types.WorkflowVersionDetailed) {
 	for height, nodes := range nodesPerHeight {
 		maxInputs := 0
 		for _, node := range nodes {
-			if version.Data.Nodes[node.NodeName] != nil && len(version.Data.Nodes[node.NodeName].Inputs) > maxInputs {
-				maxInputs = len(version.Data.Nodes[node.NodeName].Inputs)
+			if version.Data.Nodes[node.Name] != nil && len(version.Data.Nodes[node.Name].Inputs) > maxInputs {
+				maxInputs = len(version.Data.Nodes[node.Name].Inputs)
 			}
 		}
 		maxInputsPerHeight[height] = maxInputs
@@ -116,7 +116,7 @@ func generateNodesCoordinates(version *types.WorkflowVersionDetailed) {
 	for height := 0; height < len(nodesPerHeight); height++ {
 		nodes := nodesPerHeight[height]
 		sort.SliceStable(nodes, func(i, j int) bool {
-			return nodes[i].NodeName < nodes[j].NodeName
+			return nodes[i].Name < nodes[j].Name
 		})
 		total := (len(nodes) - 1) * distance
 		start := -total / 2
@@ -126,31 +126,31 @@ func generateNodesCoordinates(version *types.WorkflowVersionDetailed) {
 			previousHeightNodeSizeIndent = float64(distance * (maxInputsPerHeight[height-1] / 10))
 		}
 		for i, node := range nodes {
-			if version.Data.Nodes[node.NodeName] != nil {
-				version.Data.Nodes[node.NodeName].Meta.Coordinates.X = X
+			if version.Data.Nodes[node.Name] != nil {
+				version.Data.Nodes[node.Name].Meta.Coordinates.X = X
 				if i == 0 && height > 0 {
-					version.Data.Nodes[node.NodeName].Meta.Coordinates.X += nodeSizeIndent
+					version.Data.Nodes[node.Name].Meta.Coordinates.X += nodeSizeIndent
 				}
-				version.Data.Nodes[node.NodeName].Meta.Coordinates.X += previousHeightNodeSizeIndent
-				version.Data.Nodes[node.NodeName].Meta.Coordinates.Y = 1.2 * float64(start)
+				version.Data.Nodes[node.Name].Meta.Coordinates.X += previousHeightNodeSizeIndent
+				version.Data.Nodes[node.Name].Meta.Coordinates.Y = 1.2 * float64(start)
 				start += distance
-				if i+1 < len(nodes) && version.Data.Nodes[nodes[i+1].NodeName] != nil &&
-					len(version.Data.Nodes[nodes[i+1].NodeName].Inputs) == maxInputsPerHeight[height] {
+				if i+1 < len(nodes) && version.Data.Nodes[nodes[i+1].Name] != nil &&
+					len(version.Data.Nodes[nodes[i+1].Name].Inputs) == maxInputsPerHeight[height] {
 					start += int(nodeSizeIndent)
 				}
-				if len(version.Data.Nodes[node.NodeName].Inputs) == maxInputsPerHeight[height] {
+				if len(version.Data.Nodes[node.Name].Inputs) == maxInputsPerHeight[height] {
 					start += int(nodeSizeIndent)
 				}
-			} else if version.Data.PrimitiveNodes[node.NodeName] != nil {
-				version.Data.PrimitiveNodes[node.NodeName].Coordinates.X = X
+			} else if version.Data.PrimitiveNodes[node.Name] != nil {
+				version.Data.PrimitiveNodes[node.Name].Coordinates.X = X
 				if i == 0 && height > 0 {
-					version.Data.PrimitiveNodes[node.NodeName].Coordinates.X += nodeSizeIndent
+					version.Data.PrimitiveNodes[node.Name].Coordinates.X += nodeSizeIndent
 				}
-				version.Data.PrimitiveNodes[node.NodeName].Coordinates.X += previousHeightNodeSizeIndent
-				version.Data.PrimitiveNodes[node.NodeName].Coordinates.Y = 1.2 * float64(start)
+				version.Data.PrimitiveNodes[node.Name].Coordinates.X += previousHeightNodeSizeIndent
+				version.Data.PrimitiveNodes[node.Name].Coordinates.Y = 1.2 * float64(start)
 				start += distance
-				if i+1 < len(nodes) && version.Data.Nodes[nodes[i+1].NodeName] != nil &&
-					len(version.Data.Nodes[nodes[i+1].NodeName].Inputs) == maxInputsPerHeight[height] {
+				if i+1 < len(nodes) && version.Data.Nodes[nodes[i+1].Name] != nil &&
+					len(version.Data.Nodes[nodes[i+1].Name].Inputs) == maxInputsPerHeight[height] {
 					start += int(nodeSizeIndent)
 				}
 			}

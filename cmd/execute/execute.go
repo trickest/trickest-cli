@@ -3,7 +3,6 @@ package execute
 import (
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"io/ioutil"
 	"math"
 	"os"
@@ -17,6 +16,8 @@ import (
 	"trickest-cli/types"
 	"trickest-cli/util"
 
+	"github.com/google/uuid"
+
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -26,8 +27,8 @@ var (
 	configFile        string
 	watch             bool
 	showParams        bool
-	executionMachines types.Bees
-	hive              *types.Hive
+	executionMachines types.Machines
+	fleet             *types.Fleet
 	nodesToDownload   = make(map[string]output.NodeInfo, 0)
 	allNodes          map[string]*types.TreeNode
 	roots             []*types.TreeNode
@@ -63,8 +64,8 @@ var ExecuteCmd = &cobra.Command{
 			}
 		}
 
-		hive = util.GetHiveInfo()
-		if hive == nil {
+		fleet = util.GetFleetInfo()
+		if fleet == nil {
 			return
 		}
 		var version *types.WorkflowVersionDetailed
@@ -755,7 +756,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 }
 
 func createToolWorkflow(wfName string, space *types.SpaceDetailed, project *types.Project, deleteProjectOnError bool,
-	tool *types.Tool, primitiveNodes map[string]*types.PrimitiveNode, machine types.Bees) *types.WorkflowVersionDetailed {
+	tool *types.Tool, primitiveNodes map[string]*types.PrimitiveNode, machine types.Machines) *types.WorkflowVersionDetailed {
 	if tool == nil {
 		fmt.Println("No tool specified, couldn't create a workflow!")
 		os.Exit(0)

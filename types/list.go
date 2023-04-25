@@ -1,8 +1,9 @@
 package types
 
 import (
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type Spaces struct {
@@ -140,14 +141,14 @@ type Run struct {
 	StartedDate         time.Time `json:"started_date"`
 	CompletedDate       time.Time `json:"completed_date"`
 	Parallelism         int       `json:"parallelism"`
-	Bees                Bees      `json:"bees"`
+	Machines            Machines  `json:"machines"`
 	CreatedDate         time.Time `json:"created_date"`
 	ModifiedDate        time.Time `json:"modified_date"`
 	Finished            bool      `json:"finished"`
 	CreationType        string    `json:"creation_type"`
 }
 
-type Bees struct {
+type Machines struct {
 	Small  *int `json:"small,omitempty"`
 	Medium *int `json:"medium,omitempty"`
 	Large  *int `json:"large,omitempty"`
@@ -165,10 +166,9 @@ type SubJobs struct {
 type SubJob struct {
 	ID            uuid.UUID         `json:"id"`
 	Name          string            `json:"name"`
-	NodeName      string            `json:"node_name"`
 	Status        string            `json:"status"`
-	StartedDate   time.Time         `json:"started_date"`
-	FinishedDate  time.Time         `json:"finished_date"`
+	StartedDate   time.Time         `json:"started_at"`
+	FinishedDate  time.Time         `json:"finished_at"`
 	Podname       string            `json:"podname"`
 	Params        map[string]string `json:"params"`
 	Message       string            `json:"message"`
