@@ -2,11 +2,12 @@ package store
 
 import (
 	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
+	"github.com/trickest/trickest-cli/cmd/list"
+	"github.com/trickest/trickest-cli/types"
 	"github.com/xlab/treeprint"
-	"trickest-cli/cmd/list"
-	"trickest-cli/types"
 )
 
 // storeListWorkflowsCmd represents the storeListWorkflows command

@@ -13,12 +13,13 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"trickest-cli/client/request"
-	"trickest-cli/cmd/delete"
-	"trickest-cli/cmd/list"
-	"trickest-cli/cmd/output"
-	"trickest-cli/types"
-	"trickest-cli/util"
+
+	"github.com/trickest/trickest-cli/client/request"
+	"github.com/trickest/trickest-cli/cmd/delete"
+	"github.com/trickest/trickest-cli/cmd/list"
+	"github.com/trickest/trickest-cli/cmd/output"
+	"github.com/trickest/trickest-cli/types"
+	"github.com/trickest/trickest-cli/util"
 
 	"github.com/google/uuid"
 

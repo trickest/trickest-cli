@@ -2,7 +2,8 @@ package execute
 
 import (
 	"sort"
-	"trickest-cli/types"
+
+	"github.com/trickest/trickest-cli/types"
 )
 
 func treeHeight(root *types.TreeNode) int {

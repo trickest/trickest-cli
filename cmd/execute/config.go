@@ -8,8 +8,9 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"trickest-cli/cmd/output"
-	"trickest-cli/types"
+
+	"github.com/trickest/trickest-cli/cmd/output"
+	"github.com/trickest/trickest-cli/types"
 
 	"gopkg.in/yaml.v3"
 )

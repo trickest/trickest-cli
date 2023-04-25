@@ -10,11 +10,12 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"trickest-cli/cmd/create"
-	"trickest-cli/cmd/list"
-	"trickest-cli/cmd/output"
-	"trickest-cli/types"
-	"trickest-cli/util"
+
+	"github.com/trickest/trickest-cli/cmd/create"
+	"github.com/trickest/trickest-cli/cmd/list"
+	"github.com/trickest/trickest-cli/cmd/output"
+	"github.com/trickest/trickest-cli/types"
+	"github.com/trickest/trickest-cli/util"
 
 	"github.com/google/uuid"
 

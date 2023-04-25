@@ -6,10 +6,11 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"trickest-cli/cmd/execute"
-	"trickest-cli/cmd/list"
-	"trickest-cli/types"
-	"trickest-cli/util"
+
+	"github.com/trickest/trickest-cli/cmd/execute"
+	"github.com/trickest/trickest-cli/cmd/list"
+	"github.com/trickest/trickest-cli/types"
+	"github.com/trickest/trickest-cli/util"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"

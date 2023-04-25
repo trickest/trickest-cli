@@ -164,19 +164,19 @@ type SubJobs struct {
 }
 
 type SubJob struct {
-	ID            uuid.UUID         `json:"id"`
-	Name          string            `json:"name"`
-	Status        string            `json:"status"`
-	StartedDate   time.Time         `json:"started_at"`
-	FinishedDate  time.Time         `json:"finished_at"`
-	Podname       string            `json:"podname"`
-	Params        map[string]string `json:"params"`
-	Message       string            `json:"message"`
-	TaskIndex     string            `json:"task_index"`
-	TaskCount     int               `json:"task_count"`
-	OutputsStatus string            `json:"outputs_status"`
-	Finished      bool              `json:"finished"`
-	TaskGroup     bool              `json:"task_group"`
+	ID            uuid.UUID              `json:"id"`
+	Name          string                 `json:"name"`
+	Status        string                 `json:"status"`
+	StartedDate   time.Time              `json:"started_at"`
+	FinishedDate  time.Time              `json:"finished_at"`
+	Podname       string                 `json:"podname"`
+	Params        map[string]interface{} `json:"params"`
+	Message       string                 `json:"message"`
+	TaskIndex     string                 `json:"task_index"`
+	TaskCount     int                    `json:"task_count"`
+	OutputsStatus string                 `json:"outputs_status"`
+	Finished      bool                   `json:"finished"`
+	TaskGroup     bool                   `json:"task_group"`
 	Children      []SubJob
 	Label         string
 }

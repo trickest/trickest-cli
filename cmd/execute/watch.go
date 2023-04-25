@@ -12,9 +12,10 @@ import (
 	"sync"
 	"text/tabwriter"
 	"time"
-	"trickest-cli/cmd/output"
-	"trickest-cli/types"
-	"trickest-cli/util"
+
+	"github.com/trickest/trickest-cli/cmd/output"
+	"github.com/trickest/trickest-cli/types"
+	"github.com/trickest/trickest-cli/util"
 
 	"github.com/google/uuid"
 	"github.com/gosuri/uilive"

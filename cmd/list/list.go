@@ -3,16 +3,17 @@ package list
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
 	"math"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
-	"trickest-cli/client/request"
-	"trickest-cli/types"
-	"trickest-cli/util"
+
+	"github.com/google/uuid"
+	"github.com/trickest/trickest-cli/client/request"
+	"github.com/trickest/trickest-cli/types"
+	"github.com/trickest/trickest-cli/util"
 
 	"github.com/spf13/cobra"
 	"github.com/xlab/treeprint"
