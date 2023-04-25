@@ -1,8 +1,9 @@
 package types
 
 import (
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type WorkflowVersions struct {
@@ -27,7 +28,7 @@ type WorkflowVersion struct {
 }
 
 type TreeNode struct {
-	NodeName     string
+	Name         string
 	Label        string
 	Inputs       *map[string]*NodeInput
 	Printed      bool
@@ -41,15 +42,15 @@ type TreeNode struct {
 }
 
 type CreateRun struct {
-	Bees      Bees      `json:"bees"`
+	Machines  Machines  `json:"machines"`
 	VersionID uuid.UUID `json:"workflow_version_info"`
-	HiveInfo  uuid.UUID `json:"hive_info"`
+	Vault     uuid.UUID `json:"vault"`
 }
 
 type CreateRunResponse struct {
 	ID        uuid.UUID `json:"id"`
 	Name      string    `json:"name"`
-	Bees      Bees      `json:"bees"`
+	Machines  Machines  `json:"machines"`
 	VersionID uuid.UUID `json:"workflow_version_info"`
 	HiveInfo  uuid.UUID `json:"hive_info"`
 }

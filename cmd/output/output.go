@@ -199,11 +199,11 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string
 	labels := make(map[string]bool)
 
 	for i := range subJobs {
-		subJobs[i].Label = version.Data.Nodes[subJobs[i].NodeName].Meta.Label
+		subJobs[i].Label = version.Data.Nodes[subJobs[i].Name].Meta.Label
 		subJobs[i].Label = strings.ReplaceAll(subJobs[i].Label, "/", "-")
 		if labels[subJobs[i].Label] {
 			existingLabel := subJobs[i].Label
-			subJobs[i].Label = subJobs[i].NodeName
+			subJobs[i].Label = subJobs[i].Name
 			if labels[subJobs[i].Label] {
 				subJobs[i].Label += "-1"
 				for c := 1; c >= 1; c++ {
@@ -218,10 +218,10 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string
 			} else {
 				for s := 0; s < i; s++ {
 					if subJobs[s].Label == existingLabel {
-						subJobs[s].Label = subJobs[s].NodeName
+						subJobs[s].Label = subJobs[s].Name
 						if subJobs[s].Children != nil {
 							for j := range subJobs[s].Children {
-								subJobs[s].Children[j].Label = subJobs[s].Children[j].TaskIndex + "-" + subJobs[s].NodeName
+								subJobs[s].Children[j].Label = subJobs[s].Children[j].TaskIndex + "-" + subJobs[s].Name
 							}
 						}
 					}
@@ -268,9 +268,9 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string
 			if nameExists {
 				nodes[subJob.Name] = NodeInfo{ToFetch: true, Found: true}
 			}
-			_, nodeIDExists := nodes[subJob.NodeName]
+			_, nodeIDExists := nodes[subJob.Name]
 			if nodeIDExists {
-				nodes[subJob.NodeName] = NodeInfo{ToFetch: true, Found: true}
+				nodes[subJob.Name] = NodeInfo{ToFetch: true, Found: true}
 			}
 			if nameExists || labelExists || nodeIDExists {
 				noneFound = false
@@ -297,7 +297,7 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string
 }
 
 func getSubJobOutput(savePath string, subJob *types.SubJob, files []string, fetchData bool) []types.SubJobOutput {
-	if subJob.OutputsStatus != "SAVED" && !subJob.TaskGroup {
+	if subJob.OutputsStatus != "FINALIZED" && !subJob.TaskGroup {
 		return nil
 	}
 
@@ -372,13 +372,13 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, files []string, fetc
 
 	subJobOutputResults := filterSubJobOutputsByFileNames(subJobOutputs.Results, files)
 	for i, output := range subJobOutputResults {
-		resp := request.Trickest.Post().DoF("subjob-output/%s/signed_url/", output.ID)
+		resp := request.Trickest.Get().DoF("subjob-output/%s/signed_url/", output.ID)
 		if resp == nil {
 			fmt.Println("Error: Couldn't get sub-job outputs signed URL.")
 			continue
 		}
 
-		if resp.Status() != http.StatusNotFound && resp.Status() != http.StatusCreated {
+		if resp.Status() != http.StatusNotFound && resp.Status() != http.StatusOK {
 			request.ProcessUnexpectedResponse(resp)
 		}
 
@@ -395,20 +395,20 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, files []string, fetc
 			subJobOutputResults[i].SignedURL = signedURL.Url
 
 			if fetchData {
-				fileName := subJobOutputResults[i].FileName
+				fileName := subJobOutputResults[i].Name
 
-				if fileName != subJobOutputResults[i].Path {
-					subDirsPath := strings.TrimSuffix(subJobOutputResults[i].Path, fileName)
+				if subJobOutputResults[i].Path != "" {
+					subDirsPath := path.Join(savePath, subJobOutputResults[i].Path)
 					err := os.MkdirAll(subDirsPath, 0755)
 					if err != nil {
 						fmt.Println(err)
 						fmt.Println("Couldn't create a directory to store run output!")
 						os.Exit(0)
 					}
-					fileName = subJobOutputResults[i].Path
+					fileName = path.Join(subDirsPath, fileName)
+				} else {
+					fileName = path.Join(savePath, fileName)
 				}
-
-				fileName = path.Join(savePath, fileName)
 
 				outputFile, err := os.Create(fileName)
 				if err != nil {
@@ -467,7 +467,7 @@ func filterSubJobOutputsByFileNames(outputs []types.SubJobOutput, fileNames []st
 	var matchingOutputs []types.SubJobOutput
 	for _, output := range outputs {
 		for _, fileName := range fileNames {
-			if output.FileName == fileName {
+			if output.Name == fileName {
 				matchingOutputs = append(matchingOutputs, output)
 				break
 			}
@@ -478,7 +478,7 @@ func filterSubJobOutputsByFileNames(outputs []types.SubJobOutput, fileNames []st
 }
 
 func GetRunByID(id uuid.UUID) *types.Run {
-	resp := request.Trickest.Get().DoF("run/%s/", id)
+	resp := request.Trickest.Get().DoF("execution/%s/", id)
 	if resp == nil {
 		fmt.Println("Error: Couldn't get run!")
 		os.Exit(0)
@@ -503,7 +503,7 @@ func getSubJobs(runID uuid.UUID) []types.SubJob {
 		fmt.Println("Couldn't list sub-jobs, no run ID parameter specified!")
 		return nil
 	}
-	urlReq := "subjob/?run=" + runID.String()
+	urlReq := "subjob/?execution=" + runID.String()
 	urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
 
 	resp := request.Trickest.Get().DoF(urlReq)
@@ -527,7 +527,7 @@ func getSubJobs(runID uuid.UUID) []types.SubJob {
 }
 
 func GetRuns(workflowID uuid.UUID, pageSize int) []types.Run {
-	urlReq := "run/?vault=" + util.GetVault().String()
+	urlReq := "execution/?vault=" + util.GetVault().String()
 
 	if workflowID != uuid.Nil {
 		urlReq += "&workflow=" + workflowID.String()
@@ -618,7 +618,7 @@ func getSubJobByID(id uuid.UUID) *types.SubJob {
 	var subJob types.SubJob
 	err := json.Unmarshal(resp.Body(), &subJob)
 	if err != nil {
-		fmt.Println("Error unmarshalling sub-job response!")
+		fmt.Println(err)
 		return nil
 	}
 

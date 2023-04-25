@@ -87,25 +87,20 @@ func GetMe() *types.User {
 	return &user
 }
 
-func GetHiveInfo() *types.Hive {
-	resp := request.Trickest.Get().DoF("hive/?vault=%s&demo=true", GetVault())
+func GetFleetInfo() *types.Fleet {
+	resp := request.Trickest.Get().DoF("fleet/%s", GetVault())
 	if resp == nil || resp.Status() != http.StatusOK {
 		request.ProcessUnexpectedResponse(resp)
 	}
 
-	var hives types.Hives
-	err := json.Unmarshal(resp.Body(), &hives)
+	var fleet types.Fleet
+	err := json.Unmarshal(resp.Body(), &fleet)
 	if err != nil {
-		fmt.Println("Error unmarshalling hive response!")
+		fmt.Println("Error unmarshalling fleet response!")
 		return nil
 	}
 
-	if hives.Results == nil || len(hives.Results) == 0 {
-		fmt.Println("Couldn't find hive info!")
-		return nil
-	}
-
-	return &hives.Results[0]
+	return &fleet
 }
 
 func FormatDuration(duration time.Duration) string {

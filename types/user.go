@@ -1,8 +1,9 @@
 package types
 
 import (
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type Config struct {
@@ -41,25 +42,16 @@ type VaultInfo struct {
 	ModifiedDate time.Time `json:"modified_date"`
 }
 
-type Hives struct {
-	Next     string `json:"next"`
-	Previous string `json:"previous"`
-	Page     int    `json:"page"`
-	Last     int    `json:"last"`
-	Count    int    `json:"count"`
-	Results  []Hive `json:"results"`
-}
-
-type Hive struct {
+type Fleet struct {
 	ID           uuid.UUID `json:"id"`
 	Name         string    `json:"name"`
 	HiveType     string    `json:"hive_type"`
-	VaultInfo    uuid.UUID `json:"vault_info"`
+	Vault        uuid.UUID `json:"vault"`
 	Cluster      string    `json:"cluster"`
 	State        string    `json:"state"`
 	CreatedDate  time.Time `json:"created_date"`
 	ModifiedDate time.Time `json:"modified_date"`
-	Bees         []struct {
+	Machines     []struct {
 		Name        string `json:"name"`
 		Description string `json:"description"`
 		Mem         string `json:"mem"`
@@ -69,5 +61,5 @@ type Hive struct {
 		Up          int    `json:"up"`
 		Down        int    `json:"down"`
 		Error       int    `json:"error"`
-	} `json:"bees"`
+	} `json:"machines"`
 }

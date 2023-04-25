@@ -3,7 +3,6 @@ package execute
 import (
 	"errors"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"os"
 	"path"
@@ -11,6 +10,8 @@ import (
 	"strings"
 	"trickest-cli/cmd/output"
 	"trickest-cli/types"
+
+	"gopkg.in/yaml.v3"
 )
 
 func readConfig(fileName string, wfVersion *types.WorkflowVersionDetailed, tool *types.Tool) (
@@ -510,13 +511,13 @@ func readConfigOutputs(config *map[string]interface{}) map[string]output.NodeInf
 	return downloadNodes
 }
 
-func readConfigMachines(config *map[string]interface{}, isTool bool, maximumMachines *types.Bees) *types.Bees {
+func readConfigMachines(config *map[string]interface{}, isTool bool, maximumMachines *types.Machines) *types.Machines {
 	if !isTool && maximumMachines == nil {
 		fmt.Println("No maximum machines specified!")
 		os.Exit(0)
 	}
 
-	execMachines := &types.Bees{}
+	execMachines := &types.Machines{}
 	if machines, exists := (*config)["machines"]; exists && machines != nil {
 		machinesList, ok := machines.(map[string]interface{})
 		if !ok {
@@ -610,9 +611,9 @@ func readConfigMachines(config *map[string]interface{}, isTool bool, maximumMach
 		if isTool {
 			oneMachine := 1
 			if maxMachines {
-				return &types.Bees{Large: &oneMachine}
+				return &types.Machines{Large: &oneMachine}
 			} else {
-				return &types.Bees{Small: &oneMachine}
+				return &types.Machines{Small: &oneMachine}
 			}
 		} else {
 			if maxMachines {
