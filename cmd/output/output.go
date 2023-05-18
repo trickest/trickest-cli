@@ -298,7 +298,7 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string
 }
 
 func getSubJobOutput(savePath string, subJob *types.SubJob, files []string, fetchData bool) []types.SubJobOutput {
-	if subJob.OutputsStatus != "FINALIZED" && !subJob.TaskGroup {
+	if subJob.Status != "SUCCEEDED" {
 		return nil
 	}
 
@@ -322,7 +322,7 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, files []string, fetc
 		return nil
 	}
 
-	if subJob.TaskGroup {
+	if subJob.OutputsStatus == "NO_OUTPUTS" && subJob.Status == "SUCCEEDED" {
 		savePath = path.Join(savePath, subJob.Label)
 		dirInfo, err := os.Stat(savePath)
 		dirExists := !os.IsNotExist(err) && dirInfo.IsDir()
@@ -336,11 +336,11 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, files []string, fetc
 		}
 
 		children := getChildrenSubJobs(subJob.ID)
-		if children == nil || len(children) == 0 {
+		if children == nil {
 			return nil
 		}
 		for j := range children {
-			children[j].Label = children[j].TaskIndex + "-" + subJob.Label
+			children[j].Label = fmt.Sprint(j) + "-" + subJob.Label
 		}
 
 		subJob.Children = make([]types.SubJob, 0)
