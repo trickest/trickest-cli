@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"log"
+
 	"github.com/trickest/trickest-cli/cmd/create"
 	"github.com/trickest/trickest-cli/cmd/delete"
 	"github.com/trickest/trickest-cli/cmd/execute"
@@ -26,14 +28,17 @@ var RootCmd = &cobra.Command{
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	log.SetFlags(0)
 	cobra.CheckErr(RootCmd.Execute())
 }
 
 func init() {
 	RootCmd.PersistentFlags().StringVar(&util.Cfg.User.Token, "token", "", "Trickest authentication token")
+	RootCmd.PersistentFlags().StringVar(&util.Cfg.User.TokenFilePath, "token-file", "", "Trickest authentication token file")
 	RootCmd.PersistentFlags().StringVar(&util.SpaceName, "space", "", "Space name")
 	RootCmd.PersistentFlags().StringVar(&util.ProjectName, "project", "", "Project name")
 	RootCmd.PersistentFlags().StringVar(&util.WorkflowName, "workflow", "", "Workflow name")
+	RootCmd.PersistentFlags().StringVar(&util.Cfg.Dependency, "node-dependency", "", "This flag doesn't affect the execution logic of the CLI in any way and is intended for controlling node execution order on the Trickest platform only.")
 
 	cobra.OnInitialize(util.CreateRequest, initVaultID)
 

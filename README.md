@@ -43,11 +43,11 @@ docker run quay.io/trickest/trickest-cli
 
 # Authentication
 
-You can find your authentication token on [My Account](https://trickest.io/dashboard/settings/my-account) page inside the the Trickest platform.
+You can find your authentication token on the [Token](https://trickest.io/dashboard/settings/token) page inside the Trickest platform.
 
-The authentication token can be provided as a flag `--token` or an environment variable `TRICKEST_TOKEN` to the trickest-cli.
+The authentication token can be provided through either a string flag `--token`, a file `--token-file`, or an environment variable `TRICKEST_TOKEN`.
 
-The `TRICKEST_TOKEN` supplied as `--token` will take priority if both are present.
+The token supplied as `--token` or `--token-file` will take priority over the environment variable if both are present.
 
 # Usage
 
