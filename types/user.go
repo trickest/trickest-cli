@@ -12,7 +12,8 @@ type Config struct {
 		TokenFilePath string
 		VaultId       uuid.UUID
 	}
-	BaseUrl string
+	BaseUrl    string
+	Dependency string
 }
 
 type User struct {
