@@ -8,8 +8,9 @@ import (
 
 type Config struct {
 	User struct {
-		Token   string
-		VaultId uuid.UUID
+		Token         string
+		TokenFilePath string
+		VaultId       uuid.UUID
 	}
 	BaseUrl string
 }
