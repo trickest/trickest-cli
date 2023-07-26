@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -24,22 +25,23 @@ import (
 )
 
 var (
-	newWorkflowName   string
-	configFile        string
-	watch             bool
-	showParams        bool
-	executionMachines types.Machines
-	fleet             *types.Fleet
-	nodesToDownload   = make(map[string]output.NodeInfo, 0)
-	allNodes          map[string]*types.TreeNode
-	roots             []*types.TreeNode
-	workflowYAML      string
-	maxMachines       bool
-	downloadAllNodes  bool
-	outputsDirectory  string
-	outputNodesFlag   string
-	ci                bool
-	createProject     bool
+	newWorkflowName      string
+	configFile           string
+	watch                bool
+	showParams           bool
+	executionMachines    types.Machines
+	fleet                *types.Fleet
+	nodesToDownload      = make(map[string]output.NodeInfo, 0)
+	allNodes             map[string]*types.TreeNode
+	roots                []*types.TreeNode
+	workflowYAML         string
+	maxMachines          bool
+	machineConfiguration string
+	downloadAllNodes     bool
+	outputsDirectory     string
+	outputNodesFlag      string
+	ci                   bool
+	createProject        bool
 )
 
 // ExecuteCmd represents the execute command
@@ -87,6 +89,35 @@ var ExecuteCmd = &cobra.Command{
 			executionMachines = version.MaxMachines
 		}
 
+		if machineConfiguration != "" {
+			pattern := `^\d+-\d+-\d+$`
+			regex := regexp.MustCompile(pattern)
+			if regex.MatchString(machineConfiguration) {
+				parts := strings.Split(machineConfiguration, "-")
+
+				machines := &types.Machines{}
+
+				if small, err := strconv.Atoi(parts[0]); err == nil && small != 0 {
+					machines.Small = &small
+				}
+
+				if medium, err := strconv.Atoi(parts[1]); err == nil && medium != 0 {
+					machines.Medium = &medium
+				}
+
+				if large, err := strconv.Atoi(parts[2]); err == nil && large != 0 {
+					machines.Large = &large
+				}
+
+				executionMachines = *machines
+
+			} else {
+				fmt.Printf("Invalid machine configuration \"%s\".\n", machineConfiguration)
+				fmt.Println("Please use the format: small-medium-large (e.g., 0-0-3)")
+				os.Exit(0)
+			}
+		}
+
 		outputNodes := make([]string, 0)
 		if outputNodesFlag != "" {
 			outputNodes = strings.Split(outputNodesFlag, ",")
@@ -110,6 +141,7 @@ func init() {
 	ExecuteCmd.Flags().BoolVar(&showParams, "show-params", false, "Show parameters in the workflow tree")
 	// ExecuteCmd.Flags().StringVar(&workflowYAML, "file", "", "Workflow YAML file to execute")
 	ExecuteCmd.Flags().BoolVar(&maxMachines, "max", false, "Use maximum number of machines for workflow execution")
+	ExecuteCmd.Flags().StringVar(&machineConfiguration, "machines", "", "Specify the number of machines (format: small-medium-large). Examples: 1-1-1, 0-0-3")
 	ExecuteCmd.Flags().BoolVar(&downloadAllNodes, "output-all", false, "Download all outputs when the execution is finished")
 	ExecuteCmd.Flags().StringVar(&outputNodesFlag, "output", "", "A comma separated list of nodes which outputs should be downloaded when the execution is finished")
 	ExecuteCmd.Flags().StringVar(&outputsDirectory, "output-dir", "", "Path to directory which should be used to store outputs")
