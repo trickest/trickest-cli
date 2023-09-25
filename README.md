@@ -24,7 +24,7 @@ Current workflow categories are:
 * Static Code Analysis
 * ... and a lot more
 
-[<img src="./banner.png" />](https://trickest-access.paperform.co/)
+[<img src="./banner.png" />](https://trickest.io/auth/register)
 
 # Store
 
@@ -217,7 +217,7 @@ Use **store search** to search all Trickest tools & workflows available in the [
 trickest store search subdomain takeover
 ```
 
-[<img src="./banner.png" />](https://trickest-access.paperform.co/)
+[<img src="./banner.png" />](https://trickest.io/auth/register)
 
 ## Report Bugs / Feedback
 We look forward to any feedback you want to share with us or if you're stuck with a problem you can contact us at [support@trickest.com](mailto:support@trickest.com).
