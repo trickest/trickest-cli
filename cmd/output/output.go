@@ -561,7 +561,7 @@ func GetRuns(workflowID uuid.UUID, pageSize int) []types.Run {
 }
 
 func GetWorkflowVersionByID(id uuid.UUID) *types.WorkflowVersionDetailed {
-	resp := request.Trickest.Get().DoF("store/workflow-version/%s/", id)
+	resp := request.Trickest.Get().DoF("library/workflow-version/%s/", id)
 	if resp == nil {
 		fmt.Println("Error: Couldn't get workflow version!")
 		return nil

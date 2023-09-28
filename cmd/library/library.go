@@ -1,13 +1,13 @@
-package store
+package library
 
 import (
 	"github.com/spf13/cobra"
 )
 
-// StoreCmd represents the store command
-var StoreCmd = &cobra.Command{
-	Use:   "store",
-	Short: "Browse workflows and tools in the Trickest store",
+// LibraryCmd represents the library command
+var LibraryCmd = &cobra.Command{
+	Use:   "library",
+	Short: "Browse workflows and tools in the Trickest library",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		_ = cmd.Help()
@@ -15,7 +15,7 @@ var StoreCmd = &cobra.Command{
 }
 
 func init() {
-	StoreCmd.SetHelpFunc(func(command *cobra.Command, strings []string) {
+	LibraryCmd.SetHelpFunc(func(command *cobra.Command, strings []string) {
 		_ = command.Flags().MarkHidden("space")
 		_ = command.Flags().MarkHidden("project")
 		_ = command.Flags().MarkHidden("workflow")

@@ -87,7 +87,7 @@ func DeleteProject(id uuid.UUID) {
 }
 
 func deleteWorkflow(id uuid.UUID) {
-	resp := request.Trickest.Delete().DoF("store/workflow/%s/", id.String())
+	resp := request.Trickest.Delete().DoF("workflow/%s/", id.String())
 	if resp == nil {
 		fmt.Println("Couldn't delete workflow with ID: " + id.String())
 		os.Exit(0)

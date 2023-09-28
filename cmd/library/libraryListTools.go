@@ -1,4 +1,4 @@
-package store
+package library
 
 import (
 	"fmt"
@@ -11,23 +11,23 @@ import (
 	"github.com/xlab/treeprint"
 )
 
-// storeListToolsCmd represents the storeListTools command
-var storeListToolsCmd = &cobra.Command{
+// libraryListToolsCmd represents the libraryListTools command
+var libraryListToolsCmd = &cobra.Command{
 	Use:   "tools",
-	Short: "List tools from the Trickest store",
+	Short: "List tools from the Trickest library",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		tools := list.GetTools(math.MaxInt, "", "")
 		if len(tools) > 0 {
 			printTools(tools)
 		} else {
-			fmt.Println("Couldn't find any tool in the store!")
+			fmt.Println("Couldn't find any tool in the library!")
 		}
 	},
 }
 
 func init() {
-	storeListCmd.AddCommand(storeListToolsCmd)
+	libraryListCmd.AddCommand(libraryListToolsCmd)
 }
 
 func printTools(tools []types.Tool) {

@@ -221,10 +221,10 @@ func getSpaceByID(id uuid.UUID) *types.SpaceDetailed {
 	return &space
 }
 
-func GetWorkflows(projectID, spaceID uuid.UUID, search string, store bool) []types.WorkflowListResponse {
-	urlReq := "store/workflow/"
+func GetWorkflows(projectID, spaceID uuid.UUID, search string, library bool) []types.WorkflowListResponse {
+	urlReq := "library/workflow/"
 	urlReq += "?page_size=" + strconv.Itoa(math.MaxInt)
-	if !store {
+	if !library {
 		urlReq += "&vault=" + util.GetVault().String()
 	}
 
@@ -259,7 +259,7 @@ func GetWorkflows(projectID, spaceID uuid.UUID, search string, store bool) []typ
 }
 
 func GetWorkflowByID(id uuid.UUID) *types.Workflow {
-	resp := request.Trickest.Get().DoF("store/workflow/%s/", id.String())
+	resp := request.Trickest.Get().DoF("library/workflow/%s/", id.String())
 	if resp == nil {
 		fmt.Println("Error: Couldn't get workflow by ID!")
 		os.Exit(0)
@@ -371,7 +371,7 @@ func ResolveObjectPath(path string, silent bool, isProject bool) (*types.SpaceDe
 }
 
 func GetTools(pageSize int, search string, name string) []types.Tool {
-	urlReq := "store/tool/"
+	urlReq := "library/tool/"
 	if pageSize > 0 {
 		urlReq = urlReq + "?page_size=" + strconv.Itoa(pageSize)
 	} else {
