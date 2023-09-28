@@ -27,7 +27,7 @@ import (
 )
 
 func getSplitter() *types.Splitter {
-	resp := request.Trickest.Get().DoF("store/splitter/")
+	resp := request.Trickest.Get().DoF("library/splitter/")
 	if resp == nil {
 		fmt.Println("Error: Couldn't get splitter.")
 	}
@@ -61,7 +61,7 @@ func getScriptByName(name string) *types.Script {
 }
 
 func getScripts(pageSize int, search string, name string) []types.Script {
-	urlReq := "store/script/"
+	urlReq := "library/script/"
 	if pageSize > 0 {
 		urlReq = urlReq + "?page_size=" + strconv.Itoa(pageSize)
 	} else {
@@ -162,7 +162,7 @@ func createNewVersion(version *types.WorkflowVersionDetailed) *types.WorkflowVer
 		os.Exit(0)
 	}
 
-	resp := request.Trickest.Post().Body(data).DoF("store/workflow-version/")
+	resp := request.Trickest.Post().Body(data).DoF("library/workflow-version/")
 	if resp == nil {
 		fmt.Println("Error: Couldn't create version!")
 		os.Exit(0)
@@ -245,7 +245,7 @@ func uploadFile(filePath string) string {
 }
 
 func GetLatestWorkflowVersion(workflowID uuid.UUID) *types.WorkflowVersionDetailed {
-	resp := request.Trickest.Get().DoF("store/workflow-version/latest/?workflow=%s", workflowID)
+	resp := request.Trickest.Get().DoF("library/workflow-version/latest/?workflow=%s", workflowID)
 	if resp == nil {
 		fmt.Println("Error: Couldn't get latest workflow version!")
 		os.Exit(0)
@@ -280,7 +280,7 @@ func copyWorkflow(destinationSpaceID, destinationProjectID, workflowID uuid.UUID
 		os.Exit(0)
 	}
 
-	resp := request.Trickest.Post().Body(data).DoF("store/workflow/%s/copy/", workflowID)
+	resp := request.Trickest.Post().Body(data).DoF("library/workflow/%s/copy/", workflowID)
 	if resp == nil {
 		fmt.Println("Error: Couldn't copy workflow!")
 		os.Exit(0)
@@ -309,7 +309,7 @@ func updateWorkflow(workflow *types.Workflow, deleteProjectOnError bool) {
 		os.Exit(0)
 	}
 
-	resp := request.Trickest.Patch().Body(data).DoF("store/workflow/%s/", workflow.ID)
+	resp := request.Trickest.Patch().Body(data).DoF("library/workflow/%s/", workflow.ID)
 	if resp == nil {
 		fmt.Println("Error: Couldn't update workflow!")
 		os.Exit(0)
@@ -606,23 +606,23 @@ func getToolScriptOrSplitterFromYAMLNode(node types.WorkflowYAMLNode) (*types.To
 		fmt.Println("Invalid node ID format: " + node.ID)
 		os.Exit(0)
 	}
-	storeName := strings.TrimSuffix(node.ID, "-"+idSplit[len(idSplit)-1])
+	libraryName := strings.TrimSuffix(node.ID, "-"+idSplit[len(idSplit)-1])
 
 	if node.Script == nil {
-		tools := list.GetTools(1, "", storeName)
+		tools := list.GetTools(1, "", libraryName)
 		if tools == nil || len(tools) == 0 {
 			splitter = getSplitter()
 			if splitter == nil {
-				fmt.Println("Couldn't find a tool named " + storeName + " in the store!")
-				fmt.Println("Use \"trickest store list\" to see all available workflows and tools, " +
-					"or search the store using \"trickest store search <name/description>\"")
+				fmt.Println("Couldn't find a tool named " + libraryName + " in the library!")
+				fmt.Println("Use \"trickest library list\" to see all available workflows and tools, " +
+					"or search the library using \"trickest library search <name/description>\"")
 				os.Exit(0)
 			}
 		} else {
 			tool = &tools[0]
 		}
 	} else {
-		script = getScriptByName(storeName)
+		script = getScriptByName(libraryName)
 		if script == nil {
 			os.Exit(0)
 		}

@@ -76,7 +76,7 @@ var ExecuteCmd = &cobra.Command{
 			// Executing from a file
 			version = readWorkflowYAMLandCreateVersion(workflowYAML, newWorkflowName, path)
 		} else {
-			// Executing an existing workflow or copying from store
+			// Executing an existing workflow or copying from library
 			version = prepareForExec(path)
 		}
 		if version == nil {
@@ -941,12 +941,12 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 			}
 		}
 	} else {
-		// Executing from store
+		// Executing from library
 		wfName := pathSplit[len(pathSplit)-1]
-		storeWorkflows := list.GetWorkflows(uuid.Nil, uuid.Nil, wfName, true)
-		if storeWorkflows != nil && len(storeWorkflows) > 0 {
-			// Executing from store
-			for _, wf := range storeWorkflows {
+		libraryWorkflows := list.GetWorkflows(uuid.Nil, uuid.Nil, wfName, true)
+		if libraryWorkflows != nil && len(libraryWorkflows) > 0 {
+			// Executing from library
+			for _, wf := range libraryWorkflows {
 				if strings.ToLower(wf.Name) == strings.ToLower(wfName) {
 					if project == nil && createProject {
 						projectName := util.ProjectName
@@ -965,14 +965,14 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 						copyDestination += "/" + project.Name
 					}
 					copyDestination += "/" + newWorkflowName
-					fmt.Println("Copying " + wf.Name + " from the store to " + copyDestination)
+					fmt.Println("Copying " + wf.Name + " from the library to " + copyDestination)
 					projID := uuid.Nil
 					if project != nil {
 						projID = project.ID
 					}
 					newWorkflowID := copyWorkflow(space.ID, projID, wf.ID)
 					if newWorkflowID == uuid.Nil {
-						fmt.Println("Couldn't copy workflow from the store!")
+						fmt.Println("Couldn't copy workflow from the library!")
 						os.Exit(0)
 					}
 
@@ -1032,9 +1032,9 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 		}
 		tools := list.GetTools(math.MaxInt, "", wfName)
 		if tools == nil || len(tools) == 0 {
-			fmt.Println("Couldn't find a workflow or tool named " + wfName + " in the store!")
-			fmt.Println("Use \"trickest store list\" to see all available workflows and tools, " +
-				"or search the store using \"trickest store search <name/description>\"")
+			fmt.Println("Couldn't find a workflow or tool named " + wfName + " in the library!")
+			fmt.Println("Use \"trickest library list\" to see all available workflows and tools, " +
+				"or search the library using \"trickest library search <name/description>\"")
 			os.Exit(0)
 		}
 		_, _, primitiveNodes = readConfig(configFile, nil, &tools[0])

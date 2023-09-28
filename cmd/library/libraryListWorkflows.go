@@ -1,4 +1,4 @@
-package store
+package library
 
 import (
 	"fmt"
@@ -10,23 +10,23 @@ import (
 	"github.com/xlab/treeprint"
 )
 
-// storeListWorkflowsCmd represents the storeListWorkflows command
-var storeListWorkflowsCmd = &cobra.Command{
+// libraryListWorkflowsCmd represents the libraryListWorkflows command
+var libraryListWorkflowsCmd = &cobra.Command{
 	Use:   "workflows",
-	Short: "List workflows from the Trickest store",
+	Short: "List workflows from the Trickest library",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		workflows := list.GetWorkflows(uuid.Nil, uuid.Nil, "", true)
 		if len(workflows) > 0 {
 			printWorkflows(workflows)
 		} else {
-			fmt.Println("Couldn't find any workflow in the store!")
+			fmt.Println("Couldn't find any workflow in the library!")
 		}
 	},
 }
 
 func init() {
-	storeListCmd.AddCommand(storeListWorkflowsCmd)
+	libraryListCmd.AddCommand(libraryListWorkflowsCmd)
 }
 
 func printWorkflows(workflows []types.WorkflowListResponse) {

@@ -26,9 +26,9 @@ Current workflow categories are:
 
 [<img src="./banner.png" />](https://trickest.io/auth/register)
 
-# Store
+# Library
 
-[Trickest Store](https://trickest.io/dashboard/store) is a collection of public tools, Trickest scripts, and Trickest workflows available on the platform. More info can be found at [Trickest workflows repository](https://github.com/trickest/workflows) <- (Coming soon!)
+[Trickest Library](https://trickest.io/dashboard/library) is a collection of public tools, Trickest scripts, and Trickest workflows available on the platform. More info can be found at [Trickest workflows repository](https://github.com/trickest/workflows) <- (Coming soon!)
 
 
 # Installation
@@ -118,7 +118,7 @@ trickest execute --workflow <workflow_or_tool_name> --space <space_name> --confi
 | Flag             | Type    | Default | Description                                                                                                                                 |
 |------------------|---------|---------|---------------------------------------------------------------------------------------------------------------------------------------------|
 | --config         | file    | /       | YAML file for run configuration                                                                                                             |
-| --workflow       | string  | /       | Workflow from the Store to be executed                                                                                                      |
+| --workflow       | string  | /       | Workflow from the Library to be executed                                                                                                      |
 | --max            | boolean | /       | Use maximum number of machines for workflow execution                                                                                       |
 | --output         | string  | /       | A comma-separated list of nodes whose outputs should be downloaded when the execution is finished                                           |
 | --output-all     | boolean | /       | Download all outputs when the execution is finished                                                                                         |
@@ -191,7 +191,7 @@ trickest output --workflow <workflow_name> --space <space_name> [--nodes <comma_
 | --config   | file    | /       | YAML file for run configuration                                                                                                    |
 | --run      | string  | /       | Download output data of a specific run                                                                                             |
 | --runs     | integer | 1       | The number of executions to be downloaded sorted by newest |
-| --output-dir     | string | /       | Path to directory which should be used to store outputs |
+| --output-dir     | string | /       | Path to directory which should be used to library outputs |
 | --nodes     | string | /       | A comma separated list of nodes whose outputs should be downloaded |
 | --files     | string | /       | A comma-separated list of file names that should be downloaded from the selected node |
 
@@ -199,22 +199,22 @@ trickest output --workflow <workflow_name> --space <space_name> [--nodes <comma_
 
 When using the **output** command,  trickest-cli will keep the local directory/file structure the same as on the platform. All your spaces and projects will become directories with the appropriate outputs.
 
-## Store
+## Library
 
-Use the **store** command to get more info about Trickest workflows and public tools available in the [Trickest Store](https://trickest.io/dashboard/store).
+Use the **library** command to get more info about Trickest workflows and public tools available in the [Trickest Library](https://trickest.io/dashboard/library).
 
 #### List
-Use **store list** command to list all public tools & workflows available in the [store](https://trickest.io/dashboard/store), along with their descriptions.
+Use **library list** command to list all public tools & workflows available in the [library](https://trickest.io/dashboard/library), along with their descriptions.
 
 ```
-trickest store list
+trickest library list
 ```
 
 #### Search
-Use **store search** to search all Trickest tools & workflows available in the [store](https://trickest.io/dashboard/store), along with their descriptions.
+Use **library search** to search all Trickest tools & workflows available in the [library](https://trickest.io/dashboard/library), along with their descriptions.
 
 ```
-trickest store search subdomain takeover
+trickest library search subdomain takeover
 ```
 
 [<img src="./banner.png" />](https://trickest.io/auth/register)

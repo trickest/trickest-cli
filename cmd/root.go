@@ -7,9 +7,9 @@ import (
 	"github.com/trickest/trickest-cli/cmd/delete"
 	"github.com/trickest/trickest-cli/cmd/execute"
 	"github.com/trickest/trickest-cli/cmd/get"
+	"github.com/trickest/trickest-cli/cmd/library"
 	"github.com/trickest/trickest-cli/cmd/list"
 	"github.com/trickest/trickest-cli/cmd/output"
-	"github.com/trickest/trickest-cli/cmd/store"
 	"github.com/trickest/trickest-cli/util"
 
 	"github.com/spf13/cobra"
@@ -43,7 +43,7 @@ func init() {
 	cobra.OnInitialize(util.CreateRequest, initVaultID)
 
 	RootCmd.AddCommand(list.ListCmd)
-	RootCmd.AddCommand(store.StoreCmd)
+	RootCmd.AddCommand(library.LibraryCmd)
 	RootCmd.AddCommand(create.CreateCmd)
 	RootCmd.AddCommand(delete.DeleteCmd)
 	RootCmd.AddCommand(output.OutputCmd)
