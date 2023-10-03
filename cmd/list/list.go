@@ -222,7 +222,10 @@ func getSpaceByID(id uuid.UUID) *types.SpaceDetailed {
 }
 
 func GetWorkflows(projectID, spaceID uuid.UUID, search string, library bool) []types.WorkflowListResponse {
-	urlReq := "library/workflow/"
+	urlReq := "workflow/"
+	if library {
+		urlReq = "library/" + urlReq
+	}
 	urlReq += "?page_size=" + strconv.Itoa(math.MaxInt)
 	if !library {
 		urlReq += "&vault=" + util.GetVault().String()
@@ -259,7 +262,7 @@ func GetWorkflows(projectID, spaceID uuid.UUID, search string, library bool) []t
 }
 
 func GetWorkflowByID(id uuid.UUID) *types.Workflow {
-	resp := request.Trickest.Get().DoF("library/workflow/%s/", id.String())
+	resp := request.Trickest.Get().DoF("workflow/%s/", id.String())
 	if resp == nil {
 		fmt.Println("Error: Couldn't get workflow by ID!")
 		os.Exit(0)
