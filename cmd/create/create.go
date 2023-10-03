@@ -169,7 +169,7 @@ func CreateWorkflow(name, description string, spaceID, projectID uuid.UUID, dele
 		os.Exit(0)
 	}
 
-	resp := request.Trickest.Post().Body(data).DoF("library/workflow/?vault=%s", util.GetVault())
+	resp := request.Trickest.Post().Body(data).DoF("workflow/?vault=%s", util.GetVault())
 	if resp == nil {
 		fmt.Println("Error: Couldn't create workflow.")
 		os.Exit(0)

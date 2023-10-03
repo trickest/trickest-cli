@@ -309,7 +309,7 @@ func updateWorkflow(workflow *types.Workflow, deleteProjectOnError bool) {
 		os.Exit(0)
 	}
 
-	resp := request.Trickest.Patch().Body(data).DoF("library/workflow/%s/", workflow.ID)
+	resp := request.Trickest.Patch().Body(data).DoF("workflow/%s/", workflow.ID)
 	if resp == nil {
 		fmt.Println("Error: Couldn't update workflow!")
 		os.Exit(0)
