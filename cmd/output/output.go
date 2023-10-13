@@ -222,7 +222,7 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string
 						subJobs[s].Label = subJobs[s].Name
 						if subJobs[s].Children != nil {
 							for j := range subJobs[s].Children {
-								subJobs[s].Children[j].Label = subJobs[s].Children[j].TaskIndex + "-" + subJobs[s].Name
+								subJobs[s].Children[j].Label = strconv.Itoa(subJobs[s].Children[j].TaskIndex) + "-" + subJobs[s].Name
 							}
 						}
 					}
@@ -322,7 +322,7 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, files []string, fetc
 		return nil
 	}
 
-	if subJob.OutputsStatus == "NO_OUTPUTS" && subJob.Status == "SUCCEEDED" {
+	if subJob.TaskGroup {
 		savePath = path.Join(savePath, subJob.Label)
 		dirInfo, err := os.Stat(savePath)
 		dirExists := !os.IsNotExist(err) && dirInfo.IsDir()
@@ -528,7 +528,7 @@ func getSubJobs(runID uuid.UUID) []types.SubJob {
 }
 
 func GetRuns(workflowID uuid.UUID, pageSize int) []types.Run {
-	urlReq := "execution/?vault=" + util.GetVault().String()
+	urlReq := "execution/?type=Editor&vault=" + util.GetVault().String()
 
 	if workflowID != uuid.Nil {
 		urlReq += "&workflow=" + workflowID.String()
@@ -581,14 +581,14 @@ func GetWorkflowVersionByID(id uuid.UUID) *types.WorkflowVersionDetailed {
 	return &workflowVersion
 }
 
-func getChildrenSubJobs(subJobID uuid.UUID) []types.SubJob {
+func getChildrenSubJobsCount(subJobID uuid.UUID) int {
 	urlReq := "subjob/" + subJobID.String() + "/children/"
 	urlReq += "?page_size=" + strconv.Itoa(math.MaxInt)
 
 	resp := request.Trickest.Get().DoF(urlReq)
 	if resp == nil {
 		fmt.Println("Error: Couldn't get children sub-jobs!")
-		return nil
+		return 0
 	}
 
 	if resp.Status() != http.StatusOK {
@@ -599,10 +599,50 @@ func getChildrenSubJobs(subJobID uuid.UUID) []types.SubJob {
 	err := json.Unmarshal(resp.Body(), &subJobs)
 	if err != nil {
 		fmt.Println("Error unmarshalling sub-job children response!")
+		return 0
+	}
+
+	return subJobs.Count
+}
+
+func getChildrenSubJobs(subJobID uuid.UUID) []types.SubJob {
+	subJobCount := getChildrenSubJobsCount(subJobID)
+	if subJobCount == 0 {
+		fmt.Println("Error: Couldn't find children sub-jobs!")
 		return nil
 	}
 
-	return subJobs.Results
+	var subJobs []types.SubJob
+
+	urlReq := "subjob/" + subJobID.String() + "/children/"
+	urlReq += "?task_index="
+	for i := 1; i <= subJobCount; i++ {
+		urlReqForIndex := urlReq + strconv.Itoa(i)
+		resp := request.Trickest.Get().DoF(urlReqForIndex)
+		if resp == nil {
+			fmt.Printf("Error: Couldn't get child sub-job: %d", i)
+			continue
+		}
+		if resp.Status() != http.StatusOK {
+			request.ProcessUnexpectedResponse(resp)
+		}
+
+		var child types.SubJobs
+
+		err := json.Unmarshal(resp.Body(), &child)
+		if err != nil {
+			fmt.Println("Error unmarshalling sub-job child response!")
+			continue
+		}
+
+		if len(child.Results) < 1 {
+			fmt.Println("Error: Unexpected sub-job child response!")
+			continue
+		}
+		subJobs = append(subJobs, child.Results...)
+	}
+
+	return subJobs
 }
 
 func getSubJobByID(id uuid.UUID) *types.SubJob {
