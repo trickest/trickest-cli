@@ -100,15 +100,38 @@ func GetMe() *types.User {
 }
 
 func GetFleetInfo() *types.Fleet {
-	resp := request.Trickest.Get().DoF("fleet/%s", GetVault())
+	fleet := GetFleetInfoLegacy()
+	if fleet != nil {
+		return fleet
+	}
+	resp := request.Trickest.Get().DoF("fleet/?vault=%s", GetVault())
 	if resp == nil || resp.Status() != http.StatusOK {
 		request.ProcessUnexpectedResponse(resp)
+	}
+
+	var fleets types.Fleets
+	err := json.Unmarshal(resp.Body(), &fleets)
+	if err != nil {
+		fmt.Println("Error unmarshalling fleet response!")
+		return nil
+	}
+
+	if len(fleets.Results) == 0 {
+		fmt.Println("Error: Couldn't find any active fleets")
+	}
+
+	return &fleets.Results[0]
+}
+
+func GetFleetInfoLegacy() *types.Fleet {
+	resp := request.Trickest.Get().DoF("fleet/%s", GetVault())
+	if resp == nil || resp.Status() != http.StatusOK {
+		return nil
 	}
 
 	var fleet types.Fleet
 	err := json.Unmarshal(resp.Body(), &fleet)
 	if err != nil {
-		fmt.Println("Error unmarshalling fleet response!")
 		return nil
 	}
 
