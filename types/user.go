@@ -44,6 +44,15 @@ type VaultInfo struct {
 	ModifiedDate time.Time `json:"modified_date"`
 }
 
+type Fleets struct {
+	Next     string  `json:"next"`
+	Previous string  `json:"previous"`
+	Page     int     `json:"page"`
+	Last     int     `json:"last"`
+	Count    int     `json:"count"`
+	Results  []Fleet `json:"results"`
+}
+
 type Fleet struct {
 	ID           uuid.UUID `json:"id"`
 	Name         string    `json:"name"`
