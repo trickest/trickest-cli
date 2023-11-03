@@ -1,6 +1,7 @@
 package library
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 
@@ -21,19 +22,34 @@ var librarySearchCmd = &cobra.Command{
 		}
 		tools := list.GetTools(math.MaxInt, search, "")
 		workflows := list.GetWorkflows(uuid.Nil, uuid.Nil, search, true)
-		if len(tools) > 0 {
-			printTools(tools)
+		if jsonOutput {
+			results := map[string]interface{}{
+				"tools":     tools,
+				"workflows": workflows,
+			}
+			data, err := json.Marshal(results)
+			if err != nil {
+				fmt.Println("Error marshalling project data")
+				return
+			}
+			output := string(data)
+			fmt.Println(output)
 		} else {
-			fmt.Println("Couldn't find any tool in the library that matches the search!")
-		}
-		if len(workflows) > 0 {
-			printWorkflows(workflows)
-		} else {
-			fmt.Println("Couldn't find any workflow in the library that matches the search!")
+			if len(tools) > 0 {
+				printTools(tools, jsonOutput)
+			} else {
+				fmt.Println("Couldn't find any tool in the library that matches the search!")
+			}
+			if len(workflows) > 0 {
+				printWorkflows(workflows, jsonOutput)
+			} else {
+				fmt.Println("Couldn't find any workflow in the library that matches the search!")
+			}
 		}
 	},
 }
 
 func init() {
 	LibraryCmd.AddCommand(librarySearchCmd)
+	librarySearchCmd.Flags().BoolVar(&jsonOutput, "json", false, "Display output in JSON format")
 }

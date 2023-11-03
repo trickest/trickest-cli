@@ -4,6 +4,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	jsonOutput bool
+)
+
 // LibraryCmd represents the library command
 var LibraryCmd = &cobra.Command{
 	Use:   "library",
