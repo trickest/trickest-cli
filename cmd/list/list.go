@@ -19,6 +19,10 @@ import (
 	"github.com/xlab/treeprint"
 )
 
+var (
+	jsonOutput bool
+)
+
 // ListCmd represents the list command
 var ListCmd = &cobra.Command{
 	Use:   "list",
@@ -30,7 +34,7 @@ var ListCmd = &cobra.Command{
 			spaces := getSpaces("")
 
 			if spaces != nil && len(spaces) > 0 {
-				printSpaces(spaces)
+				printSpaces(spaces, jsonOutput)
 			} else {
 				fmt.Println("Couldn't find any spaces!")
 			}
@@ -63,15 +67,15 @@ var ListCmd = &cobra.Command{
 		if workflow != nil {
 			if project != nil && workflow.Name == project.Name {
 				if util.WorkflowName == "" {
-					printProject(*project)
+					printProject(*project, jsonOutput)
 					if util.ProjectName != "" {
 						return
 					}
 				}
 			}
-			printWorkflow(*workflow)
+			printWorkflow(*workflow, jsonOutput)
 		} else if project != nil {
-			printProject(*project)
+			printProject(*project, jsonOutput)
 		} else if space != nil {
 			printSpaceDetailed(*space)
 		}
@@ -79,88 +83,126 @@ var ListCmd = &cobra.Command{
 }
 
 func init() {
-
+	ListCmd.Flags().BoolVar(&jsonOutput, "json", false, "Display output in JSON format")
 }
 
-func printWorkflow(workflow types.Workflow) {
-	tree := treeprint.New()
-	tree.SetValue("\U0001f9be " + workflow.Name) //🦾
-	if workflow.Description != "" {
-		tree.AddNode("\U0001f4cb \033[3m" + workflow.Description + "\033[0m") //📋
-	}
-	tree.AddNode("Author: " + workflow.Author)
-	if len(workflow.Parameters) > 0 {
-		branch := tree.AddBranch("Parameters")
-		for _, param := range workflow.Parameters {
-			paramType := strings.ToLower(param.Type)
-			if paramType == "boolean" {
-				branch.AddNode("[" + paramType + "] " + strconv.FormatBool(param.Value.(bool)))
-			} else {
-				branch.AddNode("[" + paramType + "] " + param.Value.(string))
-			}
+func printWorkflow(workflow types.Workflow, jsonOutput bool) {
+	var output string
+
+	if jsonOutput {
+		data, err := json.Marshal(workflow)
+		if err != nil {
+			fmt.Println("Error marshalling workflow data")
+			return
 		}
+		output = string(data)
+	} else {
+		tree := treeprint.New()
+		tree.SetValue("\U0001f9be " + workflow.Name) //🦾
+		if workflow.Description != "" {
+			tree.AddNode("\U0001f4cb \033[3m" + workflow.Description + "\033[0m") //📋
+		}
+		tree.AddNode("Author: " + workflow.Author)
+		output = tree.String()
 	}
 
-	fmt.Println(tree.String())
+	fmt.Println(output)
 }
 
-func printProject(project types.Project) {
-	tree := treeprint.New()
-	tree.SetValue("\U0001f5c2  " + project.Name) //🗂
-	if project.Description != "" {
-		tree.AddNode("\U0001f4cb \033[3m" + project.Description + "\033[0m") //📋
-	}
-	if project.Workflows != nil && len(project.Workflows) > 0 {
-		wfBranch := tree.AddBranch("Workflows")
-		for _, workflow := range project.Workflows {
-			wfSubBranch := wfBranch.AddBranch("\U0001f9be " + workflow.Name) //🦾
-			if workflow.Description != "" {
-				wfSubBranch.AddNode("\U0001f4cb \033[3m" + workflow.Description + "\033[0m") //📋
+func printProject(project types.Project, jsonOutput bool) {
+	var output string
+
+	if jsonOutput {
+		data, err := json.Marshal(project)
+		if err != nil {
+			fmt.Println("Error marshalling project data")
+			return
+		}
+		output = string(data)
+	} else {
+		tree := treeprint.New()
+		tree.SetValue("\U0001f5c2  " + project.Name) //🗂
+		if project.Description != "" {
+			tree.AddNode("\U0001f4cb \033[3m" + project.Description + "\033[0m") //📋
+		}
+		if project.Workflows != nil && len(project.Workflows) > 0 {
+			wfBranch := tree.AddBranch("Workflows")
+			for _, workflow := range project.Workflows {
+				wfSubBranch := wfBranch.AddBranch("\U0001f9be " + workflow.Name) //🦾
+				if workflow.Description != "" {
+					wfSubBranch.AddNode("\U0001f4cb \033[3m" + workflow.Description + "\033[0m") //📋
+				}
 			}
 		}
+
 	}
 
-	fmt.Println(tree.String())
+	fmt.Println(output)
 }
 
 func printSpaceDetailed(space types.SpaceDetailed) {
-	tree := treeprint.New()
-	tree.SetValue("\U0001f4c2 " + space.Name) //📂
-	if space.Description != "" {
-		tree.AddNode("\U0001f4cb \033[3m" + space.Description + "\033[0m") //📋
-	}
-	if space.Projects != nil && len(space.Projects) > 0 {
-		projBranch := tree.AddBranch("Projects")
-		for _, proj := range space.Projects {
-			projSubBranch := projBranch.AddBranch("\U0001f5c2  " + proj.Name) //🗂
-			if proj.Description != "" {
-				projSubBranch.AddNode("\U0001f4cb \033[3m" + proj.Description + "\033[0m") //📋
+	var output string
+
+	if jsonOutput {
+		data, err := json.Marshal(space)
+		if err != nil {
+			fmt.Println("Error marshalling space data")
+			return
+		}
+		output = string(data)
+	} else {
+		tree := treeprint.New()
+		tree.SetValue("\U0001f4c2 " + space.Name) //📂
+		if space.Description != "" {
+			tree.AddNode("\U0001f4cb \033[3m" + space.Description + "\033[0m") //📋
+		}
+		if space.Projects != nil && len(space.Projects) > 0 {
+			projBranch := tree.AddBranch("Projects")
+			for _, proj := range space.Projects {
+				projSubBranch := projBranch.AddBranch("\U0001f5c2  " + proj.Name) //🗂
+				if proj.Description != "" {
+					projSubBranch.AddNode("\U0001f4cb \033[3m" + proj.Description + "\033[0m") //📋
+				}
 			}
 		}
-	}
-	if space.Workflows != nil && len(space.Workflows) > 0 {
-		wfBranch := tree.AddBranch("Workflows")
-		for _, workflow := range space.Workflows {
-			wfSubBranch := wfBranch.AddBranch("\U0001f9be " + workflow.Name) //🦾
-			if workflow.Description != "" {
-				wfSubBranch.AddNode("\U0001f4cb \033[3m" + workflow.Description + "\033[0m") //📋
+		if space.Workflows != nil && len(space.Workflows) > 0 {
+			wfBranch := tree.AddBranch("Workflows")
+			for _, workflow := range space.Workflows {
+				wfSubBranch := wfBranch.AddBranch("\U0001f9be " + workflow.Name) //🦾
+				if workflow.Description != "" {
+					wfSubBranch.AddNode("\U0001f4cb \033[3m" + workflow.Description + "\033[0m") //📋
+				}
 			}
 		}
+		output = tree.String()
 	}
-	fmt.Println(tree.String())
+	fmt.Println(output)
 }
 
-func printSpaces(spaces []types.Space) {
-	tree := treeprint.New()
-	tree.SetValue("Spaces")
-	for _, space := range spaces {
-		branch := tree.AddBranch("\U0001f4c1 " + space.Name) //📂
-		if space.Description != "" {
-			branch.AddNode("\U0001f4cb \033[3m" + space.Description + "\033[0m") //📋
+func printSpaces(spaces []types.Space, jsonOutput bool) {
+	var output string
+
+	if jsonOutput {
+		data, err := json.Marshal(spaces)
+		if err != nil {
+			fmt.Println("Error marshalling spaces data")
+			return
 		}
+		output = string(data)
+	} else {
+		tree := treeprint.New()
+		tree.SetValue("Spaces")
+		for _, space := range spaces {
+			branch := tree.AddBranch("\U0001f4c1 " + space.Name) //📂
+			if space.Description != "" {
+				branch.AddNode("\U0001f4cb \033[3m" + space.Description + "\033[0m") //📋
+			}
+		}
+
+		output = tree.String()
 	}
 
-	fmt.Println(tree.String())
+	fmt.Println(output)
 }
 
 func getSpaces(name string) []types.Space {
@@ -221,7 +263,7 @@ func getSpaceByID(id uuid.UUID) *types.SpaceDetailed {
 	return &space
 }
 
-func GetWorkflows(projectID, spaceID uuid.UUID, search string, library bool) []types.WorkflowListResponse {
+func GetWorkflows(projectID, spaceID uuid.UUID, search string, library bool) []types.Workflow {
 	urlReq := "workflow/"
 	if library {
 		urlReq = "library/" + urlReq
