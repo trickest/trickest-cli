@@ -89,8 +89,8 @@ func createYAML(workflow *types.Workflow, destinationPath string) {
 	w := workflowExport{
 		Steps: make([]nodeExport, 0),
 	}
-	if workflow.WorkflowCategory != nil {
-		w.Category = &workflow.WorkflowCategory.Name
+	if workflow.WorkflowCategory != "" {
+		w.Category = &workflow.WorkflowCategory
 	}
 	w.Name = workflow.Name
 	version := execute.GetLatestWorkflowVersion(workflow.ID)
