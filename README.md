@@ -72,6 +72,7 @@ trickest list --space <space_name>
 | Flag    | Type   | Default | Description                         |
 |---------|--------|---------|-------------------------------------|
 | --space | string | /       | The name of the space to be listed  |
+| --json  | boolean| /       | Display output in JSON format       |
 
 
 
@@ -87,6 +88,8 @@ trickest list --project <project_name> --space <space_name>
 |-----------|--------|---------|----------------------------------------------------|
 | --project | string | /       | The name of the project to be listed.              |
 | --space   | string | /       | The name of the space to which the project belongs |
+| --json    | boolean  | /     | Display output in JSON format                      |
+
 
 ##### Note: When passing values that have spaces in their names (e.g. "Alpine Testing"), they need to be double-quoted.
 
@@ -105,6 +108,7 @@ trickest get --workflow <workflow_name> --space <space_name> [--watch]
 | --workflow  | string   | /       | The name of the workflow                                               |
 | --run       | string   | /       | Get the status of a specific run                                       |
 | --watch     | boolean  | /       | Option to track execution status in case workflow is in running state  |
+| --json      | boolean  | /       | Display output in JSON format                                          |
 
 ##### If the supplied workflow has a running execution, you can jump in and watch it running with the `--watch` flag!
 

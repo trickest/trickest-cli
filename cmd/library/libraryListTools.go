@@ -1,6 +1,7 @@
 package library
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
@@ -19,7 +20,7 @@ var libraryListToolsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		tools := list.GetTools(math.MaxInt, "", "")
 		if len(tools) > 0 {
-			printTools(tools)
+			printTools(tools, jsonOutput)
 		} else {
 			fmt.Println("Couldn't find any tool in the library!")
 		}
@@ -28,15 +29,28 @@ var libraryListToolsCmd = &cobra.Command{
 
 func init() {
 	libraryListCmd.AddCommand(libraryListToolsCmd)
+	libraryListToolsCmd.Flags().BoolVar(&jsonOutput, "json", false, "Display output in JSON format")
 }
 
-func printTools(tools []types.Tool) {
-	tree := treeprint.New()
-	tree.SetValue("Tools")
-	for _, tool := range tools {
-		branch := tree.AddBranch(tool.Name + " [" + strings.TrimPrefix(tool.SourceURL, "https://") + "]")
-		branch.AddNode("\U0001f4cb \033[3m" + tool.Description + "\033[0m") //📋
+func printTools(tools []types.Tool, jsonOutput bool) {
+	var output string
+	if jsonOutput {
+		data, err := json.Marshal(tools)
+		if err != nil {
+			fmt.Println("Error marshalling project data")
+			return
+		}
+		output = string(data)
+	} else {
+		tree := treeprint.New()
+		tree.SetValue("Tools")
+		for _, tool := range tools {
+			branch := tree.AddBranch(tool.Name + " [" + strings.TrimPrefix(tool.SourceURL, "https://") + "]")
+			branch.AddNode("\U0001f4cb \033[3m" + tool.Description + "\033[0m") //📋
+		}
+
+		output = tree.String()
 	}
 
-	fmt.Println(tree.String())
+	fmt.Println(output)
 }

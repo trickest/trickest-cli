@@ -158,7 +158,7 @@ The YAML config file should be formatted like:
 			runs = append(runs, runs...)
 		}
 
-		version := GetWorkflowVersionByID(runs[0].WorkflowVersionInfo)
+		version := GetWorkflowVersionByID(*runs[0].WorkflowVersionInfo)
 		if version == nil {
 			return
 		}
@@ -193,10 +193,10 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string
 	}
 
 	if version == nil {
-		version = GetWorkflowVersionByID(run.WorkflowVersionInfo)
+		version = GetWorkflowVersionByID(*run.WorkflowVersionInfo)
 	}
 
-	subJobs := getSubJobs(run.ID)
+	subJobs := getSubJobs(*run.ID)
 	labels := make(map[string]bool)
 
 	for i := range subJobs {

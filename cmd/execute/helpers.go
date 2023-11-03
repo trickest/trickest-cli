@@ -302,7 +302,7 @@ func copyWorkflow(destinationSpaceID, destinationProjectID, workflowID uuid.UUID
 }
 
 func updateWorkflow(workflow *types.Workflow, deleteProjectOnError bool) {
-	workflow.WorkflowCategory = nil
+	workflow.WorkflowCategory = ""
 	data, err := json.Marshal(workflow)
 	if err != nil {
 		fmt.Println("Error marshaling update workflow request!")
@@ -317,7 +317,7 @@ func updateWorkflow(workflow *types.Workflow, deleteProjectOnError bool) {
 
 	if resp.Status() != http.StatusOK {
 		if deleteProjectOnError {
-			delete.DeleteProject(workflow.ProjectInfo)
+			delete.DeleteProject(*workflow.ProjectInfo)
 		}
 		request.ProcessUnexpectedResponse(resp)
 	}
