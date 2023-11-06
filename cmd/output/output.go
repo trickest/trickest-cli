@@ -299,7 +299,9 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string
 
 func getSubJobOutput(savePath string, subJob *types.SubJob, files []string, fetchData bool) []types.SubJobOutput {
 	if subJob.Status != "SUCCEEDED" {
-		return nil
+		if subJob.TaskGroup && subJob.Status != "STOPPED" {
+			return nil
+		}
 	}
 
 	urlReq := "subjob-output/?subjob=" + subJob.ID.String()
