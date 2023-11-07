@@ -63,7 +63,7 @@ trickest list
 
 #### Spaces
 
-Use the **list** command with the **--space** flag to list the content of your particular space; its projects and workflows, and their descriptions.
+Use the **list** command with the **--space** or **--url** flag to list the content of your particular space; its projects and workflows, and their descriptions.
 
 ```
 trickest list --space <space_name>
@@ -73,22 +73,24 @@ trickest list --space <space_name>
 |---------|--------|---------|-------------------------------------|
 | --space | string | /       | The name of the space to be listed  |
 | --json  | boolean| /       | Display output in JSON format       |
+| --url   | string | /       | URL for referencing a space         |
 
 
 
 #### Projects   
 
-Use the **list** command with the **--project** option to list the content of your particular project; its workflows, along with their descriptions.
+Use the **list** command with the **--project** or **--url** option to list the content of your particular project; its workflows, along with their descriptions.
 
 ```
 trickest list --project <project_name> --space <space_name>
 ```
 
-| Flag      | Type   | Default | Description                                        |
-|-----------|--------|---------|----------------------------------------------------|
-| --project | string | /       | The name of the project to be listed.              |
-| --space   | string | /       | The name of the space to which the project belongs |
-| --json    | boolean  | /     | Display output in JSON format                      |
+| Flag      | Type    | Default | Description                                        |
+|-----------|---------|---------|----------------------------------------------------|
+| --project | string  | /       | The name of the project to be listed.              |
+| --space   | string  | /       | The name of the space to which the project belongs |
+| --json    | boolean | /       | Display output in JSON format                      |
+| --url     | string  | /       | URL for referencing a space                        |
 
 
 ##### Note: When passing values that have spaces in their names (e.g. "Alpine Testing"), they need to be double-quoted.
@@ -109,6 +111,7 @@ trickest get --workflow <workflow_name> --space <space_name> [--watch]
 | --run       | string   | /       | Get the status of a specific run                                       |
 | --watch     | boolean  | /       | Option to track execution status in case workflow is in running state  |
 | --json      | boolean  | /       | Display output in JSON format                                          |
+| --url       | string   | /       | URL for referencing a space                                            |
 
 ##### If the supplied workflow has a running execution, you can jump in and watch it running with the `--watch` flag!
 
@@ -192,6 +195,7 @@ trickest output --workflow <workflow_name> --space <space_name> [--nodes <comma_
 | ---------- | ------  | ------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | --workflow | string  | /       | The name of the workflow.                                                                                                          |
 | --space    | string  | /       | The name of the space to which workflow belongs                                                                                    |
+| --url      | string  | /       | URL for referencing a space                                                                                                        |
 | --config   | file    | /       | YAML file for run configuration                                                                                                    |
 | --run      | string  | /       | Download output data of a specific run                                                                                             |
 | --runs     | integer | 1       | The number of executions to be downloaded sorted by newest |
