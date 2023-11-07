@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/trickest/trickest-cli/client/request"
 	"github.com/trickest/trickest-cli/types"
 	"github.com/trickest/trickest-cli/util"
@@ -30,7 +31,7 @@ var ListCmd = &cobra.Command{
 		space, project, workflow, found := util.GetObjects(args)
 
 		if !found {
-			fmt.Println("Error: Workflow not found")
+			fmt.Println("Error: Not found")
 			return
 		}
 
@@ -45,6 +46,7 @@ var ListCmd = &cobra.Command{
 			}
 			printWorkflow(*workflow, jsonOutput)
 		} else if project != nil {
+			project.Workflows = util.GetWorkflows(project.ID, uuid.Nil, "", false)
 			printProject(*project, jsonOutput)
 		} else if space != nil {
 			printSpaceDetailed(*space)
