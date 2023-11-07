@@ -104,10 +104,6 @@ func GetMe() *types.User {
 }
 
 func GetFleetInfo() *types.Fleet {
-	fleet := GetFleetInfoLegacy()
-	if fleet != nil {
-		return fleet
-	}
 	resp := request.Trickest.Get().DoF("fleet/?vault=%s", GetVault())
 	if resp == nil || resp.Status() != http.StatusOK {
 		request.ProcessUnexpectedResponse(resp)
@@ -125,21 +121,6 @@ func GetFleetInfo() *types.Fleet {
 	}
 
 	return &fleets.Results[0]
-}
-
-func GetFleetInfoLegacy() *types.Fleet {
-	resp := request.Trickest.Get().DoF("fleet/%s", GetVault())
-	if resp == nil || resp.Status() != http.StatusOK {
-		return nil
-	}
-
-	var fleet types.Fleet
-	err := json.Unmarshal(resp.Body(), &fleet)
-	if err != nil {
-		return nil
-	}
-
-	return &fleet
 }
 
 func GetSpaces(name string) []types.Space {
