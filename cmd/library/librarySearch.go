@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/trickest/trickest-cli/cmd/list"
+	"github.com/trickest/trickest-cli/util"
 )
 
 // librarySearchCmd represents the librarySearch command
@@ -21,7 +22,7 @@ var librarySearchCmd = &cobra.Command{
 			search = args[0]
 		}
 		tools := list.GetTools(math.MaxInt, search, "")
-		workflows := list.GetWorkflows(uuid.Nil, uuid.Nil, search, true)
+		workflows := util.GetWorkflows(uuid.Nil, uuid.Nil, search, true)
 		if jsonOutput {
 			results := map[string]interface{}{
 				"tools":     tools,

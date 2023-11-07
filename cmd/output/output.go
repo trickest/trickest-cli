@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/trickest/trickest-cli/client/request"
-	"github.com/trickest/trickest-cli/cmd/list"
 	"github.com/trickest/trickest-cli/types"
 	"github.com/trickest/trickest-cli/util"
 
@@ -62,6 +61,11 @@ The YAML config file should be formatted like:
       - bar
 `,
 	Run: func(cmd *cobra.Command, args []string) {
+		_, _, workflow, found := util.GetObjects(args)
+		if !found {
+			return
+		}
+
 		nodes := make(map[string]NodeInfo, 0)
 		if nodesFlag != "" {
 			for _, node := range strings.Split(nodesFlag, ",") {
@@ -73,30 +77,6 @@ The YAML config file should be formatted like:
 		if filesFlag != "" {
 			for _, file := range strings.Split(filesFlag, ",") {
 				files = append(files, file)
-			}
-		}
-
-		path := util.FormatPath()
-		if path == "" {
-			if len(args) == 0 {
-				fmt.Println("Workflow path must be specified!")
-				return
-			}
-			path = strings.Trim(args[0], "/")
-			if len(args) > 1 {
-				for i := 1; i < len(args); i++ {
-					nodes[strings.ReplaceAll(args[i], "/", "-")] = NodeInfo{ToFetch: true, Found: false}
-				}
-			}
-		} else {
-			if util.WorkflowName == "" {
-				fmt.Println("Workflow must be specified!")
-				return
-			}
-			if len(args) > 0 {
-				for i := 0; i < len(args); i++ {
-					nodes[strings.ReplaceAll(args[i], "/", "-")] = NodeInfo{ToFetch: true, Found: false}
-				}
 			}
 		}
 
@@ -123,11 +103,6 @@ The YAML config file should be formatted like:
 			for _, node := range conf.Outputs {
 				nodes[strings.ReplaceAll(node, "/", "-")] = NodeInfo{ToFetch: true, Found: false}
 			}
-		}
-
-		_, _, workflow, found := list.ResolveObjectPath(path, false, false)
-		if !found {
-			return
 		}
 
 		runs := make([]types.Run, 0)
@@ -163,6 +138,7 @@ The YAML config file should be formatted like:
 			return
 		}
 
+		path := util.FormatPath()
 		if outputDir != "" {
 			path = outputDir
 		}

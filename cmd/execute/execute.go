@@ -175,7 +175,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 		workflowName = wf.Name
 	}
 
-	space, project, workflow, _ := list.ResolveObjectPath(objectPath, true, false)
+	space, project, workflow, _ := util.ResolveObjectPath(objectPath, true, false)
 	if space == nil {
 		fmt.Println("Space " + strings.Split(objectPath, "/")[0] + " doesn't exist!")
 		os.Exit(0)
@@ -922,9 +922,9 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 	var primitiveNodes map[string]*types.PrimitiveNode
 	projectCreated := false
 
-	space, project, workflow, _ := list.ResolveObjectPath(objectPath, false, false)
-	if space == nil {
-		os.Exit(0)
+	space, project, workflow, _ := util.ResolveObjectPath(objectPath, false, false)
+	if workflow == nil {
+		space, project, workflow, _ = util.ResolveObjectURL(util.URL)
 	}
 
 	if workflow != nil && newWorkflowName == "" {
@@ -943,7 +943,7 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 	} else {
 		// Executing from library
 		wfName := pathSplit[len(pathSplit)-1]
-		libraryWorkflows := list.GetWorkflows(uuid.Nil, uuid.Nil, wfName, true)
+		libraryWorkflows := util.GetWorkflows(uuid.Nil, uuid.Nil, wfName, true)
 		if libraryWorkflows != nil && len(libraryWorkflows) > 0 {
 			// Executing from library
 			for _, wf := range libraryWorkflows {
@@ -976,7 +976,7 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 						os.Exit(0)
 					}
 
-					newWorkflow := list.GetWorkflowByID(newWorkflowID)
+					newWorkflow := util.GetWorkflowByID(newWorkflowID)
 					if newWorkflow.Name != newWorkflowName {
 						newWorkflow.Name = newWorkflowName
 						updateWorkflow(newWorkflow, projectCreated)

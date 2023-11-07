@@ -4,11 +4,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/trickest/trickest-cli/client/request"
-	"github.com/trickest/trickest-cli/cmd/list"
 	"github.com/trickest/trickest-cli/util"
 
 	"github.com/spf13/cobra"
@@ -20,21 +18,7 @@ var DeleteCmd = &cobra.Command{
 	Short: "Deletes an object on the Trickest platform",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		path := util.FormatPath()
-		if path == "" {
-			if len(args) == 0 {
-				fmt.Println("You must specify the path of the object to be deleted!")
-				return
-			}
-			path = strings.Trim(args[0], "/")
-		} else {
-			if len(args) > 0 {
-				fmt.Println("Please use either path or flag syntax for the platform objects.")
-				return
-			}
-		}
-
-		space, project, workflow, found := list.ResolveObjectPath(path, false, util.WorkflowName == "")
+		space, project, workflow, found := util.GetObjects(args)
 		if !found {
 			return
 		}
@@ -51,7 +35,7 @@ var DeleteCmd = &cobra.Command{
 
 func deleteSpace(name string, id uuid.UUID) {
 	if id == uuid.Nil {
-		space := list.GetSpaceByName(name)
+		space := util.GetSpaceByName(name)
 		if space == nil {
 			fmt.Println("Couldn't find space named " + name + "!")
 			os.Exit(0)

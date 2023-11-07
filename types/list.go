@@ -49,7 +49,7 @@ type Project struct {
 	CreatedDate   time.Time  `json:"created_date"`
 	ModifiedDate  time.Time  `json:"modified_date"`
 	Author        string     `json:"author"`
-	Workflows     []Workflow `json:"workflow,omitempty"`
+	Workflows     []Workflow `json:"workflows,omitempty"`
 }
 
 type Workflows struct {
