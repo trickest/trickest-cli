@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/trickest/trickest-cli/client/request"
@@ -29,38 +28,10 @@ var ListCmd = &cobra.Command{
 	Short: "Lists objects on the Trickest platform",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		path := util.FormatPath()
-		if len(args) == 0 && path == "" {
-			spaces := getSpaces("")
+		space, project, workflow, found := util.GetObjects(args)
 
-			if spaces != nil && len(spaces) > 0 {
-				printSpaces(spaces, jsonOutput)
-			} else {
-				fmt.Println("Couldn't find any spaces!")
-			}
-			return
-		}
-		if path == "" {
-			path = strings.Trim(args[0], "/")
-		} else {
-			if len(args) > 0 {
-				fmt.Println("Please use either path or flag syntax for the platform objects.")
-				return
-			}
-		}
-
-		var (
-			space    *types.SpaceDetailed
-			project  *types.Project
-			workflow *types.Workflow
-			found    bool
-		)
-		if util.WorkflowName == "" {
-			space, project, workflow, found = ResolveObjectPath(path, false, true)
-		} else {
-			space, project, workflow, found = ResolveObjectPath(path, false, false)
-		}
 		if !found {
+			fmt.Println("Error: Not found")
 			return
 		}
 
@@ -75,6 +46,7 @@ var ListCmd = &cobra.Command{
 			}
 			printWorkflow(*workflow, jsonOutput)
 		} else if project != nil {
+			project.Workflows = util.GetWorkflows(project.ID, uuid.Nil, "", false)
 			printProject(*project, jsonOutput)
 		} else if space != nil {
 			printSpaceDetailed(*space)
@@ -134,7 +106,7 @@ func printProject(project types.Project, jsonOutput bool) {
 				}
 			}
 		}
-
+		output = tree.String()
 	}
 
 	fmt.Println(output)
@@ -203,216 +175,6 @@ func printSpaces(spaces []types.Space, jsonOutput bool) {
 	}
 
 	fmt.Println(output)
-}
-
-func getSpaces(name string) []types.Space {
-	urlReq := "spaces/?vault=" + util.GetVault().String()
-	urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
-
-	if name != "" {
-		urlReq += "&name=" + url.QueryEscape(name)
-	}
-
-	resp := request.Trickest.Get().DoF(urlReq)
-	if resp == nil {
-		fmt.Println("Error: Couldn't get spaces!")
-		os.Exit(0)
-	}
-
-	if resp.Status() != http.StatusOK {
-		request.ProcessUnexpectedResponse(resp)
-	}
-
-	var spaces types.Spaces
-	err := json.Unmarshal(resp.Body(), &spaces)
-	if err != nil {
-		fmt.Println("Error: Couldn't unmarshal spaces response!")
-		os.Exit(0)
-	}
-
-	return spaces.Results
-}
-
-func GetSpaceByName(name string) *types.SpaceDetailed {
-	spaces := getSpaces(name)
-	if spaces == nil || len(spaces) == 0 {
-		return nil
-	}
-
-	return getSpaceByID(spaces[0].ID)
-}
-
-func getSpaceByID(id uuid.UUID) *types.SpaceDetailed {
-	resp := request.Trickest.Get().DoF("spaces/%s/", id.String())
-	if resp == nil {
-		fmt.Println("Error: Couldn't get space by ID!")
-		os.Exit(0)
-	}
-
-	if resp.Status() != http.StatusOK {
-		request.ProcessUnexpectedResponse(resp)
-	}
-
-	var space types.SpaceDetailed
-	err := json.Unmarshal(resp.Body(), &space)
-	if err != nil {
-		fmt.Println("Error unmarshalling space response!")
-		os.Exit(0)
-	}
-
-	return &space
-}
-
-func GetWorkflows(projectID, spaceID uuid.UUID, search string, library bool) []types.Workflow {
-	urlReq := "workflow/"
-	if library {
-		urlReq = "library/" + urlReq
-	}
-	urlReq += "?page_size=" + strconv.Itoa(math.MaxInt)
-	if !library {
-		urlReq += "&vault=" + util.GetVault().String()
-	}
-
-	if search != "" {
-		urlReq += "&search=" + url.QueryEscape(search)
-	}
-
-	if projectID != uuid.Nil {
-		urlReq += "&project=" + projectID.String()
-	} else if spaceID != uuid.Nil {
-		urlReq += "&space=" + spaceID.String()
-	}
-
-	resp := request.Trickest.Get().DoF(urlReq)
-	if resp == nil {
-		fmt.Println("Error: Couldn't get workflows!")
-		os.Exit(0)
-	}
-
-	if resp.Status() != http.StatusOK {
-		request.ProcessUnexpectedResponse(resp)
-	}
-
-	var workflows types.Workflows
-	err := json.Unmarshal(resp.Body(), &workflows)
-	if err != nil {
-		fmt.Println("Error: Couldn't unmarshal workflows response!")
-		os.Exit(0)
-	}
-
-	return workflows.Results
-}
-
-func GetWorkflowByID(id uuid.UUID) *types.Workflow {
-	resp := request.Trickest.Get().DoF("workflow/%s/", id.String())
-	if resp == nil {
-		fmt.Println("Error: Couldn't get workflow by ID!")
-		os.Exit(0)
-	}
-
-	if resp.Status() != http.StatusOK {
-		request.ProcessUnexpectedResponse(resp)
-	}
-
-	var workflow types.Workflow
-	err := json.Unmarshal(resp.Body(), &workflow)
-	if err != nil {
-		fmt.Println("Error: Couldn't unmarshal workflow response!")
-		os.Exit(0)
-	}
-
-	return &workflow
-}
-
-func ResolveObjectPath(path string, silent bool, isProject bool) (*types.SpaceDetailed, *types.Project, *types.Workflow, bool) {
-	pathSplit := strings.Split(strings.Trim(path, "/"), "/")
-	if len(pathSplit) > 3 {
-		if !silent {
-			fmt.Println("Invalid object path!")
-		}
-		return nil, nil, nil, false
-	}
-	space := GetSpaceByName(pathSplit[0])
-	if space == nil {
-		if !silent {
-			fmt.Println("Couldn't find space named " + pathSplit[0] + "!")
-		}
-		return nil, nil, nil, false
-	}
-
-	if len(pathSplit) == 1 {
-		return space, nil, nil, true
-	}
-
-	// Space and workflow with no project
-	var projectName string
-	var workflowName string
-	if len(pathSplit) == 2 {
-		if isProject {
-			projectName = pathSplit[1]
-			workflowName = ""
-		} else {
-			projectName = ""
-			workflowName = pathSplit[1]
-		}
-	} else {
-		projectName = pathSplit[1]
-		workflowName = pathSplit[2]
-	}
-
-	var project *types.Project
-	if space.Projects != nil && len(space.Projects) > 0 {
-		for _, proj := range space.Projects {
-			if proj.Name == projectName {
-				project = &proj
-				project.Workflows = GetWorkflows(project.ID, uuid.Nil, "", false)
-				break
-			}
-		}
-	}
-
-	var workflow *types.Workflow
-	if space.Workflows != nil && len(space.Workflows) > 0 {
-		for _, wf := range space.Workflows {
-			if wf.Name == workflowName {
-				workflow = &wf
-				break
-			}
-		}
-	}
-
-	if len(pathSplit) == 2 {
-		if project != nil || workflow != nil {
-			return space, project, workflow, true
-		}
-		if workflow != nil {
-			return space, nil, workflow, true
-		}
-		if !silent {
-			fmt.Println("Couldn't find project or workflow named " + pathSplit[1] + " inside " +
-				pathSplit[0] + " space!")
-		}
-		return space, nil, nil, false
-	}
-
-	if project != nil && project.Workflows != nil && len(project.Workflows) > 0 {
-		for _, wf := range project.Workflows {
-			if wf.Name == pathSplit[2] {
-				fullWorkflow := GetWorkflowByID(wf.ID)
-				return space, project, fullWorkflow, true
-			}
-		}
-	} else {
-		if !silent {
-			fmt.Println("No workflows found in " + pathSplit[0] + "/" + pathSplit[1])
-		}
-		return space, project, nil, false
-	}
-
-	if !silent {
-		fmt.Println("Couldn't find workflow named " + pathSplit[2] + " in " + pathSplit[0] + "/" + pathSplit[1] + "/")
-	}
-	return space, project, nil, false
 }
 
 func GetTools(pageSize int, search string, name string) []types.Tool {

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/trickest/trickest-cli/cmd/execute"
-	"github.com/trickest/trickest-cli/cmd/list"
 	"github.com/trickest/trickest-cli/cmd/output"
 	"github.com/trickest/trickest-cli/types"
 	"github.com/trickest/trickest-cli/util"
@@ -29,27 +28,10 @@ var GetCmd = &cobra.Command{
 	Short: "Displays status of a workflow",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		path := util.FormatPath()
-		if path == "" {
-			if len(args) == 0 {
-				fmt.Println("Workflow path must be specified!")
-				return
-			}
-			path = strings.Trim(args[0], "/")
-		} else {
-			if len(args) > 0 {
-				fmt.Println("Please use either path or flag syntax for the platform objects.")
-				return
-			}
-		}
+		_, _, workflow, found := util.GetObjects(args)
 
-		_, _, workflow, found := list.ResolveObjectPath(path, false, false)
-		if !found {
-			return
-		}
-
-		if workflow == nil {
-			fmt.Println("Error: You need to specify the full location of the workflow with the --space and --project flags")
+		if !found || workflow == nil {
+			fmt.Println("Error: Workflow not found")
 			return
 		}
 

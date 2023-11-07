@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/trickest/trickest-cli/cmd/execute"
-	"github.com/trickest/trickest-cli/cmd/list"
 	"github.com/trickest/trickest-cli/types"
 	"github.com/trickest/trickest-cli/util"
 
@@ -40,21 +39,7 @@ var ExportCmd = &cobra.Command{
 	Short: "Exports a workflow to a YAML file",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		path := util.FormatPath()
-		if path == "" {
-			if len(args) == 0 {
-				fmt.Println("Workflow path must be specified!")
-				return
-			}
-			path = strings.Trim(args[0], "/")
-		} else {
-			if len(args) > 0 {
-				fmt.Println("Please use either path or flag syntax for the platform objects.")
-				return
-			}
-		}
-
-		_, _, workflow, found := list.ResolveObjectPath(path, false, false)
+		_, _, workflow, found := util.GetObjects(args)
 		if !found {
 			return
 		}

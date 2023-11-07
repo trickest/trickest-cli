@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
-	"github.com/trickest/trickest-cli/cmd/list"
 	"github.com/trickest/trickest-cli/types"
+	"github.com/trickest/trickest-cli/util"
 	"github.com/xlab/treeprint"
 )
 
@@ -17,7 +17,7 @@ var libraryListWorkflowsCmd = &cobra.Command{
 	Short: "List workflows from the Trickest library",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		workflows := list.GetWorkflows(uuid.Nil, uuid.Nil, "", true)
+		workflows := util.GetWorkflows(uuid.Nil, uuid.Nil, "", true)
 		if len(workflows) > 0 {
 			printWorkflows(workflows, jsonOutput)
 		} else {

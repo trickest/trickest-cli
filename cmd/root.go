@@ -38,6 +38,7 @@ func init() {
 	RootCmd.PersistentFlags().StringVar(&util.SpaceName, "space", "", "Space name")
 	RootCmd.PersistentFlags().StringVar(&util.ProjectName, "project", "", "Project name")
 	RootCmd.PersistentFlags().StringVar(&util.WorkflowName, "workflow", "", "Workflow name")
+	RootCmd.PersistentFlags().StringVar(&util.URL, "url", "", "URL for referencing a workflow, project, or space")
 	RootCmd.PersistentFlags().StringVar(&util.Cfg.Dependency, "node-dependency", "", "This flag doesn't affect the execution logic of the CLI in any way and is intended for controlling node execution order on the Trickest platform only.")
 
 	cobra.OnInitialize(util.CreateRequest, initVaultID)

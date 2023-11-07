@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/trickest/trickest-cli/client/request"
 	"github.com/trickest/trickest-cli/cmd/delete"
-	"github.com/trickest/trickest-cli/cmd/list"
 	"github.com/trickest/trickest-cli/types"
 	"github.com/trickest/trickest-cli/util"
 
@@ -85,7 +84,7 @@ func createSpace(name string, description string) {
 }
 
 func CreateProject(name string, description string, spaceName string) *types.Project {
-	space := list.GetSpaceByName(spaceName)
+	space := util.GetSpaceByName(spaceName)
 	if space == nil {
 		fmt.Println("The space \"" + spaceName + "\" doesn't exist. Would you like to create it? (Y/N)")
 		var answer string
@@ -153,7 +152,7 @@ func CreateWorkflow(name, description string, spaceID, projectID uuid.UUID, dele
 		workflow.ProjectID = &projectID
 	}
 
-	workflows := list.GetWorkflows(projectID, spaceID, name, false)
+	workflows := util.GetWorkflows(projectID, spaceID, name, false)
 	if workflows != nil {
 		for _, wf := range workflows {
 			if wf.Name == name {
