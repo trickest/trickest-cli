@@ -15,7 +15,7 @@ var filesDeleteCmd = &cobra.Command{
 	Short: "Delete files from the Trickest file storage",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		fileNames := strings.Split(FileNames, ",")
+		fileNames := strings.Split(Files, ",")
 		for _, fileName := range fileNames {
 			err := deleteFile(fileName)
 			if err != nil {

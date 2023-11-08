@@ -22,7 +22,7 @@ var filesCreateCmd = &cobra.Command{
 	Long: "Create files on the Trickest file storage.\n" +
 		"Note: If a file with the same name already exists, it will be overwritten.",
 	Run: func(cmd *cobra.Command, args []string) {
-		filePaths := strings.Split(FileNames, ",")
+		filePaths := strings.Split(Files, ",")
 		for _, filePath := range filePaths {
 			err := createFile(filePath)
 			if err != nil {

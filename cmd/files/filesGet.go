@@ -22,7 +22,7 @@ var filesGetCmd = &cobra.Command{
 	Short: "Get files from the Trickest file storage",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		fileNames := strings.Split(FileNames, ",")
+		fileNames := strings.Split(Files, ",")
 		for _, fileName := range fileNames {
 			err := getFile(fileName, outputDir, partialNameMatch)
 			if err != nil {

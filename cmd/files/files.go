@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	FileNames string
+	Files string
 )
 
 // filesCmd represents the files command
@@ -26,8 +26,8 @@ var FilesCmd = &cobra.Command{
 }
 
 func init() {
-	FilesCmd.PersistentFlags().StringVar(&FileNames, "file-name", "", "File name or names (comma-separated)")
-	FilesCmd.MarkPersistentFlagRequired("file-name")
+	FilesCmd.PersistentFlags().StringVar(&Files, "file", "", "File or files (comma-separated)")
+	FilesCmd.MarkPersistentFlagRequired("file")
 
 	FilesCmd.SetHelpFunc(func(command *cobra.Command, strings []string) {
 		_ = FilesCmd.Flags().MarkHidden("workflow")
