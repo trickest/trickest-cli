@@ -17,7 +17,12 @@ var filesDeleteCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fileNames := strings.Split(FileNames, ",")
 		for _, fileName := range fileNames {
-			deleteFile(fileName)
+			err := deleteFile(fileName)
+			if err != nil {
+				fmt.Printf("Error: %s\n", err)
+			} else {
+				fmt.Printf("Deleted %s successfully\n", fileName)
+			}
 		}
 	},
 }
@@ -26,14 +31,14 @@ func init() {
 	FilesCmd.AddCommand(filesDeleteCmd)
 }
 
-func deleteFile(fileName string) {
+func deleteFile(fileName string) error {
 	metadata, err := getMetadata(fileName)
 	if err != nil {
-		fmt.Printf("Error: couldn't search for %s: %s\n", fileName, err)
+		return fmt.Errorf("couldn't search for %s: %s", fileName, err)
 	}
 
 	if len(metadata) == 0 {
-		fmt.Printf("Error: couldn't find any matches for %s\n", fileName)
+		return fmt.Errorf("couldn't find any matches for %s", fileName)
 	}
 
 	matchFound := false
@@ -42,16 +47,16 @@ func deleteFile(fileName string) {
 			matchFound = true
 			err := deleteFileByID(fileMetadata.ID)
 			if err != nil {
-				fmt.Printf("couldn't delete %s: %s\n", fileMetadata.Name, err)
-			} else {
-				fmt.Printf("Deleted %s\n", fileMetadata.Name)
+				return fmt.Errorf("couldn't delete %s: %s", fileMetadata.Name, err)
 			}
 		}
 	}
 
 	if !matchFound {
-		fmt.Printf("Error: couldn't find any matches for %s\n", fileName)
+		return fmt.Errorf("couldn't find any matches for %s", fileName)
 	}
+
+	return nil
 }
 
 func deleteFileByID(fileID string) error {

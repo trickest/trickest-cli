@@ -26,7 +26,9 @@ var filesCreateCmd = &cobra.Command{
 		for _, filePath := range filePaths {
 			err := createFile(filePath)
 			if err != nil {
-				fmt.Printf("Error: %s", err)
+				fmt.Printf("Error: %s\n", err)
+			} else {
+				fmt.Printf("Uploaded %s successfully\n", filePath)
 			}
 		}
 	},

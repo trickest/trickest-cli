@@ -24,7 +24,12 @@ var filesGetCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fileNames := strings.Split(FileNames, ",")
 		for _, fileName := range fileNames {
-			getFile(fileName, outputDir, partialNameMatch)
+			err := getFile(fileName, outputDir, partialNameMatch)
+			if err != nil {
+				fmt.Printf("Error: %s\n", err)
+			} else {
+				fmt.Printf("Retrieved matches for %s successfully\n", fileName)
+			}
 		}
 	},
 }
@@ -38,14 +43,14 @@ func init() {
 	filesGetCmd.Flags().BoolVar(&partialNameMatch, "partial-name-match", false, "Get all files with a partial name match")
 }
 
-func getFile(fileName string, outputDir string, partialNameMatch bool) {
+func getFile(fileName string, outputDir string, partialNameMatch bool) error {
 	metadata, err := getMetadata(fileName)
 	if err != nil {
-		fmt.Printf("Error: couldn't search for %s: %s\n", fileName, err)
+		return fmt.Errorf("couldn't search for %s: %s", fileName, err)
 	}
 
 	if len(metadata) == 0 {
-		fmt.Printf("Error: couldn't find any matches for %s\n", fileName)
+		return fmt.Errorf("couldn't find any matches for %s", fileName)
 	}
 
 	matchFound := false
@@ -54,19 +59,20 @@ func getFile(fileName string, outputDir string, partialNameMatch bool) {
 			matchFound = true
 			signedURL, err := getSignedURLs(fileMetadata.ID)
 			if err != nil {
-				fmt.Printf("couldn't get a signed URL for %s: %s\n", fileMetadata.Name, err)
+				return fmt.Errorf("couldn't get a signed URL for %s: %s", fileMetadata.Name, err)
 			}
 
 			err = util.DownloadFile(signedURL, outputDir, fileMetadata.Name)
 			if err != nil {
-				fmt.Printf("couldn't download %s: %s\n", fileMetadata.Name, err)
+				return fmt.Errorf("couldn't download %s: %s", fileMetadata.Name, err)
 			}
 		}
 	}
 
 	if !matchFound {
-		fmt.Printf("Error: couldn't find any matches for %s\n", fileName)
+		return fmt.Errorf("couldn't find any matches for %s", fileName)
 	}
+	return nil
 }
 
 func getSignedURLs(fileID string) (string, error) {

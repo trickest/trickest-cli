@@ -491,7 +491,7 @@ func DownloadFile(url, outputDir, fileName string) error {
 			progressbar.OptionSetWidth(30),
 			progressbar.OptionShowBytes(true),
 			progressbar.OptionShowCount(),
-			progressbar.OptionOnCompletion(func() { fmt.Print("\n\n") }),
+			progressbar.OptionOnCompletion(func() { fmt.Println() }),
 		)
 		_, err = io.Copy(io.MultiWriter(outputFile, bar), response.Body)
 	} else {
