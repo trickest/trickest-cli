@@ -3,15 +3,18 @@ package util
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/schollz/progressbar/v3"
 	"github.com/trickest/trickest-cli/client/request"
 	"github.com/trickest/trickest-cli/types"
 
@@ -456,4 +459,46 @@ func FormatDuration(duration time.Duration) string {
 	str = strings.Replace(str, " h", "h", 1)
 
 	return str
+}
+
+func DownloadFile(url, outputDir, fileName string) error {
+	err := os.MkdirAll(outputDir, 0755)
+	if err != nil {
+		return fmt.Errorf("couldn't create output directory (%s): %w", outputDir, err)
+	}
+
+	filePath := path.Join(outputDir, fileName)
+	outputFile, err := os.Create(filePath)
+	if err != nil {
+		return fmt.Errorf("couldn't create output file (%s): %w", filePath, err)
+	}
+	defer outputFile.Close()
+
+	response, err := http.Get(url)
+	if err != nil {
+		return fmt.Errorf("couldn't get URL (%s): %w", url, err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected HTTP status code: %s %d", url, response.StatusCode)
+	}
+
+	if response.ContentLength > 0 {
+		bar := progressbar.NewOptions64(
+			response.ContentLength,
+			progressbar.OptionSetDescription(fmt.Sprintf("Downloading %s... ", fileName)),
+			progressbar.OptionSetWidth(30),
+			progressbar.OptionShowBytes(true),
+			progressbar.OptionShowCount(),
+			progressbar.OptionOnCompletion(func() { fmt.Println() }),
+		)
+		_, err = io.Copy(io.MultiWriter(outputFile, bar), response.Body)
+	} else {
+		_, err = io.Copy(outputFile, response.Body)
+	}
+	if err != nil {
+		return fmt.Errorf("couldn't save file content to %s: %w", filePath, err)
+	}
+	return nil
 }
