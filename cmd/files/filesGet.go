@@ -8,7 +8,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/trickest/trickest-cli/client/request"
-	"github.com/trickest/trickest-cli/types"
 	"github.com/trickest/trickest-cli/util"
 )
 
@@ -83,19 +82,4 @@ func getSignedURLs(fileID string) (string, error) {
 	}
 
 	return signedURL, nil
-}
-
-func getMetadata(searchQuery string) ([]types.File, error) {
-	resp := request.Trickest.Get().DoF("file/?search=%s&vault=%s", searchQuery, util.GetVault())
-	if resp == nil || resp.Status() != http.StatusOK {
-		return nil, fmt.Errorf("unexpected response status code: %d", resp.Status())
-	}
-	var metadata types.Files
-
-	err := json.Unmarshal(resp.Body(), &metadata)
-	if err != nil {
-		return nil, fmt.Errorf("couldn't unmarshal file IDs response: %s", err)
-	}
-
-	return metadata.Results, nil
 }

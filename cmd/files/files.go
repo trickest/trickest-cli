@@ -1,7 +1,14 @@
 package files
 
 import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+
 	"github.com/spf13/cobra"
+	"github.com/trickest/trickest-cli/client/request"
+	"github.com/trickest/trickest-cli/types"
+	"github.com/trickest/trickest-cli/util"
 )
 
 var (
@@ -19,7 +26,7 @@ var FilesCmd = &cobra.Command{
 }
 
 func init() {
-	FilesCmd.PersistentFlags().StringVar(&FileNames, "file-name", "", "File name")
+	FilesCmd.PersistentFlags().StringVar(&FileNames, "file-name", "", "File name or names (comma-separated)")
 	FilesCmd.MarkPersistentFlagRequired("file-name")
 
 	FilesCmd.SetHelpFunc(func(command *cobra.Command, strings []string) {
@@ -30,4 +37,19 @@ func init() {
 
 		command.Root().HelpFunc()(command, strings)
 	})
+}
+
+func getMetadata(searchQuery string) ([]types.File, error) {
+	resp := request.Trickest.Get().DoF("file/?search=%s&vault=%s", searchQuery, util.GetVault())
+	if resp == nil || resp.Status() != http.StatusOK {
+		return nil, fmt.Errorf("unexpected response status code: %d", resp.Status())
+	}
+	var metadata types.Files
+
+	err := json.Unmarshal(resp.Body(), &metadata)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't unmarshal file IDs response: %s", err)
+	}
+
+	return metadata.Results, nil
 }
