@@ -227,6 +227,47 @@ trickest library search subdomain takeover
 
 [<img src="./banner.png" />](https://trickest.io/auth/register)
 
+
+## Files command
+Interact with the Trickest file storage
+
+#### Get files
+Use the **get** command with the **--file** flag to retrieve one or more files
+
+```
+trickest files get --file my_file.txt --output-dir out
+```
+
+| Flag                 | Type   | Default  | Description                                                         |
+|----------------------|--------|----------|---------------------------------------------------------------------|
+| --file               | string  | /       | File or files (comma-separated)                                     |
+| --output-dir         | string  | /       | Path to directory which should be used to store files (default ".") |
+| --partial-name-match | boolean | /       | Get all files with a partial name match                             |
+
+#### Create files
+Use the **create** command with the **--file** flag to upload one or more files
+
+```
+trickest files create --file targets.txt
+```
+
+| Flag                 | Type   | Default  | Description                                                         |
+|----------------------|--------|----------|---------------------------------------------------------------------|
+| --file               | string  | /       | File or files (comma-separated)                                     |
+
+
+#### Delete files
+Use the **delete** command with the **--file** flag to delete one or more files
+
+```
+trickest files delete --file delete_me.txt
+```
+
+| Flag                 | Type   | Default  | Description                                                         |
+|----------------------|--------|----------|---------------------------------------------------------------------|
+| --file               | string  | /       | File or files (comma-separated)                                     |
+
+
 ## Report Bugs / Feedback
 We look forward to any feedback you want to share with us or if you're stuck with a problem you can contact us at [support@trickest.com](mailto:support@trickest.com).
 
