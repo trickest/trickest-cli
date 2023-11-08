@@ -9,7 +9,7 @@ import (
 	"github.com/trickest/trickest-cli/client/request"
 )
 
-// filesDeleteCmd represents the fileDelete command
+// filesDeleteCmd represents the filesDelete command
 var filesDeleteCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete files from the Trickest file storage",
