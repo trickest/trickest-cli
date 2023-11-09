@@ -107,6 +107,12 @@ The YAML config file should be formatted like:
 
 		runs := make([]types.Run, 0)
 
+		if util.URL != "" {
+			workflowURLRunID, err := util.GetRunIDFromWorkflowURL(util.URL)
+			if err == nil {
+				runID = workflowURLRunID
+			}
+		}
 		if allRuns {
 			numberOfRuns = math.MaxInt
 		}
