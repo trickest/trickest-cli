@@ -39,7 +39,7 @@ var GetCmd = &cobra.Command{
 		allNodes, roots := execute.CreateTrees(version, false)
 
 		var runs []types.Run
-		if util.URL != "" {
+		if runID == "" && util.URL != "" {
 			workflowURLRunID, err := util.GetRunIDFromWorkflowURL(util.URL)
 			if err == nil {
 				runID = workflowURLRunID
