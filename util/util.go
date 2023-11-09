@@ -417,6 +417,29 @@ func resolveWorkflowURL(pathSegments []string) (*types.SpaceDetailed, *types.Pro
 	return nil, nil, workflow, true
 }
 
+func GetRunIDFromWorkflowURL(workflowURL string) (string, error) {
+	u, err := url.Parse(workflowURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid URL: %w", err)
+	}
+
+	queryParams, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
+		return "", fmt.Errorf("invalid URL query: %w", err)
+	}
+
+	runIDs, found := queryParams["run"]
+	if !found {
+		return "", fmt.Errorf("no run parameter in the URL")
+	}
+
+	if len(runIDs) != 1 {
+		return "", fmt.Errorf("invalid number of run parameters in the URL")
+	}
+
+	return runIDs[0], nil
+}
+
 // GetObjects handles different input scenarios for retrieving platform objects.
 //
 // Examples:
