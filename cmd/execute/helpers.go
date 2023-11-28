@@ -98,11 +98,13 @@ func getScripts(pageSize int, search string, name string) []types.Script {
 	return scripts.Results
 }
 
-func createRun(versionID uuid.UUID, watch bool, machines *types.Machines, outputNodes []string, outputsDir string) {
+func createRun(versionID, fleetID uuid.UUID, watch bool, machines *types.Machines, outputNodes []string, outputsDir string) {
+
 	run := types.CreateRun{
 		VersionID: versionID,
 		Vault:     fleet.Vault,
 		Machines:  executionMachines,
+		Fleet:     &fleetID,
 	}
 
 	data, err := json.Marshal(run)
@@ -115,6 +117,18 @@ func createRun(versionID uuid.UUID, watch bool, machines *types.Machines, output
 	if resp == nil {
 		fmt.Println("Error: Couldn't create run!")
 		os.Exit(0)
+	}
+
+	if resp.Status() != http.StatusCreated {
+		run.Fleet = nil
+
+		data, err := json.Marshal(run)
+		if err != nil {
+			fmt.Println("Error encoding create run request!")
+			os.Exit(0)
+		}
+
+		resp = request.Trickest.Post().Body(data).DoF("execution/")
 	}
 
 	if resp.Status() != http.StatusCreated {
