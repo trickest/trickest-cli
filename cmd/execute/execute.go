@@ -130,7 +130,7 @@ var ExecuteCmd = &cobra.Command{
 			os.Exit(0)
 		}
 
-		createRun(version.ID, watch, &executionMachines, outputNodes, outputsDirectory)
+		createRun(version.ID, fleet.ID, watch, &executionMachines, outputNodes, outputsDirectory)
 	},
 }
 

@@ -56,7 +56,6 @@ type Fleets struct {
 type Fleet struct {
 	ID           uuid.UUID `json:"id"`
 	Name         string    `json:"name"`
-	HiveType     string    `json:"hive_type"`
 	Vault        uuid.UUID `json:"vault"`
 	Cluster      string    `json:"cluster"`
 	State        string    `json:"state"`
