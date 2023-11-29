@@ -620,8 +620,7 @@ func readConfigMachines(config *map[string]interface{}, isTool bool, maximumMach
 			if maxMachines {
 				return maximumMachines
 			} else {
-				execMachines = maximumMachines
-				setMachinesToMinimum(execMachines)
+				*execMachines = setMachinesToMinimum(*maximumMachines)
 			}
 		}
 	}

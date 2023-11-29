@@ -42,6 +42,7 @@ var (
 	outputNodesFlag      string
 	ci                   bool
 	createProject        bool
+	fleetName            string
 )
 
 // ExecuteCmd represents the execute command
@@ -67,7 +68,7 @@ var ExecuteCmd = &cobra.Command{
 			}
 		}
 
-		fleet = util.GetFleetInfo()
+		fleet = util.GetFleetInfo(fleetName)
 		if fleet == nil {
 			return
 		}
@@ -87,35 +88,51 @@ var ExecuteCmd = &cobra.Command{
 		allNodes, roots = CreateTrees(version, false)
 		if maxMachines {
 			executionMachines = version.MaxMachines
-		}
+		} else if machineConfiguration != "" {
+			machines := &types.Machines{}
 
-		if machineConfiguration != "" {
-			pattern := `^\d+-\d+-\d+$`
-			regex := regexp.MustCompile(pattern)
-			if regex.MatchString(machineConfiguration) {
-				parts := strings.Split(machineConfiguration, "-")
+			// Managed enterprise fleet, 3 types of machines, small-medium-large
+			if len(fleet.Machines) == 3 {
+				pattern := `^\d+-\d+-\d+$`
+				regex := regexp.MustCompile(pattern)
 
-				machines := &types.Machines{}
+				if regex.MatchString(machineConfiguration) {
+					parts := strings.Split(machineConfiguration, "-")
 
-				if small, err := strconv.Atoi(parts[0]); err == nil && small != 0 {
-					machines.Small = &small
+					if small, err := strconv.Atoi(parts[0]); err == nil && small != 0 {
+						machines.Small = &small
+					}
+
+					if medium, err := strconv.Atoi(parts[1]); err == nil && medium != 0 {
+						machines.Medium = &medium
+					}
+
+					if large, err := strconv.Atoi(parts[2]); err == nil && large != 0 {
+						machines.Large = &large
+					}
+					executionMachines = *machines
+				} else {
+					fmt.Printf("Invalid machine configuration \"%s\".\n", machineConfiguration)
+					fmt.Println("Please use the format: small-medium-large (e.g., 0-0-3)")
+					os.Exit(1)
 				}
-
-				if medium, err := strconv.Atoi(parts[1]); err == nil && medium != 0 {
-					machines.Medium = &medium
-				}
-
-				if large, err := strconv.Atoi(parts[2]); err == nil && large != 0 {
-					machines.Large = &large
-				}
-
-				executionMachines = *machines
-
 			} else {
-				fmt.Printf("Invalid machine configuration \"%s\".\n", machineConfiguration)
-				fmt.Println("Please use the format: small-medium-large (e.g., 0-0-3)")
-				os.Exit(0)
+				defaultOrSelfHosted, err := strconv.Atoi(machineConfiguration)
+				if err != nil {
+					fmt.Printf("Invalid machine configuration \"%s\".\n", machineConfiguration)
+					os.Exit(1)
+				}
+
+				if fleet.Type == "MANAGED" {
+					machines.Default = &defaultOrSelfHosted
+				} else if fleet.Type == "HOSTED" {
+					machines.SelfHosted = &defaultOrSelfHosted
+				}
 			}
+			executionMachines = *machines
+
+		} else {
+			executionMachines = setMachinesToMinimum(version.MaxMachines)
 		}
 
 		outputNodes := make([]string, 0)
@@ -130,7 +147,7 @@ var ExecuteCmd = &cobra.Command{
 			os.Exit(0)
 		}
 
-		createRun(version.ID, fleet.ID, watch, &executionMachines, outputNodes, outputsDirectory)
+		createRun(version.ID, fleet.ID, watch, outputNodes, outputsDirectory)
 	},
 }
 
@@ -141,12 +158,13 @@ func init() {
 	ExecuteCmd.Flags().BoolVar(&showParams, "show-params", false, "Show parameters in the workflow tree")
 	// ExecuteCmd.Flags().StringVar(&workflowYAML, "file", "", "Workflow YAML file to execute")
 	ExecuteCmd.Flags().BoolVar(&maxMachines, "max", false, "Use maximum number of machines for workflow execution")
-	ExecuteCmd.Flags().StringVar(&machineConfiguration, "machines", "", "Specify the number of machines (format: small-medium-large). Examples: 1-1-1, 0-0-3")
+	ExecuteCmd.Flags().StringVar(&machineConfiguration, "machines", "", "Specify the number of machines. Use one value for default/self-hosted machines (--machines 3) or three values for small-medium-large (--machines 1-1-1)")
 	ExecuteCmd.Flags().BoolVar(&downloadAllNodes, "output-all", false, "Download all outputs when the execution is finished")
 	ExecuteCmd.Flags().StringVar(&outputNodesFlag, "output", "", "A comma separated list of nodes which outputs should be downloaded when the execution is finished")
 	ExecuteCmd.Flags().StringVar(&outputsDirectory, "output-dir", "", "Path to directory which should be used to store outputs")
 	ExecuteCmd.Flags().BoolVar(&ci, "ci", false, "Run in CI mode (in-progreess executions will be stopped when the CLI is forcefully stopped - if not set, you will be asked for confirmation)")
 	ExecuteCmd.Flags().BoolVar(&createProject, "create-project", false, "If the project doesn't exist, create it using the project flag as its name (or workflow name if not set)")
+	ExecuteCmd.Flags().StringVar(&fleetName, "fleet", "", "The name of the fleet to use to execute the workflow")
 }
 
 func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, objectPath string) *types.WorkflowVersionDetailed {
