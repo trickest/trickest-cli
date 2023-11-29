@@ -98,11 +98,10 @@ func getScripts(pageSize int, search string, name string) []types.Script {
 	return scripts.Results
 }
 
-func createRun(versionID, fleetID uuid.UUID, watch bool, machines *types.Machines, outputNodes []string, outputsDir string) {
+func createRun(versionID, fleetID uuid.UUID, watch bool, outputNodes []string, outputsDir string) {
 
 	run := types.CreateRun{
 		VersionID: versionID,
-		Vault:     fleet.Vault,
 		Machines:  executionMachines,
 		Fleet:     &fleetID,
 	}
@@ -117,18 +116,6 @@ func createRun(versionID, fleetID uuid.UUID, watch bool, machines *types.Machine
 	if resp == nil {
 		fmt.Println("Error: Couldn't create run!")
 		os.Exit(0)
-	}
-
-	if resp.Status() != http.StatusCreated {
-		run.Fleet = nil
-
-		data, err := json.Marshal(run)
-		if err != nil {
-			fmt.Println("Error encoding create run request!")
-			os.Exit(0)
-		}
-
-		resp = request.Trickest.Post().Body(data).DoF("execution/")
 	}
 
 	if resp.Status() != http.StatusCreated {
@@ -151,9 +138,9 @@ func createRun(versionID, fleetID uuid.UUID, watch bool, machines *types.Machine
 	if watch {
 		WatchRun(createRunResp.ID, outputsDir, nodesToDownload, nil, false, &executionMachines, showParams)
 	} else {
-		availableMachines := GetAvailableMachines()
+		availableMachines := GetAvailableMachines(fleetName)
 		fmt.Println("Run successfully created! ID: " + createRunResp.ID.String())
-		fmt.Print("Machines:\n" + FormatMachines(*machines, false))
+		fmt.Print("Machines:\n" + FormatMachines(executionMachines, false))
 		fmt.Print("\nAvailable:\n" + FormatMachines(availableMachines, false))
 	}
 }
@@ -193,7 +180,8 @@ func createNewVersion(version *types.WorkflowVersionDetailed) *types.WorkflowVer
 		return nil
 	}
 
-	newVersion := output.GetWorkflowVersionByID(newVersionInfo.ID)
+	fleet := util.GetFleetInfo(fleetName)
+	newVersion := output.GetWorkflowVersionByID(newVersionInfo.ID, fleet.ID)
 	return newVersion
 }
 
@@ -396,8 +384,8 @@ func processInvalidInputType(newPNode, existingPNode types.PrimitiveNode) {
 	os.Exit(0)
 }
 
-func GetAvailableMachines() types.Machines {
-	hiveInfo := util.GetFleetInfo()
+func GetAvailableMachines(fleetName string) types.Machines {
+	hiveInfo := util.GetFleetInfo(fleetName)
 	availableMachines := types.Machines{}
 	for _, machine := range hiveInfo.Machines {
 		if machine.Name == "small" {
@@ -411,6 +399,14 @@ func GetAvailableMachines() types.Machines {
 		if machine.Name == "large" {
 			available := machine.Total - machine.Running
 			availableMachines.Large = &available
+		}
+		if machine.Name == "default" {
+			available := machine.Total - machine.Running
+			availableMachines.Default = &available
+		}
+		if machine.Name == "self_hosted" {
+			available := machine.Total - machine.Running
+			availableMachines.SelfHosted = &available
 		}
 	}
 	return availableMachines
@@ -477,7 +473,7 @@ func stopRun(runID uuid.UUID) {
 	}
 }
 
-func setMachinesToMinimum(machines *types.Machines) {
+func setMachinesToMinimum(machines types.Machines) types.Machines {
 	if machines.Small != nil {
 		*machines.Small = 1
 	}
@@ -487,50 +483,50 @@ func setMachinesToMinimum(machines *types.Machines) {
 	if machines.Large != nil {
 		*machines.Large = 1
 	}
+	if machines.Default != nil {
+		*machines.Default = 1
+	}
+	if machines.SelfHosted != nil {
+		*machines.SelfHosted = 1
+	}
+
+	return machines
 }
 
 func FormatMachines(machines types.Machines, inline bool) string {
-	var small, medium, large string
-	if machines.Small != nil {
-		small = "small: " + strconv.Itoa(*machines.Small)
-	}
-	if machines.Medium != nil {
-		medium = "medium: " + strconv.Itoa(*machines.Medium)
-	}
-	if machines.Large != nil {
-		large = "large: " + strconv.Itoa(*machines.Large)
-	}
+	smallMachines := formatSize("small", machines.Small)
+	mediumMachines := formatSize("medium", machines.Medium)
+	largeMachines := formatSize("large", machines.Large)
+	selfHostedMachines := formatSize("self hosted", machines.SelfHosted)
+	defaultMachines := formatSize("default", machines.Default)
 
-	out := ""
+	var out string
 	if inline {
-		if small != "" {
-			out = small
-		}
-		if medium != "" {
-			if small != "" {
-				out += ", "
-			}
-			out += medium
-		}
-		if large != "" {
-			if small != "" || medium != "" {
-				out += ", "
-			}
-			out += large
-		}
+		out = joinNonEmptyValues(", ", smallMachines, mediumMachines, largeMachines, selfHostedMachines, defaultMachines)
 	} else {
-		if small != "" {
-			out = " " + small + "\n "
-		}
-		if medium != "" {
-			out += medium + "\n "
-		}
-		if large != "" {
-			out += large + "\n"
+		out = joinNonEmptyValues("\n ", " "+smallMachines, mediumMachines, largeMachines, selfHostedMachines, defaultMachines)
+	}
+	return out
+}
+
+func formatSize(sizeName string, size *int) string {
+	if size != nil {
+		return sizeName + ": " + strconv.Itoa(*size)
+	}
+	return ""
+}
+
+func joinNonEmptyValues(separator string, values ...string) string {
+	var nonEmptyValues []string
+
+	for _, value := range values {
+		if value != "" {
+			nonEmptyValues = append(nonEmptyValues, value)
 		}
 	}
 
-	return out
+	result := strings.Join(nonEmptyValues, separator)
+	return result
 }
 
 func getNodeNameFromConnectionID(id string) string {
@@ -596,6 +592,25 @@ func uploadFilesIfNeeded(primitiveNodes map[string]*types.PrimitiveNode) {
 }
 
 func maxMachinesTypeCompatible(machines, maxMachines types.Machines) bool {
+	if machines.Default != nil && *machines.Default > *maxMachines.Default {
+		return false
+	}
+	if machines.SelfHosted != nil && *machines.SelfHosted > *maxMachines.SelfHosted {
+		return false
+	}
+
+	if machines.Small != nil && *machines.Small > *maxMachines.Small {
+		return false
+	}
+
+	if machines.Medium != nil && *machines.Medium > *maxMachines.Medium {
+		return false
+	}
+
+	if machines.Large != nil && *machines.Large > *maxMachines.Large {
+		return false
+	}
+
 	if (machines.Small != nil && maxMachines.Small == nil) ||
 		(machines.Medium != nil && maxMachines.Medium == nil) ||
 		(machines.Large != nil && maxMachines.Large == nil) {

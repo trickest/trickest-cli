@@ -106,7 +106,7 @@ func GetMe() *types.User {
 	return &user
 }
 
-func GetFleetInfo() *types.Fleet {
+func GetFleetInfo(fleetName string) *types.Fleet {
 	resp := request.Trickest.Get().DoF("fleet/?vault=%s", GetVault())
 	if resp == nil || resp.Status() != http.StatusOK {
 		request.ProcessUnexpectedResponse(resp)
@@ -119,11 +119,29 @@ func GetFleetInfo() *types.Fleet {
 		return nil
 	}
 
-	if len(fleets.Results) == 0 {
+	if fleets.Count == 0 {
 		fmt.Println("Error: Couldn't find any active fleets")
+		return nil
+	} else if fleets.Count == 1 {
+		if fleetName == "" || fleets.Results[0].Name == fleetName {
+			return &fleets.Results[0]
+		} else {
+			fmt.Println("Error: Couldn't find a fleet with the specified name")
+		}
+	} else {
+		for _, fleet := range fleets.Results {
+			if fleet.Name == fleetName {
+				return &fleet
+			}
+		}
 	}
 
-	return &fleets.Results[0]
+	if fleetName == "" {
+		fmt.Println("Error: You have multiple fleets. Use the --fleet flag to specify which one to use")
+	} else {
+		fmt.Println("Error: Couldn't find a fleet with the specified name")
+	}
+	return nil
 }
 
 func GetSpaces(name string) []types.Space {

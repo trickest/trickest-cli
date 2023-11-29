@@ -135,7 +135,9 @@ trickest execute --workflow <workflow_or_tool_name> --space <space_name> --confi
 | --set-name       | string  | /       | Sets the new workflow name and will copy the workflow to space and project supplied                                                         |
 | --ci             | boolean | false   | Enable CI mode (in-progress executions will be stopped when the CLI is forcefully stopped - if not set, you will be asked for confirmation) |
 | --create-project | boolean | false   | If the project doesn't exist, create one using the project flag as its name (or workflow/tool name if project flag is not set)              |
-| --machines       | string  | /       | Specify the number of machines (format: small-medium-large). Examples: 1-1-1, 0-0-3                                                         |
+| --machines       | string  | /       | Specify the number of machines. Use one value for default/self-hosted machines (--machines 3) or three values for small-medium-large (--machines 1-1-1)                                                         |
+| --fleet          | string  | /       | The name of the fleet to use to execute the workflow 
+
 
 #### Provide parameters using **config.yaml** file
 

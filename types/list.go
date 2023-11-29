@@ -127,9 +127,11 @@ type Run struct {
 }
 
 type Machines struct {
-	Small  *int `json:"small,omitempty"`
-	Medium *int `json:"medium,omitempty"`
-	Large  *int `json:"large,omitempty"`
+	Small      *int `json:"small,omitempty"`
+	Medium     *int `json:"medium,omitempty"`
+	Large      *int `json:"large,omitempty"`
+	Default    *int `json:"default,omitempty"`
+	SelfHosted *int `json:"self_hosted,omitempty"`
 }
 
 type SubJobs struct {

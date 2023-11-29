@@ -54,14 +54,12 @@ type Fleets struct {
 }
 
 type Fleet struct {
-	ID           uuid.UUID `json:"id"`
-	Name         string    `json:"name"`
-	Vault        uuid.UUID `json:"vault"`
-	Cluster      string    `json:"cluster"`
-	State        string    `json:"state"`
-	CreatedDate  time.Time `json:"created_date"`
-	ModifiedDate time.Time `json:"modified_date"`
-	Machines     []struct {
+	ID       uuid.UUID `json:"id"`
+	Name     string    `json:"name"`
+	Vault    uuid.UUID `json:"vault"`
+	Cluster  string    `json:"cluster"`
+	State    string    `json:"state"`
+	Machines []struct {
 		Name        string `json:"name"`
 		Description string `json:"description"`
 		Mem         string `json:"mem"`
@@ -70,6 +68,9 @@ type Fleet struct {
 		Running     int    `json:"running"`
 		Up          int    `json:"up"`
 		Down        int    `json:"down"`
-		Error       int    `json:"error"`
 	} `json:"machines"`
+	CreatedDate  time.Time `json:"created_date"`
+	ModifiedDate time.Time `json:"modified_date"`
+	Type         string    `json:"type"`
+	Default      bool      `json:"default"`
 }

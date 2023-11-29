@@ -139,7 +139,7 @@ The YAML config file should be formatted like:
 			runs = append(runs, runs...)
 		}
 
-		version := GetWorkflowVersionByID(*runs[0].WorkflowVersionInfo)
+		version := GetWorkflowVersionByID(*runs[0].WorkflowVersionInfo, uuid.Nil)
 		if version == nil {
 			return
 		}
@@ -175,7 +175,7 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string
 	}
 
 	if version == nil {
-		version = GetWorkflowVersionByID(*run.WorkflowVersionInfo)
+		version = GetWorkflowVersionByID(*run.WorkflowVersionInfo, uuid.Nil)
 	}
 
 	subJobs := getSubJobs(*run.ID)
@@ -544,8 +544,8 @@ func GetRuns(workflowID uuid.UUID, pageSize int) []types.Run {
 	return runs.Results
 }
 
-func GetWorkflowVersionByID(id uuid.UUID) *types.WorkflowVersionDetailed {
-	resp := request.Trickest.Get().DoF("library/workflow-version/%s/", id)
+func GetWorkflowVersionByID(versionID, fleetID uuid.UUID) *types.WorkflowVersionDetailed {
+	resp := request.Trickest.Get().DoF("library/workflow-version/%s/", versionID)
 	if resp == nil {
 		fmt.Println("Error: Couldn't get workflow version!")
 		return nil
@@ -562,7 +562,35 @@ func GetWorkflowVersionByID(id uuid.UUID) *types.WorkflowVersionDetailed {
 		return nil
 	}
 
+	if fleetID != uuid.Nil {
+		maxMachines, err := GetWorkflowVersionMaxMachines(versionID, fleetID)
+		if err != nil {
+			fmt.Printf("Error getting maximum machines: %v", err)
+			return nil
+		}
+		workflowVersion.MaxMachines = maxMachines
+
+	}
 	return &workflowVersion
+}
+
+func GetWorkflowVersionMaxMachines(version, fleet uuid.UUID) (types.Machines, error) {
+	resp := request.Trickest.Get().DoF("library/workflow-version/%s/max-machines/?fleet=%s", version, fleet)
+	if resp == nil {
+		return types.Machines{}, fmt.Errorf("couldn't get workflow version's maximum machines")
+	}
+
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
+	}
+
+	var machines types.Machines
+	err := json.Unmarshal(resp.Body(), &machines)
+	if err != nil {
+		return types.Machines{}, fmt.Errorf("couldn't unmarshal workflow versions's maximum machines: %v", err)
+	}
+
+	return machines, nil
 }
 
 func getChildrenSubJobsCount(subJobID uuid.UUID) int {
