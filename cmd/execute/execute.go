@@ -86,51 +86,32 @@ var ExecuteCmd = &cobra.Command{
 		}
 
 		allNodes, roots = CreateTrees(version, false)
+
 		if maxMachines {
 			executionMachines = version.MaxMachines
 		} else if machineConfiguration != "" {
-			machines := &types.Machines{}
+			machines, err := parseMachineConfiguration(machineConfiguration)
+			if err != nil {
+				fmt.Printf("Error: %s\n", err)
+				os.Exit(1)
+			}
 
-			// Managed enterprise fleet, 3 types of machines, small-medium-large
 			if len(fleet.Machines) == 3 {
-				pattern := `^\d+-\d+-\d+$`
-				regex := regexp.MustCompile(pattern)
+				// 3 types of machines: small, medium, and large
+				executionMachines = machines
 
-				if regex.MatchString(machineConfiguration) {
-					parts := strings.Split(machineConfiguration, "-")
-
-					if small, err := strconv.Atoi(parts[0]); err == nil && small != 0 {
-						machines.Small = &small
-					}
-
-					if medium, err := strconv.Atoi(parts[1]); err == nil && medium != 0 {
-						machines.Medium = &medium
-					}
-
-					if large, err := strconv.Atoi(parts[2]); err == nil && large != 0 {
-						machines.Large = &large
-					}
-					executionMachines = *machines
-				} else {
-					fmt.Printf("Invalid machine configuration \"%s\".\n", machineConfiguration)
-					fmt.Println("Please use the format: small-medium-large (e.g., 0-0-3)")
+				if machines.Default != nil {
+					fmt.Printf("Error: you need to use the small-medium-large format to specify the numbers of machines (e.g. 1-2-3)")
 					os.Exit(1)
 				}
 			} else {
-				defaultOrSelfHosted, err := strconv.Atoi(machineConfiguration)
+				// 1 type of machine
+				executionMachines, err = handleSingleMachineType(*fleet, machines)
 				if err != nil {
-					fmt.Printf("Invalid machine configuration \"%s\".\n", machineConfiguration)
+					fmt.Printf("Error: %s\n", err)
 					os.Exit(1)
 				}
-
-				if fleet.Type == "MANAGED" {
-					machines.Default = &defaultOrSelfHosted
-				} else if fleet.Type == "HOSTED" {
-					machines.SelfHosted = &defaultOrSelfHosted
-				}
 			}
-			executionMachines = *machines
-
 		} else {
 			executionMachines = setMachinesToMinimum(version.MaxMachines)
 		}
@@ -149,6 +130,70 @@ var ExecuteCmd = &cobra.Command{
 
 		createRun(version.ID, fleet.ID, watch, outputNodes, outputsDirectory)
 	},
+}
+
+func parseMachineConfiguration(config string) (types.Machines, error) {
+	pattern := `^\d+-\d+-\d+$`
+	regex := regexp.MustCompile(pattern)
+
+	if regex.MatchString(config) {
+		// 3 types of machines, 3 hyphen-delimited inputs
+		parts := strings.Split(config, "-")
+
+		if len(parts) != 3 {
+			return types.Machines{}, fmt.Errorf("invalid number of machines in machine configuration \"%s\"", config)
+		}
+
+		sizes := make([]int, 3)
+		for index, part := range parts {
+			if size, err := strconv.Atoi(part); err == nil {
+				sizes[index] = size
+			} else {
+				return types.Machines{}, fmt.Errorf("invalid machine configuration \"%s\"", config)
+			}
+		}
+
+		return types.Machines{
+			// sizes = [small, medium, large]
+			Small:  &sizes[0],
+			Medium: &sizes[1],
+			Large:  &sizes[2],
+		}, nil
+	}
+
+	// One type of machine
+	val, err := strconv.Atoi(config)
+	if err != nil {
+		return types.Machines{}, fmt.Errorf("invalid machine configuration \"%s\"", config)
+	}
+
+	return types.Machines{Default: &val}, nil
+}
+
+func handleSingleMachineType(fleet types.Fleet, machines types.Machines) (types.Machines, error) {
+	var configMachines types.Machines
+
+	var defaultOrSelfHosted int
+	if machines.Default != nil {
+		defaultOrSelfHosted = *machines.Default
+	} else {
+		// Backward-compatibility with the small-medium-large format
+		defaultOrSelfHosted = *machines.Small + *machines.Medium + *machines.Large
+		fmt.Printf("Warning: You have one type of machine in your fleet. %d identical or self-hosted machines will be used.\n", defaultOrSelfHosted)
+	}
+
+	if defaultOrSelfHosted == 0 {
+		return types.Machines{}, fmt.Errorf("cannot run the workflow on %d machines", defaultOrSelfHosted)
+	}
+
+	if fleet.Type == "MANAGED" {
+		configMachines.Default = &defaultOrSelfHosted
+	} else if fleet.Type == "HOSTED" {
+		configMachines.SelfHosted = &defaultOrSelfHosted
+	} else {
+		return types.Machines{}, fmt.Errorf("unsupported format. Use small-medium-large (e.g., 0-0-3)")
+	}
+	return configMachines, nil
 }
 
 func init() {
