@@ -592,34 +592,19 @@ func uploadFilesIfNeeded(primitiveNodes map[string]*types.PrimitiveNode) {
 }
 
 func maxMachinesTypeCompatible(machines, maxMachines types.Machines) bool {
-	if machines.Default != nil && *machines.Default > *maxMachines.Default {
-		return false
-	}
-	if machines.SelfHosted != nil && *machines.SelfHosted > *maxMachines.SelfHosted {
+	return verifyMachineType(machines.Default, maxMachines.Default) &&
+		verifyMachineType(machines.SelfHosted, maxMachines.SelfHosted) &&
+		verifyMachineType(machines.Small, maxMachines.Small) &&
+		verifyMachineType(machines.Medium, maxMachines.Medium) &&
+		verifyMachineType(machines.Large, maxMachines.Large)
+}
+
+func verifyMachineType(machine, maxMachine *int) bool {
+	if machine != nil && maxMachine != nil && *machine > *maxMachine {
 		return false
 	}
 
-	if machines.Small != nil && *machines.Small > *maxMachines.Small {
-		return false
-	}
-
-	if machines.Medium != nil && *machines.Medium > *maxMachines.Medium {
-		return false
-	}
-
-	if machines.Large != nil && *machines.Large > *maxMachines.Large {
-		return false
-	}
-
-	if (machines.Small != nil && maxMachines.Small == nil) ||
-		(machines.Medium != nil && maxMachines.Medium == nil) ||
-		(machines.Large != nil && maxMachines.Large == nil) {
-		return false
-	}
-
-	if (machines.Small == nil && maxMachines.Small != nil) ||
-		(machines.Medium == nil && maxMachines.Medium != nil) ||
-		(machines.Large == nil && maxMachines.Large != nil) {
+	if (machine != nil && maxMachine == nil) || (machine == nil && maxMachine != nil) {
 		return false
 	}
 
