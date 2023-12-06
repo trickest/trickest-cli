@@ -50,7 +50,19 @@ type WorkflowVersionDetailed struct {
 		Nodes          map[string]*Node          `json:"nodes"`
 		Connections    []Connection              `json:"connections"`
 		PrimitiveNodes map[string]*PrimitiveNode `json:"primitiveNodes"`
+		Annotations    map[string]*Annotation    `json:"annotations"`
 	} `json:"data"`
+}
+
+type Annotation struct {
+	Content     string  `json:"content"`
+	Width       float64 `json:"width"`
+	Height      float64 `json:"height"`
+	Name        string  `json:"name"`
+	Coordinates struct {
+		X float64 `json:"x"`
+		Y float64 `json:"y"`
+	} `json:"coordinates"`
 }
 
 type WorkflowVersionStripped struct {
@@ -64,6 +76,7 @@ type WorkflowVersionStripped struct {
 		Nodes          map[string]*Node          `json:"nodes"`
 		Connections    []Connection              `json:"connections"`
 		PrimitiveNodes map[string]*PrimitiveNode `json:"primitiveNodes"`
+		Annotations    map[string]*Annotation    `json:"annotations"`
 	} `json:"data"`
 }
 
@@ -139,4 +152,5 @@ type NodeInput struct {
 	Description     *string     `json:"description,omitempty"`
 	WorkerConnected *bool       `json:"workerConnected,omitempty"`
 	Multi           *bool       `json:"multi,omitempty"`
+	Visible         *bool       `json:"visible"`
 }
