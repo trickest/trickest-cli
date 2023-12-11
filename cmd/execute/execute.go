@@ -987,8 +987,8 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 	var primitiveNodes map[string]*types.PrimitiveNode
 	projectCreated := false
 
-	space, project, workflow, _ := util.ResolveObjectPath(objectPath, false)
-	if workflow == nil {
+	space, project, workflow, _ := util.ResolveObjectPath(objectPath, true)
+	if util.URL != "" {
 		space, project, workflow, _ = util.ResolveObjectURL(util.URL)
 	}
 
