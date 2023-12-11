@@ -125,9 +125,9 @@ func WatchRun(runID uuid.UUID, downloadPath string, nodesToDownload map[string]o
 			}
 			if downloadAllNodes {
 				// DownloadRunOutputs downloads all outputs if no nodes were specified
-				output.DownloadRunOutput(run, nil, nil, nil, downloadPath)
+				output.DownloadRunOutput(run, nil, nil, downloadPath)
 			} else if len(nodesToDownload) > 0 {
-				output.DownloadRunOutput(run, nodesToDownload, filesToDownload, nil, downloadPath)
+				output.DownloadRunOutput(run, nodesToDownload, filesToDownload, downloadPath)
 			}
 			mutex.Unlock()
 			return
