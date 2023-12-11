@@ -284,7 +284,7 @@ func GetWorkflowByID(id uuid.UUID) *types.Workflow {
 	return &workflow
 }
 
-func ResolveObjectPath(path string, silent bool, isProject bool) (*types.SpaceDetailed, *types.Project, *types.Workflow, bool) {
+func ResolveObjectPath(path string, silent bool) (*types.SpaceDetailed, *types.Project, *types.Workflow, bool) {
 	pathSplit := strings.Split(strings.Trim(path, "/"), "/")
 	if len(pathSplit) > 3 {
 		if !silent {
@@ -292,7 +292,13 @@ func ResolveObjectPath(path string, silent bool, isProject bool) (*types.SpaceDe
 		}
 		return nil, nil, nil, false
 	}
-	space := GetSpaceByName(pathSplit[0])
+
+	var space *types.SpaceDetailed
+	var project *types.Project
+	var workflow *types.Workflow
+
+	spaceName := pathSplit[0]
+	space = GetSpaceByName(spaceName)
 	if space == nil {
 		if !silent {
 			fmt.Println("Couldn't find space named " + pathSplit[0] + "!")
@@ -302,77 +308,68 @@ func ResolveObjectPath(path string, silent bool, isProject bool) (*types.SpaceDe
 
 	if len(pathSplit) == 1 {
 		return space, nil, nil, true
-	}
-
-	// Space and workflow with no project
-	var projectName string
-	var workflowName string
-	if len(pathSplit) == 2 {
-		if isProject {
-			projectName = pathSplit[1]
-			workflowName = ""
-		} else {
-			projectName = ""
-			workflowName = pathSplit[1]
-		}
-	} else {
-		projectName = pathSplit[1]
-		workflowName = pathSplit[2]
-	}
-
-	var project *types.Project
-	if space.Projects != nil && len(space.Projects) > 0 {
+	} else if len(pathSplit) == 2 {
+		objectName := pathSplit[1]
 		for _, proj := range space.Projects {
-			if proj.Name == projectName {
+			if objectName == proj.Name {
+				project = &proj
+				project.Workflows = GetWorkflows(project.ID, uuid.Nil, "", false)
+				return space, project, nil, true
+			}
+		}
+		for _, wf := range space.Workflows {
+			if objectName == wf.Name {
+				workflow = GetWorkflowByID(wf.ID)
+				return space, nil, workflow, true
+			}
+		}
+		if !silent {
+			fmt.Printf("Couldn't find project or workflow named %s inside %s space!", objectName, spaceName)
+		}
+		return space, nil, nil, false
+	} else {
+		projectName := pathSplit[1]
+		workflowName := pathSplit[2]
+
+		for _, proj := range space.Projects {
+			if projectName == proj.Name {
 				project = &proj
 				project.Workflows = GetWorkflows(project.ID, uuid.Nil, "", false)
 				break
 			}
 		}
-	}
-
-	var workflow *types.Workflow
-	if space.Workflows != nil && len(space.Workflows) > 0 {
-		for _, wf := range space.Workflows {
-			if wf.Name == workflowName {
-				workflow = &wf
-				break
+		if project == nil {
+			if project == nil {
+				if !silent {
+					fmt.Printf("Couldn't find project named %s inside %s space!", projectName, spaceName)
+				}
+				return space, nil, nil, false
 			}
 		}
-	}
-
-	if len(pathSplit) == 2 {
-		if project != nil || workflow != nil {
+		if project.Workflows != nil {
+			for _, wf := range project.Workflows {
+				if workflowName == wf.Name {
+					workflow = GetWorkflowByID(wf.ID)
+					break
+				}
+			}
+		}
+		if project != nil && workflow != nil {
 			return space, project, workflow, true
-		}
-		if workflow != nil {
-			return space, nil, workflow, true
-		}
-		if !silent {
-			fmt.Println("Couldn't find project or workflow named " + pathSplit[1] + " inside " +
-				pathSplit[0] + " space!")
-		}
-		return space, nil, nil, false
-	}
-
-	if project != nil && project.Workflows != nil && len(project.Workflows) > 0 {
-		for _, wf := range project.Workflows {
-			if wf.Name == pathSplit[2] {
-				fullWorkflow := GetWorkflowByID(wf.ID)
-				return space, project, fullWorkflow, true
+		} else {
+			if project == nil {
+				if !silent {
+					fmt.Printf("Couldn't find project named %s inside %s space!", projectName, spaceName)
+				}
+				return space, nil, nil, false
+			} else {
+				if !silent {
+					fmt.Printf("Couldn't find workflow named %s in %s/%s", workflowName, spaceName, projectName)
+				}
+				return space, project, nil, false
 			}
 		}
-	} else {
-		if !silent {
-			fmt.Println("No workflows found in " + pathSplit[0] + "/" + pathSplit[1])
-		}
-		return space, project, nil, false
 	}
-
-	if !silent {
-		fmt.Println("Couldn't find workflow named " + pathSplit[2] + " in " + pathSplit[0] + "/" + pathSplit[1] + "/")
-	}
-	return space, project, nil, false
 }
 
 func ResolveObjectURL(objectURL string) (*types.SpaceDetailed, *types.Project, *types.Workflow, bool) {
@@ -472,7 +469,7 @@ func GetObjects(args []string) (*types.SpaceDetailed, *types.Project, *types.Wor
 
 	switch {
 	case path != "":
-		return ResolveObjectPath(path, true, false)
+		return ResolveObjectPath(path, true)
 
 	case URL != "":
 		return ResolveObjectURL(URL)

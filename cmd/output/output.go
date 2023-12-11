@@ -139,11 +139,6 @@ The YAML config file should be formatted like:
 			runs = append(runs, runs...)
 		}
 
-		version := GetWorkflowVersionByID(*runs[0].WorkflowVersionInfo, uuid.Nil)
-		if version == nil {
-			return
-		}
-
 		path := util.FormatPath()
 		if outputDir != "" {
 			path = outputDir
@@ -152,7 +147,7 @@ The YAML config file should be formatted like:
 			if run.Status == "SCHEDULED" {
 				continue
 			}
-			DownloadRunOutput(&run, nodes, files, version, path)
+			DownloadRunOutput(&run, nodes, files, path)
 		}
 	},
 }
@@ -167,16 +162,14 @@ func init() {
 	OutputCmd.Flags().StringVar(&filesFlag, "files", "", "A comma-separated list of file names that should be downloaded from the selected node")
 }
 
-func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string, version *types.WorkflowVersionDetailed, destinationPath string) {
+func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string, destinationPath string) {
 	if run.Status != "COMPLETED" && run.Status != "STOPPED" && run.Status != "FAILED" {
 		fmt.Println("The workflow run hasn't been completed yet!")
 		fmt.Println("Run ID: " + run.ID.String() + "   Status: " + run.Status)
 		return
 	}
 
-	if version == nil {
-		version = GetWorkflowVersionByID(*run.WorkflowVersionInfo, uuid.Nil)
-	}
+	version := GetWorkflowVersionByID(*run.WorkflowVersionInfo, uuid.Nil)
 
 	subJobs := getSubJobs(*run.ID)
 	labels := make(map[string]bool)
@@ -268,7 +261,7 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string
 			}
 		}
 		if noneFound {
-			fmt.Println("Couldn't find any nodes that match given name(s)!")
+			fmt.Printf("No completed node outputs matching your query were found in the \"%s\" run.", run.StartedDate.Format(layout))
 		} else {
 			for nodeName, nodeInfo := range nodes {
 				if !nodeInfo.Found {
