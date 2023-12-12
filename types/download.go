@@ -35,23 +35,34 @@ type SubJobOutput struct {
 	SignedURL  string    `json:"signed_url,omitempty"`
 }
 
+type WorkflowVersionData struct {
+	Nodes          map[string]*Node          `json:"nodes"`
+	Connections    []Connection              `json:"connections"`
+	PrimitiveNodes map[string]*PrimitiveNode `json:"primitiveNodes"`
+	Annotations    map[string]*Annotation    `json:"annotation,omitempty"`
+}
+
 type WorkflowVersionDetailed struct {
-	ID           uuid.UUID `json:"id"`
-	Version      int       `json:"version"`
-	WorkflowInfo uuid.UUID `json:"workflow_info"`
-	Name         *string   `json:"name,omitempty"`
-	Description  string    `json:"description"`
-	Public       bool      `json:"public"`
-	CreatedDate  time.Time `json:"created_date"`
-	RunCount     int       `json:"run_count"`
-	MaxMachines  Machines  `json:"max_machines"`
-	Snapshot     bool      `json:"snapshot"`
-	Data         struct {
-		Nodes          map[string]*Node          `json:"nodes"`
-		Connections    []Connection              `json:"connections"`
-		PrimitiveNodes map[string]*PrimitiveNode `json:"primitiveNodes"`
-		Annotations    map[string]*Annotation    `json:"annotations"`
-	} `json:"data"`
+	ID           uuid.UUID           `json:"id"`
+	Version      int                 `json:"version"`
+	WorkflowInfo uuid.UUID           `json:"workflow_info"`
+	Name         *string             `json:"name,omitempty"`
+	Description  string              `json:"description"`
+	Public       bool                `json:"public"`
+	CreatedDate  time.Time           `json:"created_date"`
+	RunCount     int                 `json:"run_count"`
+	MaxMachines  Machines            `json:"max_machines"`
+	Snapshot     bool                `json:"snapshot"`
+	Data         WorkflowVersionData `json:"data"`
+}
+type WorkflowVersionStripped struct {
+	ID           uuid.UUID           `json:"id"`
+	WorkflowInfo uuid.UUID           `json:"workflow_info"`
+	Name         *string             `json:"name,omitempty"`
+	Description  string              `json:"description"`
+	MaxMachines  Machines            `json:"max_machines"`
+	Snapshot     bool                `json:"snapshot"`
+	Data         WorkflowVersionData `json:"data"`
 }
 
 type Annotation struct {
@@ -63,21 +74,6 @@ type Annotation struct {
 		X float64 `json:"x"`
 		Y float64 `json:"y"`
 	} `json:"coordinates"`
-}
-
-type WorkflowVersionStripped struct {
-	ID           uuid.UUID `json:"id"`
-	WorkflowInfo uuid.UUID `json:"workflow_info"`
-	Name         *string   `json:"name,omitempty"`
-	Description  string    `json:"description"`
-	MaxMachines  Machines  `json:"max_machines"`
-	Snapshot     bool      `json:"snapshot"`
-	Data         struct {
-		Nodes          map[string]*Node          `json:"nodes"`
-		Connections    []Connection              `json:"connections"`
-		PrimitiveNodes map[string]*PrimitiveNode `json:"primitiveNodes"`
-		Annotations    map[string]*Annotation    `json:"annotations"`
-	} `json:"data"`
 }
 
 type Connection struct {
@@ -152,5 +148,5 @@ type NodeInput struct {
 	Description     *string     `json:"description,omitempty"`
 	WorkerConnected *bool       `json:"workerConnected,omitempty"`
 	Multi           *bool       `json:"multi,omitempty"`
-	Visible         *bool       `json:"visible"`
+	Visible         *bool       `json:"visible,omitempty"`
 }
