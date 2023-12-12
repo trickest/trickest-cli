@@ -833,12 +833,7 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 	version := &types.WorkflowVersionDetailed{
 		WorkflowInfo: workflowID,
 		Name:         nil,
-		Data: struct {
-			Nodes          map[string]*types.Node          `json:"nodes"`
-			Connections    []types.Connection              `json:"connections"`
-			PrimitiveNodes map[string]*types.PrimitiveNode `json:"primitiveNodes"`
-			Annotations    map[string]*types.Annotation    `json:"annotations"`
-		}{
+		Data: types.WorkflowVersionData{
 			Nodes:          nodes,
 			Connections:    connections,
 			PrimitiveNodes: primitiveNodes,
@@ -962,12 +957,7 @@ func createToolWorkflow(wfName string, space *types.SpaceDetailed, project *type
 	newVersion := &types.WorkflowVersionDetailed{
 		WorkflowInfo: workflowID,
 		Name:         nil,
-		Data: struct {
-			Nodes          map[string]*types.Node          `json:"nodes"`
-			Connections    []types.Connection              `json:"connections"`
-			PrimitiveNodes map[string]*types.PrimitiveNode `json:"primitiveNodes"`
-			Annotations    map[string]*types.Annotation    `json:"annotations"`
-		}{
+		Data: types.WorkflowVersionData{
 			Nodes: map[string]*types.Node{
 				node.Name: node,
 			},
