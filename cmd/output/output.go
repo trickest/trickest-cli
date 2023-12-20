@@ -538,7 +538,7 @@ func GetRuns(workflowID uuid.UUID, pageSize int) []types.Run {
 }
 
 func GetWorkflowVersionByID(versionID, fleetID uuid.UUID) *types.WorkflowVersionDetailed {
-	resp := request.Trickest.Get().DoF("library/workflow-version/%s/", versionID)
+	resp := request.Trickest.Get().DoF("workflow-version/%s/", versionID)
 	if resp == nil {
 		fmt.Println("Error: Couldn't get workflow version!")
 		return nil
@@ -568,7 +568,7 @@ func GetWorkflowVersionByID(versionID, fleetID uuid.UUID) *types.WorkflowVersion
 }
 
 func GetWorkflowVersionMaxMachines(version, fleet uuid.UUID) (types.Machines, error) {
-	resp := request.Trickest.Get().DoF("library/workflow-version/%s/max-machines/?fleet=%s", version, fleet)
+	resp := request.Trickest.Get().DoF("workflow-version/%s/max-machines/?fleet=%s", version, fleet)
 	if resp == nil {
 		return types.Machines{}, fmt.Errorf("couldn't get workflow version's maximum machines")
 	}

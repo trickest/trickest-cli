@@ -163,7 +163,7 @@ func createNewVersion(version *types.WorkflowVersionDetailed) *types.WorkflowVer
 		os.Exit(0)
 	}
 
-	resp := request.Trickest.Post().Body(data).DoF("library/workflow-version/")
+	resp := request.Trickest.Post().Body(data).DoF("workflow-version/")
 	if resp == nil {
 		fmt.Println("Error: Couldn't create version!")
 		os.Exit(0)
@@ -247,7 +247,7 @@ func uploadFile(filePath string) string {
 }
 
 func GetLatestWorkflowVersion(workflowID uuid.UUID) *types.WorkflowVersionDetailed {
-	resp := request.Trickest.Get().DoF("library/workflow-version/latest/?workflow=%s", workflowID)
+	resp := request.Trickest.Get().DoF("workflow-version/latest/?workflow=%s", workflowID)
 	if resp == nil {
 		fmt.Println("Error: Couldn't get latest workflow version!")
 		os.Exit(0)
