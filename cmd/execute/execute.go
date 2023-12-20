@@ -153,12 +153,21 @@ func parseMachineConfiguration(config string) (types.Machines, error) {
 			}
 		}
 
-		return types.Machines{
-			// sizes = [small, medium, large]
-			Small:  &sizes[0],
-			Medium: &sizes[1],
-			Large:  &sizes[2],
-		}, nil
+		var machines types.Machines
+
+		if sizes[0] != 0 {
+			machines.Small = &sizes[0]
+		}
+
+		if sizes[1] != 0 {
+			machines.Medium = &sizes[1]
+		}
+
+		if sizes[2] != 0 {
+			machines.Large = &sizes[2]
+		}
+
+		return machines, nil
 	}
 
 	// One type of machine
