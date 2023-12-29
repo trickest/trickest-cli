@@ -270,6 +270,48 @@ trickest files delete --file delete_me.txt
 | --file               | string  | /       | File or files (comma-separated)                                     |
 
 
+## Tools command
+Manage private tools
+
+⚒️ Learn how to add your first tool integration [here](#).
+
+#### Create a new private tool integration
+```
+trickest tools create --file tool.yaml
+```
+
+| Flag                 | Type   | Default  | Description                                                         |
+|----------------------|--------|----------|---------------------------------------------------------------------|
+| --file               | string  | /       | YAML file for tool definition                                       |
+
+#### Update a private tool integration
+```
+trickest tools update --file tool.yaml
+```
+
+| Flag                 | Type   | Default  | Description                                                         |
+|----------------------|--------|----------|---------------------------------------------------------------------|
+| --file               | string  | /       | YAML file for tool definition                                       |
+
+#### List private tool integrations
+```
+trickest tools list
+```
+
+| Flag                 | Type    | Default     | Description                                                         |
+|----------------------|---------|------===----|---------------------------------------------------------------------|
+| --json               | boolean | false       | Display output in JSON format                                      |
+
+#### Delete a private tool integration
+```
+trickest tools delete --name "my-tool"
+```
+
+| Flag                 | Type   | Default  | Description                                                         |
+|----------------------|--------|----------|---------------------------------------------------------------------|
+| --id                 | string  | /       | ID of the tool to delete                                            |
+| --name               | string  | /       | Name of the tool to delete                                          |
+
 ## Report Bugs / Feedback
 We look forward to any feedback you want to share with us or if you're stuck with a problem you can contact us at [support@trickest.com](mailto:support@trickest.com).
 

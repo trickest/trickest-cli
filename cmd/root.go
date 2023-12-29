@@ -11,6 +11,7 @@ import (
 	"github.com/trickest/trickest-cli/cmd/library"
 	"github.com/trickest/trickest-cli/cmd/list"
 	"github.com/trickest/trickest-cli/cmd/output"
+	"github.com/trickest/trickest-cli/cmd/tools"
 	"github.com/trickest/trickest-cli/util"
 
 	"github.com/spf13/cobra"
@@ -52,6 +53,7 @@ func init() {
 	RootCmd.AddCommand(execute.ExecuteCmd)
 	RootCmd.AddCommand(get.GetCmd)
 	RootCmd.AddCommand(files.FilesCmd)
+	RootCmd.AddCommand(tools.ToolsCmd)
 	// RootCmd.AddCommand(export.ExportCmd)
 }
 
