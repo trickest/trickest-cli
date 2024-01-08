@@ -393,13 +393,13 @@ func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPri
 			continue
 		}
 		isSplitter := strings.HasPrefix(node.Name, "file-splitter") || strings.HasPrefix(node.Name, "split-to-string")
-		if strings.HasSuffix(connection.Destination.ID, node.Name+"/"+paramName) ||
-			(isSplitter && strings.HasSuffix(connection.Destination.ID, node.Name+"/multiple/"+source)) ||
-			(node.Script != nil && (strings.HasSuffix(connection.Destination.ID,
+		if strings.Contains(connection.Destination.ID, node.Name+"/"+paramName) ||
+			(isSplitter && strings.Contains(connection.Destination.ID, node.Name+"/multiple/"+source)) ||
+			(node.Script != nil && (strings.Contains(connection.Destination.ID,
 				node.Name+"/"+strings.ToLower(newPNode.Type)+"/"+source))) {
 			connectionFound = true
 			primitiveNodeName := getNodeNameFromConnectionID(connection.Source.ID)
-			if strings.HasSuffix(connection.Destination.ID, node.Name+"/"+paramName) && newPNode.Name != primitiveNodeName {
+			if strings.Contains(connection.Destination.ID, node.Name+"/"+paramName) && newPNode.Name != primitiveNodeName {
 				// delete(wfVersion.Data.PrimitiveNodes, newPNode.Name)
 				pNode, ok := wfVersion.Data.PrimitiveNodes[primitiveNodeName]
 				if !ok {
