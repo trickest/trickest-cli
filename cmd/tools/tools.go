@@ -41,15 +41,13 @@ func init() {
 }
 
 func ListPrivateTools(name string) ([]types.Tool, error) {
-	endpoint := "library/tool/"
-
-	if name != "" {
-		endpoint += "?search=" + name
-	} else {
-		endpoint += "?page_size=100"
-	}
-
+	endpoint := "library/tool/?public=False"
 	endpoint += fmt.Sprintf("&vault=%s", util.GetVault())
+	if name != "" {
+		endpoint += "&search=" + name
+	} else {
+		endpoint += "&page_size=100"
+	}
 
 	resp := request.Trickest.Get().Do(endpoint)
 	if resp == nil || resp.Status() != http.StatusOK {
