@@ -89,7 +89,7 @@ trickest list --project <project_name> --space <space_name>
 |-----------|---------|---------|----------------------------------------------------|
 | --project | string  | /       | The name of the project to be listed.              |
 | --space   | string  | /       | The name of the space to which the project belongs |
-| --json    | boolean | /       | Display output in JSON format                      |
+| --json    | boolean | false   | Display output in JSON format                      |
 | --url     | string  | /       | URL for referencing a space                        |
 
 
@@ -109,8 +109,8 @@ trickest get --workflow <workflow_name> --space <space_name> [--watch]
 | --project   | string   | /       | The name of the project to which the workflow belongs                  |
 | --workflow  | string   | /       | The name of the workflow                                               |
 | --run       | string   | /       | Get the status of a specific run                                       |
-| --watch     | boolean  | /       | Option to track execution status in case workflow is in running state  |
-| --json      | boolean  | /       | Display output in JSON format                                          |
+| --watch     | boolean  | false   | Option to track execution status in case workflow is in running state  |
+| --json      | boolean  | false   | Display output in JSON format                                          |
 | --url       | string   | /       | URL for referencing a space                                            |
 
 ##### If the supplied workflow has a running execution, you can jump in and watch it running with the `--watch` flag!
@@ -126,12 +126,12 @@ trickest execute --workflow <workflow_or_tool_name> --space <space_name> --confi
 |------------------|---------|---------|---------------------------------------------------------------------------------------------------------------------------------------------|
 | --config         | file    | /       | YAML file for run configuration                                                                                                             |
 | --workflow       | string  | /       | Workflow from the Library to be executed                                                                                                      |
-| --max            | boolean | /       | Use maximum number of machines for workflow execution                                                                                       |
+| --max            | boolean | false   | Use maximum number of machines for workflow execution                                                                                       |
 | --output         | string  | /       | A comma-separated list of nodes whose outputs should be downloaded when the execution is finished                                           |
-| --output-all     | boolean | /       | Download all outputs when the execution is finished                                                                                         |
+| --output-all     | boolean | false   | Download all outputs when the execution is finished                                                                                         |
 | --output-dir     | string  | .       | Path to the directory which should be used to store outputs                                                                                 |
-| --show-params    | boolean | /       | Show parameters in the workflow tree                                                                                                        |
-| --watch          | boolean | /       | Option to track execution status in case workflow is in running state                                                                       |
+| --show-params    | boolean | false   | Show parameters in the workflow tree                                                                                                        |
+| --watch          | boolean | false   | Option to track execution status in case workflow is in running state                                                                       |
 | --set-name       | string  | /       | Sets the new workflow name and will copy the workflow to space and project supplied                                                         |
 | --ci             | boolean | false   | Enable CI mode (in-progress executions will be stopped when the CLI is forcefully stopped - if not set, you will be asked for confirmation) |
 | --create-project | boolean | false   | If the project doesn't exist, create one using the project flag as its name (or workflow/tool name if project flag is not set)              |
@@ -227,9 +227,6 @@ Use **library search** to search all Trickest tools & workflows available in the
 trickest library search subdomain takeover
 ```
 
-[<img src="./banner.png" />](https://trickest.io/auth/register)
-
-
 ## Files command
 Interact with the Trickest file storage
 
@@ -244,7 +241,7 @@ trickest files get --file my_file.txt --output-dir out
 |----------------------|--------|----------|---------------------------------------------------------------------|
 | --file               | string  | /       | File or files (comma-separated)                                     |
 | --output-dir         | string  | /       | Path to directory which should be used to store files (default ".") |
-| --partial-name-match | boolean | /       | Get all files with a partial name match                             |
+| --partial-name-match | boolean | false   | Get all files with a partial name match                             |
 
 #### Create files
 Use the **create** command with the **--file** flag to upload one or more files
@@ -299,8 +296,8 @@ trickest tools list
 ```
 
 | Flag                 | Type    | Default     | Description                                                         |
-|----------------------|---------|------===----|---------------------------------------------------------------------|
-| --json               | boolean | false       | Display output in JSON format                                      |
+|----------------------|---------|-------------|---------------------------------------------------------------------|
+| --json               | boolean | false       | Display output in JSON format                                       |
 
 #### Delete a private tool integration
 ```
@@ -316,3 +313,6 @@ trickest tools delete --name "my-tool"
 We look forward to any feedback you want to share with us or if you're stuck with a problem you can contact us at [support@trickest.com](mailto:support@trickest.com).
 
 You can also create an [Issue](https://github.com/trickest/trickest-cli/issues/new/choose) in the Github repository.
+
+[<img src="./banner.png" />](https://trickest.io/auth/register)
+
