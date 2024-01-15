@@ -211,4 +211,22 @@ type ToolInput struct {
 	Description string `json:"description"`
 	Command     string `json:"command"`
 	Order       int    `json:"order"`
+	Visible     bool   `json:"visible"`
+}
+
+type Categories struct {
+	Next     any        `json:"next"`
+	Previous any        `json:"previous"`
+	Page     int        `json:"page"`
+	Last     int        `json:"last"`
+	Count    int        `json:"count"`
+	Results  []Category `json:"results"`
+}
+
+type Category struct {
+	ID            uuid.UUID `json:"id"`
+	Name          string    `json:"name"`
+	Description   string    `json:"description"`
+	WorkflowCount int       `json:"workflow_count"`
+	ToolCount     int       `json:"tool_count"`
 }

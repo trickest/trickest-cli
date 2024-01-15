@@ -540,3 +540,42 @@ func DownloadFile(url, outputDir, fileName string) error {
 	}
 	return nil
 }
+
+func SearchLibraryCategories(name string) ([]types.Category, error) {
+	endpoint := "library/categories/"
+	if name != "" {
+		endpoint += "?name=" + name
+	} else {
+		endpoint += "?page_size=100"
+	}
+
+	resp := request.Trickest.Get().Do(endpoint)
+	if resp == nil || resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
+	}
+
+	var categories types.Categories
+	err := json.Unmarshal(resp.Body(), &categories)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't parse API response: %s", err)
+	}
+
+	return categories.Results, nil
+}
+
+func GetCategoryIDByName(name string) (uuid.UUID, error) {
+	categories, err := SearchLibraryCategories(name)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("couldn't search for %s: %w", name, err)
+	}
+
+	if len(categories) == 0 {
+		return uuid.Nil, fmt.Errorf("couldn't find category '%s'", name)
+	}
+
+	if len(categories) > 1 {
+		return uuid.Nil, fmt.Errorf("found more than one match for '%s'", name)
+	}
+
+	return categories[0].ID, nil
+}

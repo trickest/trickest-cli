@@ -37,7 +37,7 @@ var librarySearchCmd = &cobra.Command{
 			fmt.Println(output)
 		} else {
 			if len(tools) > 0 {
-				printTools(tools, jsonOutput)
+				PrintTools(tools, jsonOutput)
 			} else {
 				fmt.Println("Couldn't find any tool in the library that matches the search!")
 			}
