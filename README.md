@@ -268,9 +268,9 @@ trickest files delete --file delete_me.txt
 
 
 ## Tools command
-Manage private tools
+Manage [private tools](https://trickest.com/docs/tutorials/private-tools/private-tools-library/)
 
-⚒️ Learn how to add your first tool integration [here](#).
+⚒️ Learn how to add your first tool integration [here](https://trickest.com/docs/tutorials/private-tools/dockerfile-and-trickest-yaml/).
 
 #### Create a new private tool integration
 ```
