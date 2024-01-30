@@ -569,13 +569,11 @@ func GetCategoryIDByName(name string) (uuid.UUID, error) {
 		return uuid.Nil, fmt.Errorf("couldn't search for %s: %w", name, err)
 	}
 
-	if len(categories) == 0 {
-		return uuid.Nil, fmt.Errorf("couldn't find category '%s'", name)
+	for _, category := range categories {
+		if category.Name == name {
+			return category.ID, nil
+		}
 	}
 
-	if len(categories) > 1 {
-		return uuid.Nil, fmt.Errorf("found more than one match for '%s'", name)
-	}
-
-	return categories[0].ID, nil
+	return uuid.Nil, fmt.Errorf("couldn't find category '%s'", name)
 }
