@@ -56,3 +56,26 @@ func PrintTools(tools []types.Tool, jsonOutput bool) {
 
 	fmt.Println(output)
 }
+
+func PrintScripts(scripts []types.Script, jsonOutput bool) {
+	var output string
+	if jsonOutput {
+		data, err := json.Marshal(scripts)
+		if err != nil {
+			fmt.Println("Error marshalling project data")
+			return
+		}
+		output = string(data)
+	} else {
+		tree := treeprint.New()
+		tree.SetValue("Scripts")
+		for _, script := range scripts {
+			branch := tree.AddBranch(script.Name)
+			branch.AddNode(script.Script.Source)
+		}
+
+		output = tree.String()
+	}
+
+	fmt.Println(output)
+}
