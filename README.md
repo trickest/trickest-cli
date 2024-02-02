@@ -313,7 +313,13 @@ trickest tools delete --name "my-tool"
 ## Scripts command
 Manage [private scripts](#)
 
-⚒️ Learn how to add your first private script [here](#).
+#### Example script definition
+```yaml
+name: hello-world
+description: Write "Hello, world!" to the output
+script_type: bash
+script: echo "Hello, world!" | tee out/output.txt
+```
 
 #### Create a new private script
 ```
