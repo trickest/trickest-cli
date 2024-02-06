@@ -311,7 +311,7 @@ trickest tools delete --name "my-tool"
 
 
 ## Scripts command
-Manage [private scripts](#)
+Manage private scripts
 
 #### Example script definition
 ```yaml
