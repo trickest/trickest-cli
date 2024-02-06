@@ -309,6 +309,56 @@ trickest tools delete --name "my-tool"
 | --id                 | string  | /       | ID of the tool to delete                                            |
 | --name               | string  | /       | Name of the tool to delete                                          |
 
+
+## Scripts command
+Manage private scripts
+
+#### Example script definition
+```yaml
+name: hello-world
+description: Write "Hello, world!" to the output
+script_type: bash
+script: echo "Hello, world!" | tee out/output.txt
+```
+
+#### Create a new private script
+```
+trickest scripts create --file script.yaml
+```
+
+| Flag                 | Type   | Default  | Description                                                         |
+|----------------------|--------|----------|---------------------------------------------------------------------|
+| --file               | string  | /       | YAML file for script definition                                       |
+
+#### Update a private script
+```
+trickest scripts update --file script.yaml
+```
+
+| Flag                 | Type   | Default  | Description                                                         |
+|----------------------|--------|----------|---------------------------------------------------------------------|
+| --file               | string  | /       | YAML file for script definition                                       |
+
+#### List private scripts
+```
+trickest scripts list
+```
+
+| Flag                 | Type    | Default     | Description                                                         |
+|----------------------|---------|-------------|---------------------------------------------------------------------|
+| --json               | boolean | false       | Display output in JSON format                                       |
+
+#### Delete a private script
+```
+trickest scripts delete --name "my-script"
+```
+
+| Flag                 | Type   | Default  | Description                                                         |
+|----------------------|--------|----------|---------------------------------------------------------------------|
+| --id                 | string  | /       | ID of the script to delete                                            |
+| --name               | string  | /       | Name of the script to delete                                          |
+
+
 ## Report Bugs / Feedback
 We look forward to any feedback you want to share with us or if you're stuck with a problem you can contact us at [support@trickest.com](mailto:support@trickest.com).
 

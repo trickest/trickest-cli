@@ -69,15 +69,13 @@ func getToolIDByName(name string) (uuid.UUID, error) {
 		return uuid.Nil, fmt.Errorf("couldn't search for %s: %w", name, err)
 	}
 
-	if len(tools) == 0 {
-		return uuid.Nil, fmt.Errorf("couldn't find tool '%s'", name)
+	for _, tool := range tools {
+		if tool.Name == name {
+			return tool.ID, nil
+		}
 	}
 
-	if len(tools) > 1 {
-		return uuid.Nil, fmt.Errorf("found more than one match for '%s'", name)
-	}
-
-	return tools[0].ID, nil
+	return uuid.Nil, fmt.Errorf("couldn't find tool '%s'", name)
 }
 
 func createToolImportRequestFromYAML(fileName string) (types.ToolImportRequest, error) {
