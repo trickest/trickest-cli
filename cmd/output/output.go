@@ -587,8 +587,8 @@ func GetWorkflowVersionMaxMachines(version, fleet uuid.UUID) (types.Machines, er
 }
 
 func getChildrenSubJobsCount(subJobID uuid.UUID) int {
-	urlReq := "subjob/" + subJobID.String() + "/children/"
-	urlReq += "?page_size=" + strconv.Itoa(math.MaxInt)
+	urlReq := "subjob/children/?parent=" + subJobID.String()
+	urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
 
 	resp := request.Trickest.Get().DoF(urlReq)
 	if resp == nil {
@@ -619,8 +619,9 @@ func getChildrenSubJobs(subJobID uuid.UUID) []types.SubJob {
 
 	var subJobs []types.SubJob
 
-	urlReq := "subjob/" + subJobID.String() + "/children/"
-	urlReq += "?task_index="
+	urlReq := "subjob/children/?parent=" + subJobID.String()
+	urlReq += "&task_index="
+
 	for i := 1; i <= subJobCount; i++ {
 		urlReqForIndex := urlReq + strconv.Itoa(i)
 		resp := request.Trickest.Get().DoF(urlReqForIndex)
