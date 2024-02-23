@@ -67,6 +67,8 @@ func WatchRun(runID uuid.UUID, downloadPath string, nodesToDownload map[string]o
 			mutex.Unlock()
 			break
 		}
+		version := output.GetWorkflowVersionByID(*run.WorkflowVersionInfo, uuid.Nil)
+		allNodes, roots := CreateTrees(version, false)
 
 		out := ""
 		out += fmt.Sprintf(fmtStr, "Name:", run.WorkflowName)
