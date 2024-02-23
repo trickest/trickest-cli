@@ -87,33 +87,35 @@ var ExecuteCmd = &cobra.Command{
 
 		allNodes, roots = CreateTrees(version, false)
 
-		if maxMachines {
-			executionMachines = version.MaxMachines
-		} else if machineConfiguration != "" {
-			machines, err := parseMachineConfiguration(machineConfiguration)
-			if err != nil {
-				fmt.Printf("Error: %s\n", err)
-				os.Exit(1)
-			}
-
-			if len(fleet.Machines) == 3 {
-				// 3 types of machines: small, medium, and large
-				executionMachines = machines
-
-				if machines.Default != nil {
-					fmt.Printf("Error: you need to use the small-medium-large format to specify the numbers of machines (e.g. 1-2-3)")
-					os.Exit(1)
-				}
-			} else {
-				// 1 type of machine
-				executionMachines, err = handleSingleMachineType(*fleet, machines)
+		if executionMachines == (types.Machines{}) {
+			if maxMachines {
+				executionMachines = version.MaxMachines
+			} else if machineConfiguration != "" {
+				machines, err := parseMachineConfiguration(machineConfiguration)
 				if err != nil {
 					fmt.Printf("Error: %s\n", err)
 					os.Exit(1)
 				}
+
+				if len(fleet.Machines) == 3 {
+					// 3 types of machines: small, medium, and large
+					executionMachines = machines
+
+					if machines.Default != nil {
+						fmt.Printf("Error: you need to use the small-medium-large format to specify the numbers of machines (e.g. 1-2-3)")
+						os.Exit(1)
+					}
+				} else {
+					// 1 type of machine
+					executionMachines, err = handleSingleMachineType(*fleet, machines)
+					if err != nil {
+						fmt.Printf("Error: %s\n", err)
+						os.Exit(1)
+					}
+				}
+			} else {
+				executionMachines = setMachinesToMinimum(version.MaxMachines)
 			}
-		} else {
-			executionMachines = setMachinesToMinimum(version.MaxMachines)
 		}
 
 		outputNodes := make([]string, 0)
