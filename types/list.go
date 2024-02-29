@@ -124,6 +124,7 @@ type Run struct {
 	Finished            bool       `json:"finished,omitempty"`
 	Author              string     `json:"author,omitempty"`
 	Fleet               *uuid.UUID `json:"fleet,omitempty"`
+	IPAddresses         []string   `json:"ip_addresses,omitempty"`
 }
 
 type Machines struct {

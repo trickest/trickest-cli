@@ -3,9 +3,11 @@ package get
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
+	"github.com/trickest/trickest-cli/client/request"
 	"github.com/trickest/trickest-cli/cmd/execute"
 	"github.com/trickest/trickest-cli/cmd/output"
 	"github.com/trickest/trickest-cli/types"
@@ -57,11 +59,19 @@ var GetCmd = &cobra.Command{
 			runs = []types.Run{*run}
 		}
 		if len(runs) > 0 && (runs[0].Status == "RUNNING" || runs[0].Status == "COMPLETED") {
-			if runs[0].Status == "COMPLETED" && runs[0].CompletedDate.IsZero() {
-				runs[0].Status = "RUNNING"
+			run := runs[0]
+			if run.Status == "COMPLETED" && run.CompletedDate.IsZero() {
+				run.Status = "RUNNING"
 			}
+
+			ipAddresses, err := getRunIPAddresses(*run.ID)
+			if err != nil {
+				fmt.Printf("Warning: Couldn't get the run IP addresses: %s", err)
+			}
+			run.IPAddresses = ipAddresses
+
 			if jsonOutput {
-				data, err := json.Marshal(runs[0])
+				data, err := json.Marshal(run)
 				if err != nil {
 					fmt.Println("Error marshalling project data")
 					return
@@ -69,7 +79,7 @@ var GetCmd = &cobra.Command{
 				output := string(data)
 				fmt.Println(output)
 			} else {
-				execute.WatchRun(*runs[0].ID, "", map[string]output.NodeInfo{}, []string{}, !watch, &runs[0].Machines, showNodeParams)
+				execute.WatchRun(*run.ID, "", map[string]output.NodeInfo{}, []string{}, !watch, &runs[0].Machines, showNodeParams)
 			}
 			return
 		} else {
@@ -104,4 +114,19 @@ func init() {
 	GetCmd.Flags().BoolVar(&showNodeParams, "show-params", false, "Show parameters in the workflow tree")
 	GetCmd.Flags().StringVar(&runID, "run", "", "Get the status of a specific run")
 	GetCmd.Flags().BoolVar(&jsonOutput, "json", false, "Display output in JSON format")
+}
+
+func getRunIPAddresses(runID uuid.UUID) ([]string, error) {
+	resp := request.Trickest.Get().DoF("execution/%s/ips/", runID)
+	if resp == nil || resp.Status() != http.StatusOK {
+		return nil, fmt.Errorf("unexpected response status code: %d", resp.Status())
+	}
+
+	var ipAddresses []string
+	err := json.Unmarshal(resp.Body(), &ipAddresses)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't unmarshal IP addresses response: %s", err)
+	}
+
+	return ipAddresses, nil
 }

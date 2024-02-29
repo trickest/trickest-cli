@@ -73,9 +73,7 @@ func WatchRun(runID uuid.UUID, downloadPath string, nodesToDownload map[string]o
 		out := ""
 		out += fmt.Sprintf(fmtStr, "Name:", run.WorkflowName)
 		out += fmt.Sprintf(fmtStr, "Status:", strings.ToLower(run.Status))
-		availableMachines := GetAvailableMachines(fleetName)
-		out += fmt.Sprintf(fmtStr, "Machines:", FormatMachines(*machines, true)+
-			" (currently available: "+FormatMachines(availableMachines, true)+")")
+		out += fmt.Sprintf(fmtStr, "Machines:", FormatMachines(*machines, true))
 		out += fmt.Sprintf(fmtStr, "Created:", run.CreatedDate.In(time.Local).Format(time.RFC1123)+
 			" ("+util.FormatDuration(time.Since(run.CreatedDate))+" ago)")
 		if run.Status != "PENDING" {
