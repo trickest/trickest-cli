@@ -189,7 +189,16 @@ func handleSingleMachineType(fleet types.Fleet, machines types.Machines) (types.
 		defaultOrSelfHosted = *machines.Default
 	} else {
 		// Backward-compatibility with the small-medium-large format
-		defaultOrSelfHosted = *machines.Small + *machines.Medium + *machines.Large
+		if machines.Small != nil {
+			defaultOrSelfHosted += *machines.Small
+		}
+		if machines.Medium != nil {
+			defaultOrSelfHosted += *machines.Medium
+		}
+		if machines.Large != nil {
+			defaultOrSelfHosted += *machines.Large
+		}
+
 		fmt.Printf("Warning: You have one type of machine in your fleet. %d identical or self-hosted machines will be used.\n", defaultOrSelfHosted)
 	}
 
