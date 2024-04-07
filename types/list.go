@@ -216,12 +216,12 @@ type ToolInput struct {
 }
 
 type Categories struct {
-	Next     any        `json:"next"`
-	Previous any        `json:"previous"`
-	Page     int        `json:"page"`
-	Last     int        `json:"last"`
-	Count    int        `json:"count"`
-	Results  []Category `json:"results"`
+    Next     string     `json:"next"`
+    Previous string     `json:"previous"`
+    Page     int        `json:"page"`
+    Last     int        `json:"last"`
+    Count    int        `json:"count"`
+    Results  []Category `json:"results"`
 }
 
 type Category struct {
