@@ -155,6 +155,7 @@ func createNewVersion(version *types.WorkflowVersionDetailed) *types.WorkflowVer
 		Description:  version.Description,
 		WorkflowInfo: version.WorkflowInfo,
 		Snapshot:     false,
+		MaxMachines:  version.MaxMachines,
 	}
 
 	data, err := json.Marshal(strippedVersion)
