@@ -214,3 +214,36 @@ func GetTools(pageSize int, search string, name string) []types.Tool {
 
 	return tools.Results
 }
+
+func GetModules(pageSize int, search string) []types.Module {
+	urlReq := "library/module/"
+	if pageSize > 0 {
+		urlReq = urlReq + "?page_size=" + strconv.Itoa(pageSize)
+	} else {
+		urlReq = urlReq + "?page_size=" + strconv.Itoa(math.MaxInt)
+	}
+
+	if search != "" {
+		search = url.QueryEscape(search)
+		urlReq += "&search=" + search
+	}
+
+	resp := request.Trickest.Get().DoF(urlReq)
+	if resp == nil {
+		fmt.Println("Error: Couldn't get modules!")
+		os.Exit(0)
+	}
+
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
+	}
+
+	var modules types.Modules
+	err := json.Unmarshal(resp.Body(), &modules)
+	if err != nil {
+		fmt.Println("Error unmarshalling modules response!")
+		return nil
+	}
+
+	return modules.Results
+}
