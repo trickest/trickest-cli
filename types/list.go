@@ -187,14 +187,8 @@ type Tool struct {
 		Command []string `json:"command"`
 	} `json:"container,omitempty"`
 	Outputs struct {
-		Folder *struct {
-			Type  string `json:"type"`
-			Order int    `json:"order"`
-		} `json:"folder,omitempty"`
-		File *struct {
-			Type  string `json:"type"`
-			Order int    `json:"order"`
-		} `json:"file,omitempty"`
+		File   NodeOutput `json:"file,omitempty"`
+		Folder NodeOutput `json:"folder,omitempty"`
 	} `json:"outputs"`
 	SourceURL     string    `json:"source_url"`
 	CreatedDate   time.Time `json:"created_date"`

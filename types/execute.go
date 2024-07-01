@@ -98,12 +98,8 @@ type Script struct {
 		} `json:"folder,omitempty"`
 	} `json:"inputs"`
 	Outputs struct {
-		File *struct {
-			Type string `json:"type"`
-		} `json:"file,omitempty"`
-		Folder *struct {
-			Type string `json:"type"`
-		} `json:"folder,omitempty"`
+		File   NodeOutput `json:"file,omitempty"`
+		Folder NodeOutput `json:"folder,omitempty"`
 	} `json:"outputs"`
 	Script struct {
 		Args   []interface{} `json:"args"`

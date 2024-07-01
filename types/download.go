@@ -116,21 +116,8 @@ type Node struct {
 		Image  string        `json:"image"`
 		Source string        `json:"source"`
 	} `json:"script,omitempty"`
-	Outputs struct {
-		Folder *struct {
-			Type  string `json:"type"`
-			Order int    `json:"order"`
-		} `json:"folder,omitempty"`
-		File *struct {
-			Type  string `json:"type"`
-			Order int    `json:"order"`
-		} `json:"file,omitempty"`
-		Output *struct {
-			Type  string `json:"type"`
-			Order *int   `json:"order,omitempty"`
-		} `json:"output,omitempty"`
-	} `json:"outputs"`
-	BeeType   string `json:"bee_type"`
+	Outputs   map[string]*NodeOutput `json:"outputs"`
+	BeeType   string                 `json:"bee_type"`
 	Container *struct {
 		Args    []string `json:"args,omitempty"`
 		Image   string   `json:"image"`
@@ -138,6 +125,7 @@ type Node struct {
 	} `json:"container,omitempty"`
 	OutputCommand   *string `json:"output_command,omitempty"`
 	WorkerConnected *string `json:"workerConnected,omitempty"`
+	Workflow        *string `json:"workflow,omitempty"`
 }
 
 type NodeInput struct {
@@ -149,4 +137,11 @@ type NodeInput struct {
 	WorkerConnected *bool       `json:"workerConnected,omitempty"`
 	Multi           *bool       `json:"multi,omitempty"`
 	Visible         *bool       `json:"visible,omitempty"`
+}
+
+type NodeOutput struct {
+	Type          string  `json:"type"`
+	Order         int     `json:"order"`
+	ParameterName *string `json:"parameter_name,omitempty"`
+	Visible       *bool   `json:"visible,omitempty"`
 }
