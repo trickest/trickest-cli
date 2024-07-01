@@ -564,7 +564,7 @@ func GetWorkflowVersionByID(versionID, fleetID uuid.UUID) *types.WorkflowVersion
 	}
 
 	if fleetID != uuid.Nil {
-		maxMachines, err := GetWorkflowVersionMaxMachines(versionID, fleetID)
+		maxMachines, err := GetWorkflowVersionMaxMachines(versionID.String(), fleetID)
 		if err != nil {
 			fmt.Printf("Error getting maximum machines: %v", err)
 			return nil
@@ -575,7 +575,7 @@ func GetWorkflowVersionByID(versionID, fleetID uuid.UUID) *types.WorkflowVersion
 	return &workflowVersion
 }
 
-func GetWorkflowVersionMaxMachines(version, fleet uuid.UUID) (types.Machines, error) {
+func GetWorkflowVersionMaxMachines(version string, fleet uuid.UUID) (types.Machines, error) {
 	resp := request.Trickest.Get().DoF("workflow-version/%s/max-machines/?fleet=%s", version, fleet)
 	if resp == nil {
 		return types.Machines{}, fmt.Errorf("couldn't get workflow version's maximum machines")

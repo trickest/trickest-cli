@@ -150,7 +150,7 @@ func createNewVersion(version *types.WorkflowVersionDetailed) *types.WorkflowVer
 		pNode.ParamName = nil
 	}
 
-	strippedVersion := *&types.WorkflowVersionStripped{
+	strippedVersion := types.WorkflowVersionStripped{
 		Data:         version.Data,
 		Description:  version.Description,
 		WorkflowInfo: version.WorkflowInfo,
@@ -246,7 +246,7 @@ func uploadFile(filePath string) string {
 	return filepath.Base(file.Name())
 }
 
-func GetLatestWorkflowVersion(workflowID uuid.UUID) *types.WorkflowVersionDetailed {
+func GetLatestWorkflowVersion(workflowID uuid.UUID, fleetID uuid.UUID) *types.WorkflowVersionDetailed {
 	resp := request.Trickest.Get().DoF("workflow-version/latest/?workflow=%s", workflowID)
 	if resp == nil {
 		fmt.Println("Error: Couldn't get latest workflow version!")
@@ -262,6 +262,16 @@ func GetLatestWorkflowVersion(workflowID uuid.UUID) *types.WorkflowVersionDetail
 	if err != nil {
 		fmt.Println("Error unmarshalling latest workflow version!")
 		return nil
+	}
+
+	if fleetID != uuid.Nil {
+		maxMachines, err := output.GetWorkflowVersionMaxMachines(latestVersion.ID.String(), fleetID)
+		if err != nil {
+			fmt.Printf("Error getting maximum machines: %v", err)
+			return nil
+		}
+		latestVersion.MaxMachines = maxMachines
+
 	}
 
 	return &latestVersion

@@ -1004,7 +1004,7 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 
 	if workflow != nil && newWorkflowName == "" {
 		// Executing an existing workflow
-		wfVersion = GetLatestWorkflowVersion(workflow.ID)
+		wfVersion = GetLatestWorkflowVersion(workflow.ID, fleet.ID)
 		if configFile == "" {
 			executionMachines = wfVersion.MaxMachines
 		} else {
@@ -1057,7 +1057,7 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 						updateWorkflow(newWorkflow, projectCreated)
 					}
 
-					copiedWfVersion := GetLatestWorkflowVersion(newWorkflow.ID)
+					copiedWfVersion := GetLatestWorkflowVersion(newWorkflow.ID, fleet.ID)
 					if copiedWfVersion == nil {
 						fmt.Println("No workflow version found for " + newWorkflow.Name)
 						os.Exit(0)
