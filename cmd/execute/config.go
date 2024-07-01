@@ -529,8 +529,9 @@ func readConfigMachines(config *map[string]interface{}, isTool bool, maximumMach
 			isSmall := strings.ToLower(name) == "small"
 			isMedium := strings.ToLower(name) == "medium"
 			isLarge := strings.ToLower(name) == "large"
+			isDefault := strings.ToLower(name) == "default"
 
-			if !isSmall && !isMedium && !isLarge {
+			if !isSmall && !isMedium && !isLarge && !isDefault {
 				fmt.Print("Unrecognized machine: ")
 				fmt.Print(name + ": ")
 				fmt.Println(val)
@@ -567,6 +568,8 @@ func readConfigMachines(config *map[string]interface{}, isTool bool, maximumMach
 							numberOfMachines = maximumMachines.Medium
 						} else if isLarge {
 							numberOfMachines = maximumMachines.Large
+						} else if isDefault {
+							numberOfMachines = maximumMachines.Default
 						}
 					}
 				} else {
@@ -582,6 +585,8 @@ func readConfigMachines(config *map[string]interface{}, isTool bool, maximumMach
 				execMachines.Medium = numberOfMachines
 			} else if isLarge {
 				execMachines.Large = numberOfMachines
+			} else if isDefault {
+				execMachines.Default = maximumMachines.Default
 			}
 
 		}
