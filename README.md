@@ -207,21 +207,21 @@ trickest output --workflow <workflow_name> --space <space_name> [--nodes <comma_
 
 ## Output Structure
 
-When using the **output** command,  trickest-cli will keep the local directory/file structure the same as on the platform. All your spaces and projects will become directories with the appropriate outputs.
+When using the **output** command,  trickest-cli will keep the local directory/file structure the same as on the platform. All your spaces and projects will become directories with the appropriate outputs. If a module is among the downloaded outputs, a file will be created for each of its outputs.
 
 ## Library
 
 Use the **library** command to get more info about Trickest workflows and public tools available in the [Trickest Library](https://trickest.io/dashboard/library).
 
 #### List
-Use **library list** command to list all public tools & workflows available in the [library](https://trickest.io/dashboard/library), along with their descriptions.
+Use **library list** command to list all public workflow, modules, and tools available in the [library](https://trickest.io/dashboard/library), along with their descriptions.
 
 ```
 trickest library list
 ```
 
 #### Search
-Use **library search** to search all Trickest tools & workflows available in the [library](https://trickest.io/dashboard/library), along with their descriptions.
+Use **library search** to search all Trickest workflow, modules, and tools available in the [library](https://trickest.io/dashboard/library), along with their descriptions.
 
 ```
 trickest library search subdomain takeover
