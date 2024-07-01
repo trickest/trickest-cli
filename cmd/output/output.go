@@ -231,7 +231,11 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string
 				}
 				subJob.OutputsStatus = updatedSubJob.OutputsStatus
 			}
-			getSubJobOutput(runDir, &subJob, files, true)
+			isModule := false
+			if (version.Data.Nodes[subJob.Name]).Type == "WORKFLOW" {
+				isModule = true
+			}
+			getSubJobOutput(runDir, &subJob, files, true, run.ID, isModule)
 		}
 	} else {
 		noneFound := true
@@ -244,11 +248,7 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string
 			if nameExists {
 				nodes[subJob.Name] = NodeInfo{ToFetch: true, Found: true}
 			}
-			_, nodeIDExists := nodes[subJob.Name]
-			if nodeIDExists {
-				nodes[subJob.Name] = NodeInfo{ToFetch: true, Found: true}
-			}
-			if nameExists || labelExists || nodeIDExists {
+			if nameExists || labelExists {
 				noneFound = false
 				for subJob.OutputsStatus == "SAVING" || subJob.OutputsStatus == "WAITING" {
 					updatedSubJob := getSubJobByID(subJob.ID)
@@ -257,7 +257,11 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string
 					}
 					subJob.OutputsStatus = updatedSubJob.OutputsStatus
 				}
-				getSubJobOutput(runDir, &subJob, files, true)
+				isModule := false
+				if (version.Data.Nodes[subJob.Name]).Type == "WORKFLOW" {
+					isModule = true
+				}
+				getSubJobOutput(runDir, &subJob, files, true, run.ID, isModule)
 			}
 		}
 		if noneFound {
@@ -272,7 +276,7 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string
 	}
 }
 
-func getSubJobOutput(savePath string, subJob *types.SubJob, files []string, fetchData bool) []types.SubJobOutput {
+func getSubJobOutput(savePath string, subJob *types.SubJob, files []string, fetchData bool, runID *uuid.UUID, isModule bool) []types.SubJobOutput {
 	if subJob.Status != "SUCCEEDED" {
 		if subJob.TaskGroup && subJob.Status != "STOPPED" {
 			return nil
@@ -280,6 +284,10 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, files []string, fetc
 	}
 
 	urlReq := "subjob-output/?subjob=" + subJob.ID.String()
+	if isModule {
+		urlReq = fmt.Sprintf("subjob-output/module-outputs/?module_name=%s&execution=%s", subJob.Name, runID.String())
+	}
+
 	urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
 
 	resp := request.Trickest.Get().DoF(urlReq)
@@ -326,7 +334,7 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, files []string, fetc
 		results := make([]types.SubJobOutput, 0)
 		if subJob.Children != nil {
 			for _, child := range subJob.Children {
-				childRes := getSubJobOutput(savePath, &child, files, true)
+				childRes := getSubJobOutput(savePath, &child, files, true, runID, false)
 				if childRes != nil {
 					results = append(results, childRes...)
 				}
@@ -556,7 +564,7 @@ func GetWorkflowVersionByID(versionID, fleetID uuid.UUID) *types.WorkflowVersion
 	}
 
 	if fleetID != uuid.Nil {
-		maxMachines, err := GetWorkflowVersionMaxMachines(versionID, fleetID)
+		maxMachines, err := GetWorkflowVersionMaxMachines(versionID.String(), fleetID)
 		if err != nil {
 			fmt.Printf("Error getting maximum machines: %v", err)
 			return nil
@@ -567,7 +575,7 @@ func GetWorkflowVersionByID(versionID, fleetID uuid.UUID) *types.WorkflowVersion
 	return &workflowVersion
 }
 
-func GetWorkflowVersionMaxMachines(version, fleet uuid.UUID) (types.Machines, error) {
+func GetWorkflowVersionMaxMachines(version string, fleet uuid.UUID) (types.Machines, error) {
 	resp := request.Trickest.Get().DoF("workflow-version/%s/max-machines/?fleet=%s", version, fleet)
 	if resp == nil {
 		return types.Machines{}, fmt.Errorf("couldn't get workflow version's maximum machines")

@@ -308,33 +308,14 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 				newNode.Script.Source = *node.Script
 			}
 			newNode.Type = script.Type
-			outputs := struct {
-				Folder *struct {
-					Type  string `json:"type"`
-					Order int    `json:"order"`
-				} `json:"folder,omitempty"`
-				File *struct {
-					Type  string `json:"type"`
-					Order int    `json:"order"`
-				} `json:"file,omitempty"`
-			}{
-				Folder: &struct {
-					Type  string `json:"type"`
-					Order int    `json:"order"`
-				}{
-					Type:  script.Outputs.Folder.Type,
-					Order: 0,
-				},
-				File: &struct {
-					Type  string `json:"type"`
-					Order int    `json:"order"`
-				}{
-					Type:  script.Outputs.File.Type,
-					Order: 0,
-				},
+			newNode.Outputs["file"] = &types.NodeOutput{
+				Type:  script.Outputs.File.Type,
+				Order: 0,
 			}
-			newNode.Outputs.File = outputs.File
-			newNode.Outputs.Folder = outputs.Folder
+			newNode.Outputs["folder"] = &types.NodeOutput{
+				Type:  script.Outputs.Folder.Type,
+				Order: 0,
+			}
 			multi := true
 			newNode.Inputs = map[string]*types.NodeInput{
 				"file": {
@@ -519,8 +500,8 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 			newNode.ID = tool.ID
 			newNode.Type = tool.Type
 			newNode.Container = tool.Container
-			newNode.Outputs.File = tool.Outputs.File
-			newNode.Outputs.Folder = tool.Outputs.Folder
+			newNode.Outputs["file"] = &tool.Outputs.File
+			newNode.Outputs["folder"] = &tool.Outputs.Folder
 			newNode.OutputCommand = &tool.OutputCommand
 			newNode.Inputs = make(map[string]*types.NodeInput, 0)
 
@@ -732,12 +713,9 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 			newNode.ID = splitter.ID
 			newNode.Type = splitter.Type
 			order := 0
-			newNode.Outputs.Output = &struct {
-				Type  string `json:"type"`
-				Order *int   `json:"order,omitempty"`
-			}{
+			newNode.Outputs["output"] = &types.NodeOutput{
 				Type:  splitter.Outputs.Output.Type,
-				Order: &order,
+				Order: order,
 			}
 			newNode.Inputs = make(map[string]*types.NodeInput, 0)
 			inputs, ok := node.Inputs.([]interface{})
@@ -891,8 +869,8 @@ func createToolWorkflow(wfName string, space *types.SpaceDetailed, project *type
 		Container:     tool.Container,
 		OutputCommand: &tool.OutputCommand,
 	}
-	node.Outputs.Folder = tool.Outputs.Folder
-	node.Outputs.File = tool.Outputs.File
+	node.Outputs["folder"] = &tool.Outputs.Folder
+	node.Outputs["file"] = &tool.Outputs.File
 	switch {
 	case machine.Small != nil:
 		node.BeeType = "small"
@@ -1004,7 +982,7 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 
 	if workflow != nil && newWorkflowName == "" {
 		// Executing an existing workflow
-		wfVersion = GetLatestWorkflowVersion(workflow.ID)
+		wfVersion = GetLatestWorkflowVersion(workflow.ID, fleet.ID)
 		if configFile == "" {
 			executionMachines = wfVersion.MaxMachines
 		} else {
@@ -1057,7 +1035,7 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 						updateWorkflow(newWorkflow, projectCreated)
 					}
 
-					copiedWfVersion := GetLatestWorkflowVersion(newWorkflow.ID)
+					copiedWfVersion := GetLatestWorkflowVersion(newWorkflow.ID, fleet.ID)
 					if copiedWfVersion == nil {
 						fmt.Println("No workflow version found for " + newWorkflow.Name)
 						os.Exit(0)

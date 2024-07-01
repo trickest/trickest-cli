@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/trickest/trickest-cli/cmd/execute"
 	"github.com/trickest/trickest-cli/types"
 	"github.com/trickest/trickest-cli/util"
@@ -78,7 +79,7 @@ func createYAML(workflow *types.Workflow, destinationPath string) {
 		w.Category = &workflow.WorkflowCategory
 	}
 	w.Name = workflow.Name
-	version := execute.GetLatestWorkflowVersion(workflow.ID)
+	version := execute.GetLatestWorkflowVersion(workflow.ID, uuid.Nil)
 	nodes := sortNodes(version.Data.Nodes)
 	for _, n := range nodes {
 		if n.Type == "TOOL" {

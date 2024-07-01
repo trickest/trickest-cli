@@ -77,6 +77,49 @@ type Workflow struct {
 	Executing        bool          `json:"executing,omitempty"`
 }
 
+type Modules struct {
+	Next     string   `json:"next"`
+	Previous string   `json:"previous"`
+	Page     int      `json:"page"`
+	Last     int      `json:"last"`
+	Count    int      `json:"count"`
+	Results  []Module `json:"results"`
+}
+
+type Module struct {
+	ID          uuid.UUID `json:"id,omitempty"`
+	Name        string    `json:"name,omitempty"`
+	Complexity  int       `json:"complexity,omitempty"`
+	Description string    `json:"description,omitempty"`
+	Author      string    `json:"author,omitempty"`
+	CreatedDate time.Time `json:"created_date,omitempty"`
+	LibraryInfo struct {
+		Community bool `json:"community,omitempty"`
+		Verified  bool `json:"verified,omitempty"`
+	} `json:"library_info,omitempty"`
+	Data struct {
+		ID      string                   `json:"id,omitempty"`
+		Name    string                   `json:"name,omitempty"`
+		Inputs  map[string]*ModuleInput  `json:"inputs,omitempty"`
+		Outputs map[string]*ModuleOutput `json:"outputs,omitempty"`
+		Type    string                   `json:"type,omitempty"`
+	} `json:"data,omitempty"`
+	Workflow string `json:"workflow,omitempty"`
+}
+
+type ModuleInput struct {
+	Name        string `json:"name,omitempty"`
+	Type        string `json:"type,omitempty"`
+	Visible     bool   `json:"visible,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+type ModuleOutput struct {
+	Name          string `json:"name,omitempty"`
+	Type          string `json:"type,omitempty"`
+	ParameterName string `json:"parameter_name,omitempty"`
+}
+
 type ScheduleInfo struct {
 	ID           string     `json:"id,omitempty"`
 	Vault        string     `json:"vault,omitempty"`
@@ -187,14 +230,8 @@ type Tool struct {
 		Command []string `json:"command"`
 	} `json:"container,omitempty"`
 	Outputs struct {
-		Folder *struct {
-			Type  string `json:"type"`
-			Order int    `json:"order"`
-		} `json:"folder,omitempty"`
-		File *struct {
-			Type  string `json:"type"`
-			Order int    `json:"order"`
-		} `json:"file,omitempty"`
+		File   NodeOutput `json:"file,omitempty"`
+		Folder NodeOutput `json:"folder,omitempty"`
 	} `json:"outputs"`
 	SourceURL     string    `json:"source_url"`
 	CreatedDate   time.Time `json:"created_date"`
