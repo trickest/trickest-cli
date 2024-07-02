@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/trickest/trickest-cli/cmd/list"
@@ -21,7 +22,8 @@ var libraryListModulesCmd = &cobra.Command{
 		if len(modules) > 0 {
 			printModules(modules, jsonOutput)
 		} else {
-			fmt.Println("Couldn't find any workflow in the library!")
+			fmt.Println("Couldn't find any module in the library!")
+			os.Exit(1)
 		}
 	},
 }

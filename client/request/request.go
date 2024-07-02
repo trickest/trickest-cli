@@ -150,7 +150,7 @@ func (r *Request) newRequest(url string) (*http.Request, error) {
 func ProcessUnexpectedResponse(resp *Response) {
 	if resp == nil || resp.response == nil {
 		fmt.Println("Response is nil")
-		os.Exit(0)
+		os.Exit(1)
 	}
 
 	//fmt.Println(resp.response.Request.Method + " " + resp.response.Request.URL.Path + " " + strconv.Itoa(resp.response.StatusCode))
@@ -160,26 +160,26 @@ func ProcessUnexpectedResponse(resp *Response) {
 
 	if resp.response.StatusCode >= http.StatusInternalServerError {
 		fmt.Println("Sorry, something went wrong!")
-		os.Exit(0)
+		os.Exit(1)
 	}
 
 	if resp.response.StatusCode == http.StatusUnauthorized {
 		fmt.Println("Error: Unauthorized to perform this action.\nPlease, make sure that your token is correct and that you have access to this resource.")
-		os.Exit(0)
+		os.Exit(1)
 	}
 
 	var response map[string]interface{}
 	err := json.Unmarshal(resp.body, &response)
 	if err != nil {
 		fmt.Println("Sorry, something went wrong!")
-		os.Exit(0)
+		os.Exit(1)
 	}
 
 	if details, exists := response["details"]; exists {
 		fmt.Println(details)
-		os.Exit(0)
+		os.Exit(1)
 	} else {
 		fmt.Println("Sorry, something went wrong!")
-		os.Exit(0)
+		os.Exit(1)
 	}
 }

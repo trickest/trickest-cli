@@ -3,6 +3,7 @@ package library
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -22,6 +23,7 @@ var libraryListWorkflowsCmd = &cobra.Command{
 			printWorkflows(workflows, jsonOutput)
 		} else {
 			fmt.Println("Couldn't find any workflow in the library!")
+			os.Exit(1)
 		}
 	},
 }
