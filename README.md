@@ -267,6 +267,19 @@ trickest files delete --file delete_me.txt
 | --file               | string  | /       | File or files (comma-separated)                                     |
 
 
+#### List files
+Use the **list** command with the optional **--query** flag to list or search for files
+
+```
+trickest files list
+```
+
+| Flag                 | Type    | Default  | Description                                                         |
+|----------------------|---------|----------|---------------------------------------------------------------------|
+| --query              | string  | /        | Filter listed files using the specified search query                |
+| --json               | boolean | false    | Display output in JSON format                                       |
+
+
 ## Tools command
 Manage [private tools](https://trickest.com/docs/tutorials/private-tools/private-tools-library/)
 
