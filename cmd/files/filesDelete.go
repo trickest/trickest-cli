@@ -29,6 +29,9 @@ var filesDeleteCmd = &cobra.Command{
 
 func init() {
 	FilesCmd.AddCommand(filesDeleteCmd)
+
+	filesDeleteCmd.Flags().StringVar(&Files, "file", "", "File or files (comma-separated)")
+	filesDeleteCmd.MarkFlagRequired("file")
 }
 
 func deleteFile(fileName string) error {
