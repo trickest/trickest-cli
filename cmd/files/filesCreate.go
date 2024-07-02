@@ -36,6 +36,9 @@ var filesCreateCmd = &cobra.Command{
 
 func init() {
 	FilesCmd.AddCommand(filesCreateCmd)
+
+	filesCreateCmd.Flags().StringVar(&Files, "file", "", "File or files (comma-separated)")
+	filesCreateCmd.MarkFlagRequired("file")
 }
 
 func createFile(filePath string) error {

@@ -37,8 +37,9 @@ var filesGetCmd = &cobra.Command{
 func init() {
 	FilesCmd.AddCommand(filesGetCmd)
 
+	filesGetCmd.Flags().StringVar(&Files, "file", "", "File or files (comma-separated)")
+	filesGetCmd.MarkFlagRequired("file")
 	filesGetCmd.Flags().StringVar(&outputDir, "output-dir", ".", "Path to directory which should be used to store files")
-
 	filesGetCmd.Flags().BoolVar(&partialNameMatch, "partial-name-match", false, "Get all files with a partial name match")
 }
 
