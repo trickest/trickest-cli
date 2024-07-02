@@ -3,6 +3,7 @@ package files
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -20,6 +21,7 @@ var filesDeleteCmd = &cobra.Command{
 			err := deleteFile(fileName)
 			if err != nil {
 				fmt.Printf("Error: %s\n", err)
+				os.Exit(1)
 			} else {
 				fmt.Printf("Deleted %s successfully\n", fileName)
 			}

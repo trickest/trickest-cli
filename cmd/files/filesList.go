@@ -3,6 +3,7 @@ package files
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/trickest/trickest-cli/types"
@@ -23,6 +24,7 @@ var filesListCmd = &cobra.Command{
 		files, err := getMetadata(searchQuery)
 		if err != nil {
 			fmt.Printf("Error: %s\n", err)
+			os.Exit(1)
 		} else {
 			printFiles(files, jsonOutput)
 		}

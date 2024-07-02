@@ -3,6 +3,7 @@ package library
 import (
 	"fmt"
 	"math"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/trickest/trickest-cli/cmd/list"
@@ -19,6 +20,7 @@ var libraryListToolsCmd = &cobra.Command{
 			PrintTools(tools, jsonOutput)
 		} else {
 			fmt.Println("Couldn't find any tool in the library!")
+			os.Exit(1)
 		}
 	},
 }

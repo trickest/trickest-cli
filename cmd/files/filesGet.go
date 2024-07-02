@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -27,6 +28,7 @@ var filesGetCmd = &cobra.Command{
 			err := getFile(fileName, outputDir, partialNameMatch)
 			if err != nil {
 				fmt.Printf("Error: %s\n", err)
+				os.Exit(1)
 			} else {
 				fmt.Printf("Retrieved matches for %s successfully\n", fileName)
 			}

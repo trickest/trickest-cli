@@ -27,6 +27,7 @@ var filesCreateCmd = &cobra.Command{
 			err := createFile(filePath)
 			if err != nil {
 				fmt.Printf("Error: %s\n", err)
+				os.Exit(1)
 			} else {
 				fmt.Printf("Uploaded %s successfully\n", filePath)
 			}
