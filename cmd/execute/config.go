@@ -586,7 +586,7 @@ func readConfigMachines(config *map[string]interface{}, isTool bool, maximumMach
 			} else if isLarge {
 				execMachines.Large = numberOfMachines
 			} else if isDefault {
-				execMachines.Default = maximumMachines.Default
+				execMachines.Default = numberOfMachines
 			}
 
 		}
