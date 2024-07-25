@@ -983,9 +983,7 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 	if workflow != nil && newWorkflowName == "" {
 		// Executing an existing workflow
 		wfVersion = GetLatestWorkflowVersion(workflow.ID, fleet.ID)
-		if configFile == "" {
-			executionMachines = wfVersion.MaxMachines
-		} else {
+		if configFile != "" {
 			update, updatedWfVersion, newPrimitiveNodes := readConfig(configFile, wfVersion, nil)
 			if update {
 				uploadFilesIfNeeded(newPrimitiveNodes)
@@ -1042,9 +1040,7 @@ func prepareForExec(objectPath string) *types.WorkflowVersionDetailed {
 					}
 					update := false
 					var updatedWfVersion *types.WorkflowVersionDetailed
-					if configFile == "" {
-						executionMachines = copiedWfVersion.MaxMachines
-					} else {
+					if configFile != "" {
 						update, updatedWfVersion, primitiveNodes = readConfig(configFile, copiedWfVersion, nil)
 					}
 
