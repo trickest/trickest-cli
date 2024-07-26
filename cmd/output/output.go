@@ -163,7 +163,7 @@ func init() {
 }
 
 func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string, destinationPath string) {
-	if run.Status != "COMPLETED" && run.Status != "STOPPED" && run.Status != "FAILED" {
+	if run.Status != "COMPLETED" && run.Status != "STOPPED" && run.Status != "STOPPING" && run.Status != "FAILED" {
 		fmt.Println("The workflow run hasn't been completed yet!")
 		fmt.Println("Run ID: " + run.ID.String() + "   Status: " + run.Status)
 		return

@@ -58,7 +58,7 @@ var GetCmd = &cobra.Command{
 			run := execute.GetRunByID(runUUID)
 			runs = []types.Run{*run}
 		}
-		if len(runs) > 0 && (runs[0].Status == "RUNNING" || runs[0].Status == "COMPLETED") {
+		if len(runs) > 0 {
 			run := runs[0]
 			if run.Status == "COMPLETED" && run.CompletedDate.IsZero() {
 				run.Status = "RUNNING"
