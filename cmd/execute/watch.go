@@ -115,7 +115,7 @@ func WatchRun(runID uuid.UUID, downloadPath string, nodesToDownload map[string]o
 			return
 		}
 
-		if run.Status == "COMPLETED" || run.Status == "STOPPED" || run.Status == "FAILED" {
+		if run.Status == "COMPLETED" || run.Status == "STOPPED" || run.Status == "STOPPING" || run.Status == "FAILED" {
 			if downloadPath == "" {
 				downloadPath = run.SpaceName
 				if run.ProjectName != "" {
