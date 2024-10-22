@@ -26,7 +26,7 @@ import (
 type UnexpectedResponse map[string]interface{}
 
 const (
-	BaseURL = "https://hive-api.trickest.io/"
+	BaseURL = "https://api.trickest.io/hive/"
 )
 
 var (
