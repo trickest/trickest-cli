@@ -93,38 +93,14 @@ The YAML config file should be formatted like:
 			}
 		}
 
-		runs := make([]types.Run, 0)
-
-		if runID == "" && util.URL != "" {
-			workflowURLRunID, err := util.GetRunIDFromWorkflowURL(util.URL)
-			if err == nil {
-				runID = workflowURLRunID
-			}
+		runs, err := getRelevantRuns(*workflow, allRuns, runID, numberOfRuns, util.URL)
+		if err != nil {
+			fmt.Printf("Couldn't get workflow runs: %v\n", err)
+			return
 		}
-		if allRuns {
-			numberOfRuns = math.MaxInt
-		}
-		if runID == "" {
-			wfRuns := GetRuns(workflow.ID, numberOfRuns)
-			if len(wfRuns) > 0 {
-				runs = append(runs, wfRuns...)
-			} else {
-				fmt.Println("This workflow has not been executed yet!")
-				return
-			}
-		} else {
-			runUUID, err := uuid.Parse(runID)
-			if err != nil {
-				fmt.Println("Invalid run ID")
-				return
-			}
-			run := GetRunByID(runUUID)
-			runs = []types.Run{*run}
-		}
-
-		if numberOfRuns == 1 && runs[0].Status == "SCHEDULED" {
-			runs = GetRuns(workflow.ID, numberOfRuns+1)
-			runs = append(runs, runs...)
+		if len(runs) == 0 {
+			fmt.Printf("No runs found for the workflow: %s (%s)\n", workflow.Name, workflow.ID)
+			return
 		}
 
 		path := util.FormatPath()
@@ -255,6 +231,32 @@ func DownloadRunOutput(run *types.Run, nodes []string, files []string, destinati
 				}
 			}
 		}
+	}
+}
+
+func getRelevantRuns(workflow types.Workflow, allRuns bool, runID string, numberOfRuns int, workflowURL string) ([]types.Run, error) {
+	switch {
+	case allRuns:
+		return GetRuns(workflow.ID, math.MaxInt), nil
+
+	case runID != "":
+		runUUID, err := uuid.Parse(runID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid run ID: %s", runID)
+		}
+		run := GetRunByID(runUUID)
+		return []types.Run{*run}, nil
+
+	case numberOfRuns > 1:
+		return GetRuns(workflow.ID, numberOfRuns), nil
+
+	default:
+		workflowURLRunID, _ := util.GetRunIDFromWorkflowURL(workflowURL)
+		if runUUID, err := uuid.Parse(workflowURLRunID); err == nil {
+			run := GetRunByID(runUUID)
+			return []types.Run{*run}, nil
+		}
+		return GetRuns(workflow.ID, 1), nil
 	}
 }
 
