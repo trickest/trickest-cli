@@ -188,13 +188,6 @@ func DownloadRunOutput(run *types.Run, nodes []string, files []string, destinati
 
 	if len(nodes) == 0 {
 		for _, subJob := range subJobs {
-			for subJob.OutputsStatus == "SAVING" || subJob.OutputsStatus == "WAITING" {
-				updatedSubJob := getSubJobByID(subJob.ID)
-				if updatedSubJob == nil {
-					os.Exit(0)
-				}
-				subJob.OutputsStatus = updatedSubJob.OutputsStatus
-			}
 			isModule := false
 			if (version.Data.Nodes[subJob.Name]).Type == "WORKFLOW" {
 				isModule = true
