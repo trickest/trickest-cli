@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/trickest/trickest-cli/cmd/output"
 	"github.com/trickest/trickest-cli/types"
 
 	"gopkg.in/yaml.v3"
@@ -491,8 +490,8 @@ func addPrimitiveNodeFromConfig(wfVersion *types.WorkflowVersionDetailed, newPri
 	return updateNeeded
 }
 
-func readConfigOutputs(config *map[string]interface{}) map[string]output.NodeInfo {
-	downloadNodes := make(map[string]output.NodeInfo)
+func readConfigOutputs(config *map[string]interface{}) []string {
+	var downloadNodes []string
 	if outputs, exists := (*config)["outputs"]; exists && outputs != nil {
 		outputsList, isList := outputs.([]interface{})
 		if !isList {
@@ -502,7 +501,7 @@ func readConfigOutputs(config *map[string]interface{}) map[string]output.NodeInf
 		for _, node := range outputsList {
 			nodeName, ok := node.(string)
 			if ok {
-				downloadNodes[nodeName] = output.NodeInfo{ToFetch: true, Found: false}
+				downloadNodes = append(downloadNodes, nodeName)
 			} else {
 				fmt.Print("Invalid output node name: ")
 				fmt.Println(node)

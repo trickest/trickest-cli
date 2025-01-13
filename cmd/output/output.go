@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"net/http"
 	"os"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -22,16 +22,6 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
-
-type NodeInfo struct {
-	ToFetch bool
-	Found   bool
-}
-
-type LabelCnt struct {
-	name string
-	cnt  int
-}
 
 var (
 	configFile   string
@@ -66,18 +56,16 @@ The YAML config file should be formatted like:
 			return
 		}
 
-		nodes := make(map[string]NodeInfo, 0)
+		var nodes []string
 		if nodesFlag != "" {
 			for _, node := range strings.Split(nodesFlag, ",") {
-				nodes[strings.ReplaceAll(node, "/", "-")] = NodeInfo{ToFetch: true, Found: false}
+				nodes = append(nodes, strings.ReplaceAll(node, "/", "-"))
 			}
 		}
 
 		var files []string
 		if filesFlag != "" {
-			for _, file := range strings.Split(filesFlag, ",") {
-				files = append(files, file)
-			}
+			files = append(files, strings.Split(filesFlag, ",")...)
 		}
 
 		if configFile != "" {
@@ -87,7 +75,7 @@ The YAML config file should be formatted like:
 				return
 			}
 
-			bytes, err := ioutil.ReadAll(file)
+			bytes, err := io.ReadAll(file)
 			if err != nil {
 				fmt.Println("Couldn't read outputs config!")
 				return
@@ -101,7 +89,7 @@ The YAML config file should be formatted like:
 			}
 
 			for _, node := range conf.Outputs {
-				nodes[strings.ReplaceAll(node, "/", "-")] = NodeInfo{ToFetch: true, Found: false}
+				nodes = append(nodes, strings.ReplaceAll(node, "/", "-"))
 			}
 		}
 
@@ -118,7 +106,7 @@ The YAML config file should be formatted like:
 		}
 		if runID == "" {
 			wfRuns := GetRuns(workflow.ID, numberOfRuns)
-			if wfRuns != nil && len(wfRuns) > 0 {
+			if len(wfRuns) > 0 {
 				runs = append(runs, wfRuns...)
 			} else {
 				fmt.Println("This workflow has not been executed yet!")
@@ -162,7 +150,7 @@ func init() {
 	OutputCmd.Flags().StringVar(&filesFlag, "files", "", "A comma-separated list of file names that should be downloaded from the selected node")
 }
 
-func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string, destinationPath string) {
+func DownloadRunOutput(run *types.Run, nodes []string, files []string, destinationPath string) {
 	if run.Status != "COMPLETED" && run.Status != "STOPPED" && run.Status != "STOPPING" && run.Status != "FAILED" {
 		fmt.Println("The workflow run hasn't been completed yet!")
 		fmt.Println("Run ID: " + run.ID.String() + "   Status: " + run.Status)
@@ -239,24 +227,18 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string
 		}
 	} else {
 		noneFound := true
+		var foundNodes []string
 		for _, subJob := range subJobs {
-			_, labelExists := nodes[subJob.Label]
+			labelExists := slices.Contains(nodes, subJob.Label)
 			if labelExists {
-				nodes[subJob.Label] = NodeInfo{ToFetch: true, Found: true}
+				foundNodes = append(foundNodes, subJob.Label)
 			}
-			_, nameExists := nodes[subJob.Name]
+			nameExists := slices.Contains(nodes, subJob.Name)
 			if nameExists {
-				nodes[subJob.Name] = NodeInfo{ToFetch: true, Found: true}
+				foundNodes = append(foundNodes, subJob.Name)
 			}
 			if nameExists || labelExists {
 				noneFound = false
-				for subJob.OutputsStatus == "SAVING" || subJob.OutputsStatus == "WAITING" {
-					updatedSubJob := getSubJobByID(subJob.ID)
-					if updatedSubJob == nil {
-						os.Exit(0)
-					}
-					subJob.OutputsStatus = updatedSubJob.OutputsStatus
-				}
 				isModule := false
 				if (version.Data.Nodes[subJob.Name]).Type == "WORKFLOW" {
 					isModule = true
@@ -267,9 +249,9 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string
 		if noneFound {
 			fmt.Printf("No completed node outputs matching your query were found in the \"%s\" run.", run.StartedDate.Format(layout))
 		} else {
-			for nodeName, nodeInfo := range nodes {
-				if !nodeInfo.Found {
-					fmt.Println("Couldn't find any sub-job named " + nodeName + "!")
+			for _, node := range nodes {
+				if !slices.Contains(foundNodes, node) {
+					fmt.Println("Couldn't find any sub-job named " + node + "!")
 				}
 			}
 		}

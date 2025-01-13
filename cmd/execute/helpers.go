@@ -131,7 +131,7 @@ func createRun(versionID, fleetID uuid.UUID, watch bool, outputNodes []string, o
 
 	if len(outputNodes) > 0 || downloadAllNodes {
 		for _, nodeName := range outputNodes {
-			nodesToDownload[nodeName] = output.NodeInfo{ToFetch: true, Found: false}
+			nodesToDownload = append(nodesToDownload, nodeName)
 		}
 		watch = true
 	}

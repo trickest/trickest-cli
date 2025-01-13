@@ -22,7 +22,7 @@ import (
 	"github.com/xlab/treeprint"
 )
 
-func WatchRun(runID uuid.UUID, downloadPath string, nodesToDownload map[string]output.NodeInfo, filesToDownload []string, timestampOnly bool, machines *types.Machines, showParameters bool) {
+func WatchRun(runID uuid.UUID, downloadPath string, nodesToDownload []string, filesToDownload []string, timestampOnly bool, machines *types.Machines, showParameters bool) {
 	const fmtStr = "%-12s %v\n"
 	writer := uilive.New()
 	writer.Start()
