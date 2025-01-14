@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/trickest/trickest-cli/client/request"
 	"github.com/trickest/trickest-cli/types"
@@ -339,17 +340,35 @@ func downloadSubJobOutput(savePath string, subJob *types.SubJob, files []string,
 		}
 
 		var errs []error
+		var mu sync.Mutex
+		var wg sync.WaitGroup
+		sem := make(chan struct{}, 5)
+
 		for i := 1; i <= subJobCount; i++ {
-			child, err := getChildSubJobs(subJob.ID, i)
-			if err != nil {
-				errs = append(errs, fmt.Errorf("couldn't get child %d sub-jobs for sub-job %s: %v", i, subJob.ID, err))
-			}
-			child.Label = fmt.Sprint(i) + "-" + subJob.Label
-			err = downloadSubJobOutput(savePath, &child, files, runID, false)
-			if err != nil {
-				errs = append(errs, err)
-			}
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				sem <- struct{}{}
+				defer func() { <-sem }()
+
+				child, err := getChildSubJob(subJob.ID, i)
+				if err != nil {
+					mu.Lock()
+					errs = append(errs, fmt.Errorf("couldn't get child %d sub-jobs for sub-job %s: %v", i, subJob.ID, err))
+					mu.Unlock()
+					return
+				}
+				child.Label = fmt.Sprintf("%d-%s", i, subJob.Label)
+				err = downloadSubJobOutput(savePath, &child, files, runID, false)
+				if err != nil {
+					mu.Lock()
+					errs = append(errs, err)
+					mu.Unlock()
+				}
+			}(i)
 		}
+		wg.Wait()
+
 		if len(errs) > 0 {
 			return fmt.Errorf("errors occurred while downloading sub-job outputs: %v", errs)
 		}
@@ -585,7 +604,7 @@ func getChildrenSubJobsCount(subJobID uuid.UUID) int {
 	return subJobs.Count
 }
 
-func getChildSubJobs(subJobID uuid.UUID, taskIndex int) (types.SubJob, error) {
+func getChildSubJob(subJobID uuid.UUID, taskIndex int) (types.SubJob, error) {
 	urlReq := "subjob/children/?parent=" + subJobID.String()
 	urlReq += "&task_index=" + strconv.Itoa(taskIndex)
 
