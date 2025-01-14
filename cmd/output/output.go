@@ -62,6 +62,11 @@ The YAML config file should be formatted like:
 			for _, node := range strings.Split(nodesFlag, ",") {
 				nodes = append(nodes, strings.ReplaceAll(node, "/", "-"))
 			}
+		} else if util.URL != "" {
+			node, err := util.GetNodeIDFromWorkflowURL(util.URL)
+			if err == nil {
+				nodes = append(nodes, node)
+			}
 		}
 
 		var files []string
