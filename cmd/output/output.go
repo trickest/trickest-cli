@@ -2,6 +2,7 @@ package output
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -200,7 +201,7 @@ func DownloadRunOutput(run *types.Run, nodes []string, files []string, destinati
 			}
 			err = downloadSubJobOutput(runDir, &subJob, files, run.ID, isModule)
 			if err != nil {
-				fmt.Printf("Error downloading output for node %s: %v\n", subJob.Name, err)
+				fmt.Printf("Error downloading output for node %s: %v\n", subJob.Label, err)
 			}
 		}
 	} else {
@@ -223,12 +224,13 @@ func DownloadRunOutput(run *types.Run, nodes []string, files []string, destinati
 				}
 				err = downloadSubJobOutput(runDir, &subJob, files, run.ID, isModule)
 				if err != nil {
-					fmt.Printf("Error downloading output for node %s: %v\n", subJob.Name, err)
+					fmt.Printf("Error downloading output for node %s: %v\n", subJob.Label, err)
 				}
 			}
 		}
 		if noneFound {
-			fmt.Printf("No completed node outputs matching your query were found in the \"%s\" run.", run.StartedDate.Format(layout))
+			runURL := fmt.Sprintf("https://trickest.io/editor/%s?run=%s", run.WorkflowInfo, run.ID)
+			fmt.Printf("No completed node outputs matching your query were found in the \"%s\" run: %s\n", run.StartedDate.Format(layout), runURL)
 		} else {
 			for _, node := range nodes {
 				if !slices.Contains(foundNodes, node) {
@@ -265,7 +267,7 @@ func getRelevantRuns(workflow types.Workflow, allRuns bool, runID string, number
 	}
 }
 
-func getSubJobOutputs(subJob types.SubJob, runID uuid.UUID, isModule bool) []types.SubJobOutput {
+func getSubJobOutputs(subJob types.SubJob, runID uuid.UUID, isModule bool) ([]types.SubJobOutput, error) {
 	urlReq := "subjob-output/?subjob=" + subJob.ID.String()
 	if isModule {
 		urlReq = fmt.Sprintf("subjob-output/module-outputs/?module_name=%s&execution=%s", subJob.Name, runID.String())
@@ -275,22 +277,24 @@ func getSubJobOutputs(subJob types.SubJob, runID uuid.UUID, isModule bool) []typ
 
 	resp := request.Trickest.Get().DoF(urlReq)
 	if resp == nil {
-		fmt.Println("Error: Couldn't get sub-job output data.")
-		return nil
+		return nil, fmt.Errorf("couldn't get sub-job output data for sub-job %s: empty response", subJob.Label)
 	}
 
 	if resp.Status() != http.StatusOK {
-		request.ProcessUnexpectedResponse(resp)
+		return nil, fmt.Errorf("unexpected response status code for sub-job %s: %d", subJob.Label, resp.Status())
 	}
 
 	var subJobOutputs types.SubJobOutputs
 	err := json.Unmarshal(resp.Body(), &subJobOutputs)
 	if err != nil {
-		fmt.Println("Error unmarshalling sub-job output response!")
-		return nil
+		return nil, fmt.Errorf("couldn't unmarshal sub-job output response for sub-job %s: %v", subJob.Label, err)
 	}
 
-	return subJobOutputs.Results
+	if subJobOutputs.Count == 0 {
+		return nil, fmt.Errorf("no output files found for sub-job %s", subJob.Label)
+	}
+
+	return subJobOutputs.Results, nil
 }
 
 func getOutputSignedURL(outputID uuid.UUID) (string, error) {
@@ -331,20 +335,24 @@ func createSubJobOutputFile(savePath string, output types.SubJobOutput) (*os.Fil
 }
 
 func downloadSubJobOutput(savePath string, subJob *types.SubJob, files []string, runID *uuid.UUID, isModule bool) error {
-	if subJob.Status != "SUCCEEDED" {
-		if subJob.TaskGroup && subJob.Status != "STOPPED" {
-			return nil
+	var errs []error
+
+	if !subJob.TaskGroup {
+		if subJob.Status != "SUCCEEDED" {
+			return fmt.Errorf("sub-job %s is not in a completed state: %s", subJob.Label, subJob.Status)
 		}
 	}
 
 	savePath = path.Join(savePath, subJob.Label)
 	if subJob.TaskGroup {
-		subJobCount := getChildrenSubJobsCount(subJob.ID)
+		subJobCount, err := getChildrenSubJobsCount(*subJob)
+		if err != nil {
+			return fmt.Errorf("couldn't get children sub-jobs count for sub-job %s", subJob.Label)
+		}
 		if subJobCount == 0 {
-			return fmt.Errorf("couldn't get children sub-jobs count for sub-job %s", subJob.ID)
+			return fmt.Errorf("no children sub-jobs found for sub-job %s", subJob.Label)
 		}
 
-		var errs []error
 		var mu sync.Mutex
 		var wg sync.WaitGroup
 		sem := make(chan struct{}, 5)
@@ -359,7 +367,7 @@ func downloadSubJobOutput(savePath string, subJob *types.SubJob, files []string,
 				child, err := getChildSubJob(subJob.ID, i)
 				if err != nil {
 					mu.Lock()
-					errs = append(errs, fmt.Errorf("couldn't get child %d sub-jobs for sub-job %s: %v", i, subJob.ID, err))
+					errs = append(errs, fmt.Errorf("couldn't get child %d sub-jobs for sub-job %s: %v", i, subJob.Label, err))
 					mu.Unlock()
 					return
 				}
@@ -375,31 +383,41 @@ func downloadSubJobOutput(savePath string, subJob *types.SubJob, files []string,
 		wg.Wait()
 
 		if len(errs) > 0 {
-			return fmt.Errorf("errors occurred while downloading sub-job outputs: %v", errs)
+			return fmt.Errorf("errors occurred while downloading sub-job children outputs:\n%s", errors.Join(errs...))
 		}
 		return nil
 	}
 
-	subJobOutputs := getSubJobOutputs(*subJob, *runID, isModule)
+	subJobOutputs, err := getSubJobOutputs(*subJob, *runID, isModule)
+	if err != nil {
+		return fmt.Errorf("couldn't get sub-job outputs for node %s: %v", subJob.Label, err)
+	}
 	subJobOutputs = filterSubJobOutputsByFileNames(subJobOutputs, files)
+	if len(subJobOutputs) == 0 {
+		return fmt.Errorf("no matching output files found for node %s", subJob.Label)
+	}
+
 	for _, output := range subJobOutputs {
 		signedURL, err := getOutputSignedURL(output.ID)
 		if err != nil {
-			fmt.Printf("couldn't get signed URL for output %s of node %s: %v\n", output.Name, subJob.Name, err)
+			errs = append(errs, fmt.Errorf("couldn't get signed URL for output %s of node %s: %v", output.Name, subJob.Label, err))
 			continue
 		}
 		outputFile, err := createSubJobOutputFile(savePath, output)
 		if err != nil {
-			fmt.Printf("couldn't create a file to store output %s: %v\n", output.Name, err)
+			errs = append(errs, fmt.Errorf("couldn't create a file to store output %s: %v", output.Name, err))
 			continue
 		}
 		defer outputFile.Close()
 
 		err = downloadFile(signedURL, outputFile, subJob.Label)
 		if err != nil {
-			fmt.Printf("couldn't download file for output %s: %v\n", output.Name, err)
+			errs = append(errs, fmt.Errorf("couldn't download file for output %s of node %s: %v", output.Name, subJob.Label, err))
 			continue
 		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("errors occurred while downloading sub-job outputs:\n%s", errors.Join(errs...))
 	}
 
 	return nil
@@ -419,7 +437,7 @@ func downloadFile(url string, outputFile *os.File, label string) error {
 	if dataResp.ContentLength > 0 {
 		bar := progressbar.NewOptions64(
 			dataResp.ContentLength,
-			progressbar.OptionSetDescription("Downloading ["+label+"] output... "),
+			progressbar.OptionSetDescription(fmt.Sprintf("Downloading [%s] output to %s", label, outputFile.Name())),
 			progressbar.OptionSetWidth(30),
 			progressbar.OptionShowBytes(true),
 			progressbar.OptionShowCount(),
@@ -573,7 +591,7 @@ func GetWorkflowVersionMaxMachines(version string, fleet uuid.UUID) (types.Machi
 	}
 
 	if resp.Status() != http.StatusOK {
-		request.ProcessUnexpectedResponse(resp)
+		return types.Machines{}, fmt.Errorf("unexpected response status code for workflow version's maximum machines: %d", resp.Status())
 	}
 
 	var machines types.Machines
@@ -585,14 +603,13 @@ func GetWorkflowVersionMaxMachines(version string, fleet uuid.UUID) (types.Machi
 	return machines, nil
 }
 
-func getChildrenSubJobsCount(subJobID uuid.UUID) int {
-	urlReq := "subjob/children/?parent=" + subJobID.String()
+func getChildrenSubJobsCount(subJob types.SubJob) (int, error) {
+	urlReq := "subjob/children/?parent=" + subJob.ID.String()
 	urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
 
 	resp := request.Trickest.Get().DoF(urlReq)
 	if resp == nil {
-		fmt.Println("Error: Couldn't get children sub-jobs!")
-		return 0
+		return -1, fmt.Errorf("couldn't get children sub-jobs count for sub-job %s", subJob.Label)
 	}
 
 	if resp.Status() != http.StatusOK {
@@ -602,11 +619,10 @@ func getChildrenSubJobsCount(subJobID uuid.UUID) int {
 	var subJobs types.SubJobs
 	err := json.Unmarshal(resp.Body(), &subJobs)
 	if err != nil {
-		fmt.Println("Error unmarshalling sub-job children response!")
-		return 0
+		return -1, fmt.Errorf("couldn't unmarshal sub-job children response for sub-job %s: %v", subJob.Label, err)
 	}
 
-	return subJobs.Count
+	return subJobs.Count, nil
 }
 
 func getChildSubJob(subJobID uuid.UUID, taskIndex int) (types.SubJob, error) {
