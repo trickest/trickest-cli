@@ -2,15 +2,17 @@ package output
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"net/http"
 	"os"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/trickest/trickest-cli/client/request"
 	"github.com/trickest/trickest-cli/types"
@@ -22,16 +24,6 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
-
-type NodeInfo struct {
-	ToFetch bool
-	Found   bool
-}
-
-type LabelCnt struct {
-	name string
-	cnt  int
-}
 
 var (
 	configFile   string
@@ -66,18 +58,21 @@ The YAML config file should be formatted like:
 			return
 		}
 
-		nodes := make(map[string]NodeInfo, 0)
+		var nodes []string
 		if nodesFlag != "" {
 			for _, node := range strings.Split(nodesFlag, ",") {
-				nodes[strings.ReplaceAll(node, "/", "-")] = NodeInfo{ToFetch: true, Found: false}
+				nodes = append(nodes, strings.ReplaceAll(node, "/", "-"))
+			}
+		} else if util.URL != "" {
+			node, err := util.GetNodeIDFromWorkflowURL(util.URL)
+			if err == nil {
+				nodes = append(nodes, node)
 			}
 		}
 
 		var files []string
 		if filesFlag != "" {
-			for _, file := range strings.Split(filesFlag, ",") {
-				files = append(files, file)
-			}
+			files = append(files, strings.Split(filesFlag, ",")...)
 		}
 
 		if configFile != "" {
@@ -87,7 +82,7 @@ The YAML config file should be formatted like:
 				return
 			}
 
-			bytes, err := ioutil.ReadAll(file)
+			bytes, err := io.ReadAll(file)
 			if err != nil {
 				fmt.Println("Couldn't read outputs config!")
 				return
@@ -101,42 +96,18 @@ The YAML config file should be formatted like:
 			}
 
 			for _, node := range conf.Outputs {
-				nodes[strings.ReplaceAll(node, "/", "-")] = NodeInfo{ToFetch: true, Found: false}
+				nodes = append(nodes, strings.ReplaceAll(node, "/", "-"))
 			}
 		}
 
-		runs := make([]types.Run, 0)
-
-		if runID == "" && util.URL != "" {
-			workflowURLRunID, err := util.GetRunIDFromWorkflowURL(util.URL)
-			if err == nil {
-				runID = workflowURLRunID
-			}
+		runs, err := getRelevantRuns(*workflow, allRuns, runID, numberOfRuns, util.URL)
+		if err != nil {
+			fmt.Printf("Couldn't get workflow runs: %v\n", err)
+			return
 		}
-		if allRuns {
-			numberOfRuns = math.MaxInt
-		}
-		if runID == "" {
-			wfRuns := GetRuns(workflow.ID, numberOfRuns)
-			if wfRuns != nil && len(wfRuns) > 0 {
-				runs = append(runs, wfRuns...)
-			} else {
-				fmt.Println("This workflow has not been executed yet!")
-				return
-			}
-		} else {
-			runUUID, err := uuid.Parse(runID)
-			if err != nil {
-				fmt.Println("Invalid run ID")
-				return
-			}
-			run := GetRunByID(runUUID)
-			runs = []types.Run{*run}
-		}
-
-		if numberOfRuns == 1 && runs[0].Status == "SCHEDULED" {
-			runs = GetRuns(workflow.ID, numberOfRuns+1)
-			runs = append(runs, runs...)
+		if len(runs) == 0 {
+			fmt.Printf("No runs found for the workflow: %s (%s)\n", workflow.Name, workflow.ID)
+			return
 		}
 
 		path := util.FormatPath()
@@ -162,9 +133,9 @@ func init() {
 	OutputCmd.Flags().StringVar(&filesFlag, "files", "", "A comma-separated list of file names that should be downloaded from the selected node")
 }
 
-func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string, destinationPath string) {
-	if run.Status != "COMPLETED" && run.Status != "STOPPED" && run.Status != "STOPPING" && run.Status != "FAILED" {
-		fmt.Println("The workflow run hasn't been completed yet!")
+func DownloadRunOutput(run *types.Run, nodes []string, files []string, destinationPath string) {
+	if run.Status == "PENDING" || run.Status == "SUBMITTED" {
+		fmt.Println("The workflow run hasn't started yet!")
 		fmt.Println("Run ID: " + run.ID.String() + "   Status: " + run.Status)
 		return
 	}
@@ -224,65 +195,79 @@ func DownloadRunOutput(run *types.Run, nodes map[string]NodeInfo, files []string
 
 	if len(nodes) == 0 {
 		for _, subJob := range subJobs {
-			for subJob.OutputsStatus == "SAVING" || subJob.OutputsStatus == "WAITING" {
-				updatedSubJob := getSubJobByID(subJob.ID)
-				if updatedSubJob == nil {
-					os.Exit(0)
-				}
-				subJob.OutputsStatus = updatedSubJob.OutputsStatus
-			}
 			isModule := false
 			if (version.Data.Nodes[subJob.Name]).Type == "WORKFLOW" {
 				isModule = true
 			}
-			getSubJobOutput(runDir, &subJob, files, true, run.ID, isModule)
+			err = downloadSubJobOutput(runDir, &subJob, files, run.ID, isModule)
+			if err != nil {
+				fmt.Printf("Error downloading output for node %s: %v\n", subJob.Label, err)
+			}
 		}
 	} else {
 		noneFound := true
+		var foundNodes []string
 		for _, subJob := range subJobs {
-			_, labelExists := nodes[subJob.Label]
+			labelExists := slices.Contains(nodes, subJob.Label)
 			if labelExists {
-				nodes[subJob.Label] = NodeInfo{ToFetch: true, Found: true}
+				foundNodes = append(foundNodes, subJob.Label)
 			}
-			_, nameExists := nodes[subJob.Name]
+			nameExists := slices.Contains(nodes, subJob.Name)
 			if nameExists {
-				nodes[subJob.Name] = NodeInfo{ToFetch: true, Found: true}
+				foundNodes = append(foundNodes, subJob.Name)
 			}
 			if nameExists || labelExists {
 				noneFound = false
-				for subJob.OutputsStatus == "SAVING" || subJob.OutputsStatus == "WAITING" {
-					updatedSubJob := getSubJobByID(subJob.ID)
-					if updatedSubJob == nil {
-						os.Exit(0)
-					}
-					subJob.OutputsStatus = updatedSubJob.OutputsStatus
-				}
 				isModule := false
 				if (version.Data.Nodes[subJob.Name]).Type == "WORKFLOW" {
 					isModule = true
 				}
-				getSubJobOutput(runDir, &subJob, files, true, run.ID, isModule)
+				err = downloadSubJobOutput(runDir, &subJob, files, run.ID, isModule)
+				if err != nil {
+					fmt.Printf("Error downloading output for node %s: %v\n", subJob.Label, err)
+				}
 			}
 		}
 		if noneFound {
-			fmt.Printf("No completed node outputs matching your query were found in the \"%s\" run.", run.StartedDate.Format(layout))
+			runURL := fmt.Sprintf("https://trickest.io/editor/%s?run=%s", run.WorkflowInfo, run.ID)
+			fmt.Printf("No completed node outputs matching your query were found in the \"%s\" run: %s\n", run.StartedDate.Format(layout), runURL)
 		} else {
-			for nodeName, nodeInfo := range nodes {
-				if !nodeInfo.Found {
-					fmt.Println("Couldn't find any sub-job named " + nodeName + "!")
+			for _, node := range nodes {
+				if !slices.Contains(foundNodes, node) {
+					fmt.Println("Couldn't find any sub-job named " + node + "!")
 				}
 			}
 		}
 	}
 }
 
-func getSubJobOutput(savePath string, subJob *types.SubJob, files []string, fetchData bool, runID *uuid.UUID, isModule bool) []types.SubJobOutput {
-	if subJob.Status != "SUCCEEDED" {
-		if subJob.TaskGroup && subJob.Status != "STOPPED" {
-			return nil
-		}
-	}
+func getRelevantRuns(workflow types.Workflow, allRuns bool, runID string, numberOfRuns int, workflowURL string) ([]types.Run, error) {
+	switch {
+	case allRuns:
+		return GetRuns(workflow.ID, math.MaxInt), nil
 
+	case runID != "":
+		runUUID, err := uuid.Parse(runID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid run ID: %s", runID)
+		}
+		run := GetRunByID(runUUID)
+		return []types.Run{*run}, nil
+
+	case numberOfRuns > 1:
+		return GetRuns(workflow.ID, numberOfRuns), nil
+
+	default:
+		workflowURLRunID, _ := util.GetRunIDFromWorkflowURL(workflowURL)
+		if runUUID, err := uuid.Parse(workflowURLRunID); err == nil {
+			run := GetRunByID(runUUID)
+			return []types.Run{*run}, nil
+		}
+		return GetRuns(workflow.ID, 1), nil
+	}
+}
+
+func getSubJobOutputs(subJob types.SubJob, runID uuid.UUID, isModule bool) ([]types.SubJobOutput, error) {
 	urlReq := "subjob-output/?subjob=" + subJob.ID.String()
 	if isModule {
 		urlReq = fmt.Sprintf("subjob-output/module-outputs/?module_name=%s&execution=%s", subJob.Name, runID.String())
@@ -292,157 +277,181 @@ func getSubJobOutput(savePath string, subJob *types.SubJob, files []string, fetc
 
 	resp := request.Trickest.Get().DoF(urlReq)
 	if resp == nil {
-		fmt.Println("Error: Couldn't get sub-job output data.")
-		return nil
+		return nil, fmt.Errorf("couldn't get sub-job output data for sub-job %s: empty response", subJob.Label)
 	}
 
 	if resp.Status() != http.StatusOK {
-		request.ProcessUnexpectedResponse(resp)
+		return nil, fmt.Errorf("unexpected response status code for sub-job %s: %d", subJob.Label, resp.Status())
 	}
 
 	var subJobOutputs types.SubJobOutputs
 	err := json.Unmarshal(resp.Body(), &subJobOutputs)
 	if err != nil {
-		fmt.Println("Error unmarshalling sub-job output response!")
+		return nil, fmt.Errorf("couldn't unmarshal sub-job output response for sub-job %s: %v", subJob.Label, err)
+	}
+
+	if subJobOutputs.Count == 0 {
+		return nil, fmt.Errorf("no output files found for sub-job %s", subJob.Label)
+	}
+
+	return subJobOutputs.Results, nil
+}
+
+func getOutputSignedURL(outputID uuid.UUID) (string, error) {
+	resp := request.Trickest.Get().DoF("subjob-output/%s/signed_url/", outputID)
+	if resp == nil {
+		return "", fmt.Errorf("couldn't get output signed URL for output %s", outputID)
+	}
+
+	if resp.Status() != http.StatusOK {
+		return "", fmt.Errorf("unexpected response status code for output %s: %d", outputID, resp.Status())
+	}
+
+	var signedURL types.SignedURL
+	err := json.Unmarshal(resp.Body(), &signedURL)
+	if err != nil {
+		return "", fmt.Errorf("couldn't unmarshal output signed URL response for output %s: %v", outputID, err)
+	}
+
+	return signedURL.Url, nil
+}
+
+func createSubJobOutputFile(savePath string, output types.SubJobOutput) (*os.File, error) {
+	if output.Path != "" {
+		savePath = path.Join(savePath, output.Path)
+	}
+
+	err := os.MkdirAll(savePath, 0755)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't create a directory to store output: %v", err)
+	}
+
+	filePath := path.Join(savePath, output.Name)
+	outputFile, err := os.Create(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't create a file to store output: %v", err)
+	}
+	return outputFile, nil
+}
+
+func downloadSubJobOutput(savePath string, subJob *types.SubJob, files []string, runID *uuid.UUID, isModule bool) error {
+	var errs []error
+
+	if !subJob.TaskGroup {
+		if subJob.Status != "SUCCEEDED" {
+			return fmt.Errorf("sub-job %s is not in a completed state: %s", subJob.Label, subJob.Status)
+		}
+	}
+
+	savePath = path.Join(savePath, subJob.Label)
+	if subJob.TaskGroup {
+		subJobCount, err := getChildrenSubJobsCount(*subJob)
+		if err != nil {
+			return fmt.Errorf("couldn't get children sub-jobs count for sub-job %s", subJob.Label)
+		}
+		if subJobCount == 0 {
+			return fmt.Errorf("no children sub-jobs found for sub-job %s", subJob.Label)
+		}
+
+		var mu sync.Mutex
+		var wg sync.WaitGroup
+		sem := make(chan struct{}, 5)
+
+		for i := 1; i <= subJobCount; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				sem <- struct{}{}
+				defer func() { <-sem }()
+
+				child, err := getChildSubJob(subJob.ID, i)
+				if err != nil {
+					mu.Lock()
+					errs = append(errs, fmt.Errorf("couldn't get child %d sub-jobs for sub-job %s: %v", i, subJob.Label, err))
+					mu.Unlock()
+					return
+				}
+				child.Label = fmt.Sprintf("%d-%s", i, subJob.Label)
+				err = downloadSubJobOutput(savePath, &child, files, runID, false)
+				if err != nil {
+					mu.Lock()
+					errs = append(errs, err)
+					mu.Unlock()
+				}
+			}(i)
+		}
+		wg.Wait()
+
+		if len(errs) > 0 {
+			return fmt.Errorf("errors occurred while downloading sub-job children outputs:\n%s", errors.Join(errs...))
+		}
 		return nil
 	}
 
-	if subJob.TaskGroup {
-		savePath = path.Join(savePath, subJob.Label)
-		dirInfo, err := os.Stat(savePath)
-		dirExists := !os.IsNotExist(err) && dirInfo.IsDir()
-
-		if !dirExists {
-			err = os.Mkdir(savePath, 0755)
-			if err != nil {
-				fmt.Println("Couldn't create a directory to store multiple outputs for " + subJob.Label + "!")
-				os.Exit(0)
-			}
-		}
-
-		children := getChildrenSubJobs(subJob.ID)
-		if children == nil {
-			return nil
-		}
-		for j := range children {
-			children[j].Label = fmt.Sprint(j) + "-" + subJob.Label
-		}
-
-		subJob.Children = make([]types.SubJob, 0)
-		subJob.Children = append(subJob.Children, children...)
-
-		results := make([]types.SubJobOutput, 0)
-		if subJob.Children != nil {
-			for _, child := range subJob.Children {
-				childRes := getSubJobOutput(savePath, &child, files, true, runID, false)
-				if childRes != nil {
-					results = append(results, childRes...)
-				}
-			}
-		}
-		return results
+	subJobOutputs, err := getSubJobOutputs(*subJob, *runID, isModule)
+	if err != nil {
+		return fmt.Errorf("couldn't get sub-job outputs for node %s: %v", subJob.Label, err)
+	}
+	subJobOutputs = filterSubJobOutputsByFileNames(subJobOutputs, files)
+	if len(subJobOutputs) == 0 {
+		return fmt.Errorf("no matching output files found for node %s", subJob.Label)
 	}
 
-	dir := subJob.Label
-	savePath = path.Join(savePath, dir)
-	dirInfo, err := os.Stat(savePath)
-	dirExists := !os.IsNotExist(err) && dirInfo.IsDir()
-
-	if !dirExists {
-		err = os.Mkdir(savePath, 0755)
+	for _, output := range subJobOutputs {
+		signedURL, err := getOutputSignedURL(output.ID)
 		if err != nil {
-			fmt.Println("Couldn't create a directory to store outputs for " + subJob.Label + "!")
-			os.Exit(0)
-		}
-	}
-
-	subJobOutputResults := filterSubJobOutputsByFileNames(subJobOutputs.Results, files)
-	for i, output := range subJobOutputResults {
-		resp := request.Trickest.Get().DoF("subjob-output/%s/signed_url/", output.ID)
-		if resp == nil {
-			fmt.Println("Error: Couldn't get sub-job outputs signed URL.")
+			errs = append(errs, fmt.Errorf("couldn't get signed URL for output %s of node %s: %v", output.Name, subJob.Label, err))
 			continue
 		}
-
-		if resp.Status() != http.StatusNotFound && resp.Status() != http.StatusOK {
-			request.ProcessUnexpectedResponse(resp)
-		}
-
-		var signedURL types.SignedURL
-		err = json.Unmarshal(resp.Body(), &signedURL)
+		outputFile, err := createSubJobOutputFile(savePath, output)
 		if err != nil {
-			fmt.Println("Error unmarshalling sub-job output signed URL response!")
+			errs = append(errs, fmt.Errorf("couldn't create a file to store output %s: %v", output.Name, err))
 			continue
 		}
+		defer outputFile.Close()
 
-		if resp.Status() == http.StatusNotFound {
-			subJobOutputResults[i].SignedURL = "expired"
-		} else {
-			subJobOutputResults[i].SignedURL = signedURL.Url
-
-			if fetchData {
-				fileName := subJobOutputResults[i].Name
-
-				if subJobOutputResults[i].Path != "" {
-					subDirsPath := path.Join(savePath, subJobOutputResults[i].Path)
-					err := os.MkdirAll(subDirsPath, 0755)
-					if err != nil {
-						fmt.Println(err)
-						fmt.Println("Couldn't create a directory to store run output!")
-						os.Exit(0)
-					}
-					fileName = path.Join(subDirsPath, fileName)
-				} else {
-					fileName = path.Join(savePath, fileName)
-				}
-
-				outputFile, err := os.Create(fileName)
-				if err != nil {
-					fmt.Println(err)
-					fmt.Println("Couldn't create file to store data!")
-					continue
-				}
-
-				dataResp, err := http.Get(signedURL.Url)
-				if err != nil {
-					fmt.Println("Couldn't fetch output data!")
-					continue
-				}
-
-				if dataResp.StatusCode != http.StatusOK {
-					fmt.Println("Couldn't download output for " + subJob.Label +
-						"! HTTP status code: " + strconv.Itoa(dataResp.StatusCode))
-					continue
-				}
-
-				if dataResp.ContentLength > 0 {
-					bar := progressbar.NewOptions64(
-						dataResp.ContentLength,
-						progressbar.OptionSetDescription("Downloading ["+subJob.Label+"] output... "),
-						progressbar.OptionSetWidth(30),
-						progressbar.OptionShowBytes(true),
-						progressbar.OptionShowCount(),
-						progressbar.OptionOnCompletion(func() { fmt.Print("\n\n") }),
-					)
-					_, err = io.Copy(io.MultiWriter(outputFile, bar), dataResp.Body)
-				} else {
-					_, err = io.Copy(outputFile, dataResp.Body)
-				}
-				if err != nil {
-					fmt.Println("Couldn't save data!")
-					continue
-				}
-
-				_ = outputFile.Close()
-				_ = dataResp.Body.Close()
-				if dataResp.ContentLength > 0 {
-					fmt.Println()
-				}
-			}
+		err = downloadFile(signedURL, outputFile, subJob.Label)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("couldn't download file for output %s of node %s: %v", output.Name, subJob.Label, err))
+			continue
 		}
 	}
+	if len(errs) > 0 {
+		return fmt.Errorf("errors occurred while downloading sub-job outputs:\n%s", errors.Join(errs...))
+	}
 
-	return subJobOutputResults
+	return nil
+}
+
+func downloadFile(url string, outputFile *os.File, label string) error {
+	dataResp, err := http.Get(url)
+	if err != nil {
+		return fmt.Errorf("couldn't fetch output data: %v", err)
+	}
+	defer dataResp.Body.Close()
+
+	if dataResp.StatusCode != http.StatusOK {
+		return fmt.Errorf("couldn't download output for %s! HTTP status code: %d", label, dataResp.StatusCode)
+	}
+
+	if dataResp.ContentLength > 0 {
+		bar := progressbar.NewOptions64(
+			dataResp.ContentLength,
+			progressbar.OptionSetDescription(fmt.Sprintf("Downloading [%s] output to %s", label, outputFile.Name())),
+			progressbar.OptionSetWidth(30),
+			progressbar.OptionShowBytes(true),
+			progressbar.OptionShowCount(),
+			progressbar.OptionOnCompletion(func() { fmt.Print("\n\n") }),
+		)
+		_, err = io.Copy(io.MultiWriter(outputFile, bar), dataResp.Body)
+	} else {
+		_, err = io.Copy(outputFile, dataResp.Body)
+	}
+	if err != nil {
+		return fmt.Errorf("couldn't save data: %v", err)
+	}
+
+	return nil
 }
 
 func filterSubJobOutputsByFileNames(outputs []types.SubJobOutput, fileNames []string) []types.SubJobOutput {
@@ -582,7 +591,7 @@ func GetWorkflowVersionMaxMachines(version string, fleet uuid.UUID) (types.Machi
 	}
 
 	if resp.Status() != http.StatusOK {
-		request.ProcessUnexpectedResponse(resp)
+		return types.Machines{}, fmt.Errorf("unexpected response status code for workflow version's maximum machines: %d", resp.Status())
 	}
 
 	var machines types.Machines
@@ -594,14 +603,13 @@ func GetWorkflowVersionMaxMachines(version string, fleet uuid.UUID) (types.Machi
 	return machines, nil
 }
 
-func getChildrenSubJobsCount(subJobID uuid.UUID) int {
-	urlReq := "subjob/children/?parent=" + subJobID.String()
+func getChildrenSubJobsCount(subJob types.SubJob) (int, error) {
+	urlReq := "subjob/children/?parent=" + subJob.ID.String()
 	urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
 
 	resp := request.Trickest.Get().DoF(urlReq)
 	if resp == nil {
-		fmt.Println("Error: Couldn't get children sub-jobs!")
-		return 0
+		return -1, fmt.Errorf("couldn't get children sub-jobs count for sub-job %s", subJob.Label)
 	}
 
 	if resp.Status() != http.StatusOK {
@@ -611,71 +619,33 @@ func getChildrenSubJobsCount(subJobID uuid.UUID) int {
 	var subJobs types.SubJobs
 	err := json.Unmarshal(resp.Body(), &subJobs)
 	if err != nil {
-		fmt.Println("Error unmarshalling sub-job children response!")
-		return 0
+		return -1, fmt.Errorf("couldn't unmarshal sub-job children response for sub-job %s: %v", subJob.Label, err)
 	}
 
-	return subJobs.Count
+	return subJobs.Count, nil
 }
 
-func getChildrenSubJobs(subJobID uuid.UUID) []types.SubJob {
-	subJobCount := getChildrenSubJobsCount(subJobID)
-	if subJobCount == 0 {
-		fmt.Println("Error: Couldn't find children sub-jobs!")
-		return nil
-	}
-
-	var subJobs []types.SubJob
-
+func getChildSubJob(subJobID uuid.UUID, taskIndex int) (types.SubJob, error) {
 	urlReq := "subjob/children/?parent=" + subJobID.String()
-	urlReq += "&task_index="
+	urlReq += "&task_index=" + strconv.Itoa(taskIndex)
 
-	for i := 1; i <= subJobCount; i++ {
-		urlReqForIndex := urlReq + strconv.Itoa(i)
-		resp := request.Trickest.Get().DoF(urlReqForIndex)
-		if resp == nil {
-			fmt.Printf("Error: Couldn't get child sub-job: %d", i)
-			continue
-		}
-		if resp.Status() != http.StatusOK {
-			request.ProcessUnexpectedResponse(resp)
-		}
-
-		var child types.SubJobs
-
-		err := json.Unmarshal(resp.Body(), &child)
-		if err != nil {
-			fmt.Println("Error unmarshalling sub-job child response!")
-			continue
-		}
-
-		if len(child.Results) < 1 {
-			fmt.Println("Error: Unexpected sub-job child response!")
-			continue
-		}
-		subJobs = append(subJobs, child.Results...)
-	}
-
-	return subJobs
-}
-
-func getSubJobByID(id uuid.UUID) *types.SubJob {
-	resp := request.Trickest.Get().DoF("subjob/%s/", id)
+	resp := request.Trickest.Get().DoF(urlReq)
 	if resp == nil {
-		fmt.Println("Error: Couldn't get sub-job!")
-		return nil
+		return types.SubJob{}, fmt.Errorf("couldn't get child sub-job: %d", taskIndex)
 	}
-
 	if resp.Status() != http.StatusOK {
 		request.ProcessUnexpectedResponse(resp)
 	}
 
-	var subJob types.SubJob
-	err := json.Unmarshal(resp.Body(), &subJob)
+	var child types.SubJobs
+
+	err := json.Unmarshal(resp.Body(), &child)
 	if err != nil {
-		fmt.Println(err)
-		return nil
+		return types.SubJob{}, fmt.Errorf("couldn't unmarshal child sub-job response: %v", err)
 	}
 
-	return &subJob
+	if len(child.Results) != 1 {
+		return types.SubJob{}, fmt.Errorf("unexpected number of child sub-jobs: %d", len(child.Results))
+	}
+	return child.Results[0], nil
 }

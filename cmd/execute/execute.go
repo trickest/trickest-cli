@@ -14,7 +14,6 @@ import (
 
 	"github.com/trickest/trickest-cli/cmd/create"
 	"github.com/trickest/trickest-cli/cmd/list"
-	"github.com/trickest/trickest-cli/cmd/output"
 	"github.com/trickest/trickest-cli/types"
 	"github.com/trickest/trickest-cli/util"
 
@@ -31,7 +30,7 @@ var (
 	showParams           bool
 	executionMachines    types.Machines
 	fleet                *types.Fleet
-	nodesToDownload      = make(map[string]output.NodeInfo, 0)
+	nodesToDownload      []string
 	allNodes             map[string]*types.TreeNode
 	roots                []*types.TreeNode
 	workflowYAML         string

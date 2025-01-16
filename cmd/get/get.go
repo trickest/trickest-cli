@@ -79,7 +79,7 @@ var GetCmd = &cobra.Command{
 				output := string(data)
 				fmt.Println(output)
 			} else {
-				execute.WatchRun(*run.ID, "", map[string]output.NodeInfo{}, []string{}, !watch, &runs[0].Machines, showNodeParams)
+				execute.WatchRun(*run.ID, "", []string{}, []string{}, !watch, &runs[0].Machines, showNodeParams)
 			}
 			return
 		} else {
