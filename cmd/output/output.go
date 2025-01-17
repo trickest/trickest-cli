@@ -244,7 +244,7 @@ func DownloadRunOutput(run *types.Run, nodes []string, files []string, destinati
 func getRelevantRuns(workflow types.Workflow, allRuns bool, runID string, numberOfRuns int, workflowURL string) ([]types.Run, error) {
 	switch {
 	case allRuns:
-		return GetRuns(workflow.ID, math.MaxInt), nil
+		return util.GetRuns(workflow.ID, math.MaxInt, ""), nil
 
 	case runID != "":
 		runUUID, err := uuid.Parse(runID)
@@ -255,7 +255,7 @@ func getRelevantRuns(workflow types.Workflow, allRuns bool, runID string, number
 		return []types.Run{*run}, nil
 
 	case numberOfRuns > 1:
-		return GetRuns(workflow.ID, numberOfRuns), nil
+		return util.GetRuns(workflow.ID, numberOfRuns, ""), nil
 
 	default:
 		workflowURLRunID, _ := util.GetRunIDFromWorkflowURL(workflowURL)
@@ -263,7 +263,7 @@ func getRelevantRuns(workflow types.Workflow, allRuns bool, runID string, number
 			run := GetRunByID(runUUID)
 			return []types.Run{*run}, nil
 		}
-		return GetRuns(workflow.ID, 1), nil
+		return util.GetRuns(workflow.ID, 1, ""), nil
 	}
 }
 
@@ -519,39 +519,6 @@ func getSubJobs(runID uuid.UUID) []types.SubJob {
 	}
 
 	return subJobs.Results
-}
-
-func GetRuns(workflowID uuid.UUID, pageSize int) []types.Run {
-	urlReq := "execution/?type=Editor&vault=" + util.GetVault().String()
-
-	if workflowID != uuid.Nil {
-		urlReq += "&workflow=" + workflowID.String()
-	}
-
-	if pageSize != 0 {
-		urlReq += "&page_size=" + strconv.Itoa(pageSize)
-	} else {
-		urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
-	}
-
-	resp := request.Trickest.Get().DoF(urlReq)
-	if resp == nil {
-		fmt.Println("Error: Couldn't get runs!")
-		return nil
-	}
-
-	if resp.Status() != http.StatusOK {
-		request.ProcessUnexpectedResponse(resp)
-	}
-
-	var runs types.Runs
-	err := json.Unmarshal(resp.Body(), &runs)
-	if err != nil {
-		fmt.Println("Error unmarshalling runs response!")
-		return nil
-	}
-
-	return runs.Results
 }
 
 func GetWorkflowVersionByID(versionID, fleetID uuid.UUID) *types.WorkflowVersionDetailed {

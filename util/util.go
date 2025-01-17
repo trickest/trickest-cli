@@ -429,6 +429,43 @@ func resolveWorkflowURL(pathSegments []string) (*types.SpaceDetailed, *types.Pro
 	return nil, nil, workflow, true
 }
 
+func GetRuns(workflowID uuid.UUID, pageSize int, status string) []types.Run {
+	urlReq := "execution/?type=Editor&vault=" + GetVault().String()
+
+	if workflowID != uuid.Nil {
+		urlReq += "&workflow=" + workflowID.String()
+	}
+
+	if pageSize != 0 {
+		urlReq += "&page_size=" + strconv.Itoa(pageSize)
+	} else {
+		urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
+	}
+
+	if status != "" {
+		urlReq += "&status=" + status
+	}
+
+	resp := request.Trickest.Get().DoF(urlReq)
+	if resp == nil {
+		fmt.Println("Error: Couldn't get runs!")
+		return nil
+	}
+
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
+	}
+
+	var runs types.Runs
+	err := json.Unmarshal(resp.Body(), &runs)
+	if err != nil {
+		fmt.Println("Error unmarshalling runs response!")
+		return nil
+	}
+
+	return runs.Results
+}
+
 func GetRunIDFromWorkflowURL(workflowURL string) (string, error) {
 	return geParameterValueFromURL(workflowURL, "run")
 }
