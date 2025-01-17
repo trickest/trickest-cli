@@ -111,7 +111,7 @@ trickest get --workflow <workflow_name> --space <space_name> [--watch]
 | --run       | string   | /       | Get the status of a specific run                                       |
 | --watch     | boolean  | false   | Option to track execution status in case workflow is in running state  |
 | --json      | boolean  | false   | Display output in JSON format                                          |
-| --url       | string   | /       | URL for referencing a space                                            |
+| --url       | string   | /       | URL for referencing a workflow                                         |
 
 ##### If the supplied workflow has a running execution, you can jump in and watch it running with the `--watch` flag!
 
@@ -124,6 +124,7 @@ trickest execute --workflow <workflow_or_tool_name> --space <space_name> --confi
 
 | Flag             | Type    | Default | Description                                                                                                                                 |
 |------------------|---------|---------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| --url      | string  | /       | URL copied from the Trickest platform, referencing a workflow, a run, or a node                                                                   |
 | --config         | file    | /       | YAML file for run configuration                                                                                                             |
 | --workflow       | string  | /       | Workflow from the Library to be executed                                                                                                      |
 | --max            | boolean | false   | Use maximum number of machines for workflow execution                                                                                       |
@@ -137,6 +138,7 @@ trickest execute --workflow <workflow_or_tool_name> --space <space_name> --confi
 | --create-project | boolean | false   | If the project doesn't exist, create one using the project flag as its name (or workflow/tool name if project flag is not set)              |
 | --machines       | string  | /       | Specify the number of machines. Use one value for default/self-hosted machines (--machines 3) or three values for small-medium-large (--machines 1-1-1)                                                         |
 | --fleet          | string  | /       | The name of the fleet to use to execute the workflow 
+| --use-static-ips | boolean | false    | Use static IP addresses for the execution 
 
 
 #### Provide parameters using **config.yaml** file
@@ -197,7 +199,7 @@ trickest output --workflow <workflow_name> --space <space_name> [--nodes <comma_
 | ---------- | ------  | ------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | --workflow | string  | /       | The name of the workflow.                                                                                                          |
 | --space    | string  | /       | The name of the space to which workflow belongs                                                                                    |
-| --url      | string  | /       | URL for referencing a space                                                                                                        |
+| --url      | string  | /       | URL copied from the Trickest platform, referencing a workflow, a run, or a node                                                    |
 | --config   | file    | /       | YAML file for run configuration                                                                                                    |
 | --run      | string  | /       | Download output data of a specific run                                                                                             |
 | --runs     | integer | 1       | The number of executions to be downloaded sorted by newest |
