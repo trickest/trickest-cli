@@ -42,10 +42,11 @@ type TreeNode struct {
 }
 
 type CreateRun struct {
-	Machines  Machines   `json:"machines"`
-	VersionID uuid.UUID  `json:"workflow_version_info"`
-	Vault     uuid.UUID  `json:"vault"`
-	Fleet     *uuid.UUID `json:"fleet,omitempty"`
+	Machines     Machines   `json:"machines"`
+	VersionID    uuid.UUID  `json:"workflow_version_info"`
+	Vault        uuid.UUID  `json:"vault"`
+	Fleet        *uuid.UUID `json:"fleet,omitempty"`
+	UseStaticIPs bool       `json:"use_static_ips"`
 }
 
 type CreateRunResponse struct {

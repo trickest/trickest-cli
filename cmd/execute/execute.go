@@ -42,6 +42,7 @@ var (
 	ci                   bool
 	createProject        bool
 	fleetName            string
+	useStaticIPs         bool
 )
 
 // ExecuteCmd represents the execute command
@@ -65,6 +66,11 @@ var ExecuteCmd = &cobra.Command{
 				fmt.Println("Please use either path or flag syntax for the platform objects.")
 				return
 			}
+		}
+
+		if useStaticIPs && !util.VaultHasStaticIPs() {
+			fmt.Println("The Static IP Addresses feature is not enabled for your account. Please contact support.")
+			return
 		}
 
 		fleet = util.GetFleetInfo(fleetName)
@@ -129,7 +135,7 @@ var ExecuteCmd = &cobra.Command{
 			os.Exit(0)
 		}
 
-		createRun(version.ID, fleet.ID, watch, outputNodes, outputsDirectory)
+		createRun(version.ID, fleet.ID, watch, outputNodes, outputsDirectory, useStaticIPs)
 	},
 }
 
@@ -229,6 +235,7 @@ func init() {
 	ExecuteCmd.Flags().BoolVar(&ci, "ci", false, "Run in CI mode (in-progreess executions will be stopped when the CLI is forcefully stopped - if not set, you will be asked for confirmation)")
 	ExecuteCmd.Flags().BoolVar(&createProject, "create-project", false, "If the project doesn't exist, create it using the project flag as its name (or workflow name if not set)")
 	ExecuteCmd.Flags().StringVar(&fleetName, "fleet", "", "The name of the fleet to use to execute the workflow")
+	ExecuteCmd.Flags().BoolVar(&useStaticIPs, "use-static-ips", false, "Use static IP addresses for the execution")
 }
 
 func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, objectPath string) *types.WorkflowVersionDetailed {

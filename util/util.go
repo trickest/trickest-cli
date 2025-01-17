@@ -437,6 +437,24 @@ func GetNodeIDFromWorkflowURL(workflowURL string) (string, error) {
 	return geParameterValueFromURL(workflowURL, "node")
 }
 
+func VaultHasStaticIPs() bool {
+	resp := request.Trickest.Get().DoF("ip/?vault=%s", GetVault())
+	if resp == nil || resp.Status() != http.StatusOK {
+		return false
+	}
+
+	var ipAddresses types.IPAddresses
+	err := json.Unmarshal(resp.Body(), &ipAddresses)
+	if err != nil {
+		return false
+	}
+
+	if ipAddresses.Count <= 0 {
+		return false
+	}
+	return true
+}
+
 func geParameterValueFromURL(workflowURL string, parameter string) (string, error) {
 	u, err := url.Parse(workflowURL)
 	if err != nil {
