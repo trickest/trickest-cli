@@ -251,7 +251,7 @@ func getRelevantRuns(workflow types.Workflow, allRuns bool, runID string, number
 		if err != nil {
 			return nil, fmt.Errorf("invalid run ID: %s", runID)
 		}
-		run := GetRunByID(runUUID)
+		run := util.GetRunByID(runUUID)
 		return []types.Run{*run}, nil
 
 	case numberOfRuns > 1:
@@ -260,7 +260,7 @@ func getRelevantRuns(workflow types.Workflow, allRuns bool, runID string, number
 	default:
 		workflowURLRunID, _ := util.GetRunIDFromWorkflowURL(workflowURL)
 		if runUUID, err := uuid.Parse(workflowURLRunID); err == nil {
-			run := GetRunByID(runUUID)
+			run := util.GetRunByID(runUUID)
 			return []types.Run{*run}, nil
 		}
 		return util.GetRuns(workflow.ID, 1, ""), nil
@@ -470,27 +470,6 @@ func filterSubJobOutputsByFileNames(outputs []types.SubJobOutput, fileNames []st
 	}
 
 	return matchingOutputs
-}
-
-func GetRunByID(id uuid.UUID) *types.Run {
-	resp := request.Trickest.Get().DoF("execution/%s/", id)
-	if resp == nil {
-		fmt.Println("Error: Couldn't get run!")
-		os.Exit(0)
-	}
-
-	if resp.Status() != http.StatusOK {
-		request.ProcessUnexpectedResponse(resp)
-	}
-
-	var run types.Run
-	err := json.Unmarshal(resp.Body(), &run)
-	if err != nil {
-		fmt.Println("Error unmarshalling run response!")
-		return nil
-	}
-
-	return &run
 }
 
 func getSubJobs(runID uuid.UUID) []types.SubJob {
