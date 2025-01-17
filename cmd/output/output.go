@@ -143,42 +143,7 @@ func DownloadRunOutput(run *types.Run, nodes []string, files []string, destinati
 	version := GetWorkflowVersionByID(*run.WorkflowVersionInfo, uuid.Nil)
 
 	subJobs := getSubJobs(*run.ID)
-	labels := make(map[string]bool)
-
-	for i := range subJobs {
-		subJobs[i].Label = version.Data.Nodes[subJobs[i].Name].Meta.Label
-		subJobs[i].Label = strings.ReplaceAll(subJobs[i].Label, "/", "-")
-		if labels[subJobs[i].Label] {
-			existingLabel := subJobs[i].Label
-			subJobs[i].Label = subJobs[i].Name
-			if labels[subJobs[i].Label] {
-				subJobs[i].Label += "-1"
-				for c := 1; c >= 1; c++ {
-					if labels[subJobs[i].Label] {
-						subJobs[i].Label = strings.TrimSuffix(subJobs[i].Label, "-"+strconv.Itoa(c))
-						subJobs[i].Label += "-" + strconv.Itoa(c+1)
-					} else {
-						labels[subJobs[i].Label] = true
-						break
-					}
-				}
-			} else {
-				for s := 0; s < i; s++ {
-					if subJobs[s].Label == existingLabel {
-						subJobs[s].Label = subJobs[s].Name
-						if subJobs[s].Children != nil {
-							for j := range subJobs[s].Children {
-								subJobs[s].Children[j].Label = strconv.Itoa(subJobs[s].Children[j].TaskIndex) + "-" + subJobs[s].Name
-							}
-						}
-					}
-				}
-				labels[subJobs[i].Label] = true
-			}
-		} else {
-			labels[subJobs[i].Label] = true
-		}
-	}
+	subJobs = util.LabelSubJobs(subJobs, *version)
 
 	const layout = "2006-01-02T150405Z"
 	runDir := "run-" + run.StartedDate.Format(layout)
