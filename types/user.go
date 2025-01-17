@@ -74,3 +74,16 @@ type Fleet struct {
 	Type         string    `json:"type"`
 	Default      bool      `json:"default"`
 }
+
+type IPAddresses struct {
+	Next     string      `json:"next"`
+	Previous string      `json:"previous"`
+	Page     int         `json:"page"`
+	Last     int         `json:"last"`
+	Count    int         `json:"count"`
+	Results  []IPAddress `json:"results"`
+}
+
+type IPAddress struct {
+	IPAddress string `json:"ip_address"`
+}

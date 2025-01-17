@@ -98,12 +98,13 @@ func getScripts(pageSize int, search string, name string) []types.Script {
 	return scripts.Results
 }
 
-func createRun(versionID, fleetID uuid.UUID, watch bool, outputNodes []string, outputsDir string) {
+func createRun(versionID, fleetID uuid.UUID, watch bool, outputNodes []string, outputsDir string, useStaticIPs bool) {
 
 	run := types.CreateRun{
-		VersionID: versionID,
-		Machines:  executionMachines,
-		Fleet:     &fleetID,
+		VersionID:    versionID,
+		Machines:     executionMachines,
+		Fleet:        &fleetID,
+		UseStaticIPs: useStaticIPs,
 	}
 
 	data, err := json.Marshal(run)
