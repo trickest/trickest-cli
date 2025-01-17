@@ -140,9 +140,9 @@ func DownloadRunOutput(run *types.Run, nodes []string, files []string, destinati
 		return
 	}
 
-	version := GetWorkflowVersionByID(*run.WorkflowVersionInfo, uuid.Nil)
+	version := util.GetWorkflowVersionByID(*run.WorkflowVersionInfo, uuid.Nil)
 
-	subJobs := getSubJobs(*run.ID)
+	subJobs := util.GetSubJobs(*run.ID)
 	subJobs = util.LabelSubJobs(subJobs, *version)
 
 	const layout = "2006-01-02T150405Z"
@@ -435,83 +435,6 @@ func filterSubJobOutputsByFileNames(outputs []types.SubJobOutput, fileNames []st
 	}
 
 	return matchingOutputs
-}
-
-func getSubJobs(runID uuid.UUID) []types.SubJob {
-	if runID == uuid.Nil {
-		fmt.Println("Couldn't list sub-jobs, no run ID parameter specified!")
-		return nil
-	}
-	urlReq := "subjob/?execution=" + runID.String()
-	urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
-
-	resp := request.Trickest.Get().DoF(urlReq)
-	if resp == nil {
-		fmt.Println("Error: Couldn't get sub-jobs!")
-		return nil
-	}
-
-	if resp.Status() != http.StatusOK {
-		request.ProcessUnexpectedResponse(resp)
-	}
-
-	var subJobs types.SubJobs
-	err := json.Unmarshal(resp.Body(), &subJobs)
-	if err != nil {
-		fmt.Println("Error unmarshalling sub-jobs response!")
-		return nil
-	}
-
-	return subJobs.Results
-}
-
-func GetWorkflowVersionByID(versionID, fleetID uuid.UUID) *types.WorkflowVersionDetailed {
-	resp := request.Trickest.Get().DoF("workflow-version/%s/", versionID)
-	if resp == nil {
-		fmt.Println("Error: Couldn't get workflow version!")
-		return nil
-	}
-
-	if resp.Status() != http.StatusOK {
-		request.ProcessUnexpectedResponse(resp)
-	}
-
-	var workflowVersion types.WorkflowVersionDetailed
-	err := json.Unmarshal(resp.Body(), &workflowVersion)
-	if err != nil {
-		fmt.Println("Error unmarshalling workflow version response!")
-		return nil
-	}
-
-	if fleetID != uuid.Nil {
-		maxMachines, err := GetWorkflowVersionMaxMachines(versionID.String(), fleetID)
-		if err != nil {
-			fmt.Printf("Error getting maximum machines: %v", err)
-			return nil
-		}
-		workflowVersion.MaxMachines = maxMachines
-
-	}
-	return &workflowVersion
-}
-
-func GetWorkflowVersionMaxMachines(version string, fleet uuid.UUID) (types.Machines, error) {
-	resp := request.Trickest.Get().DoF("workflow-version/%s/max-machines/?fleet=%s", version, fleet)
-	if resp == nil {
-		return types.Machines{}, fmt.Errorf("couldn't get workflow version's maximum machines")
-	}
-
-	if resp.Status() != http.StatusOK {
-		return types.Machines{}, fmt.Errorf("unexpected response status code for workflow version's maximum machines: %d", resp.Status())
-	}
-
-	var machines types.Machines
-	err := json.Unmarshal(resp.Body(), &machines)
-	if err != nil {
-		return types.Machines{}, fmt.Errorf("couldn't unmarshal workflow versions's maximum machines: %v", err)
-	}
-
-	return machines, nil
 }
 
 func getChildrenSubJobsCount(subJob types.SubJob) (int, error) {

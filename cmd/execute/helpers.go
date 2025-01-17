@@ -17,7 +17,6 @@ import (
 	"github.com/trickest/trickest-cli/client/request"
 	"github.com/trickest/trickest-cli/cmd/delete"
 	"github.com/trickest/trickest-cli/cmd/list"
-	"github.com/trickest/trickest-cli/cmd/output"
 	"github.com/trickest/trickest-cli/types"
 	"github.com/trickest/trickest-cli/util"
 
@@ -182,7 +181,7 @@ func createNewVersion(version *types.WorkflowVersionDetailed) *types.WorkflowVer
 	}
 
 	fleet := util.GetFleetInfo(fleetName)
-	newVersion := output.GetWorkflowVersionByID(newVersionInfo.ID, fleet.ID)
+	newVersion := util.GetWorkflowVersionByID(newVersionInfo.ID, fleet.ID)
 	return newVersion
 }
 
@@ -266,7 +265,7 @@ func GetLatestWorkflowVersion(workflowID uuid.UUID, fleetID uuid.UUID) *types.Wo
 	}
 
 	if fleetID != uuid.Nil {
-		maxMachines, err := output.GetWorkflowVersionMaxMachines(latestVersion.ID.String(), fleetID)
+		maxMachines, err := util.GetWorkflowVersionMaxMachines(latestVersion.ID.String(), fleetID)
 		if err != nil {
 			fmt.Printf("Error getting maximum machines: %v", err)
 			return nil
