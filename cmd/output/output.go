@@ -310,7 +310,7 @@ func downloadSubJobOutput(savePath string, subJob *types.SubJob, files []string,
 
 	savePath = path.Join(savePath, subJob.Label)
 	if subJob.TaskGroup {
-		subJobCount, err := getChildrenSubJobsCount(*subJob)
+		subJobCount, err := util.GetChildrenSubJobsCount(*subJob)
 		if err != nil {
 			return fmt.Errorf("couldn't get children sub-jobs count for sub-job %s", subJob.Label)
 		}
@@ -329,7 +329,7 @@ func downloadSubJobOutput(savePath string, subJob *types.SubJob, files []string,
 				sem <- struct{}{}
 				defer func() { <-sem }()
 
-				child, err := getChildSubJob(subJob.ID, i)
+				child, err := util.GetChildSubJob(subJob.ID, i)
 				if err != nil {
 					mu.Lock()
 					errs = append(errs, fmt.Errorf("couldn't get child %d sub-jobs for sub-job %s: %v", i, subJob.Label, err))
@@ -435,51 +435,4 @@ func filterSubJobOutputsByFileNames(outputs []types.SubJobOutput, fileNames []st
 	}
 
 	return matchingOutputs
-}
-
-func getChildrenSubJobsCount(subJob types.SubJob) (int, error) {
-	urlReq := "subjob/children/?parent=" + subJob.ID.String()
-	urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
-
-	resp := request.Trickest.Get().DoF(urlReq)
-	if resp == nil {
-		return -1, fmt.Errorf("couldn't get children sub-jobs count for sub-job %s", subJob.Label)
-	}
-
-	if resp.Status() != http.StatusOK {
-		request.ProcessUnexpectedResponse(resp)
-	}
-
-	var subJobs types.SubJobs
-	err := json.Unmarshal(resp.Body(), &subJobs)
-	if err != nil {
-		return -1, fmt.Errorf("couldn't unmarshal sub-job children response for sub-job %s: %v", subJob.Label, err)
-	}
-
-	return subJobs.Count, nil
-}
-
-func getChildSubJob(subJobID uuid.UUID, taskIndex int) (types.SubJob, error) {
-	urlReq := "subjob/children/?parent=" + subJobID.String()
-	urlReq += "&task_index=" + strconv.Itoa(taskIndex)
-
-	resp := request.Trickest.Get().DoF(urlReq)
-	if resp == nil {
-		return types.SubJob{}, fmt.Errorf("couldn't get child sub-job: %d", taskIndex)
-	}
-	if resp.Status() != http.StatusOK {
-		request.ProcessUnexpectedResponse(resp)
-	}
-
-	var child types.SubJobs
-
-	err := json.Unmarshal(resp.Body(), &child)
-	if err != nil {
-		return types.SubJob{}, fmt.Errorf("couldn't unmarshal child sub-job response: %v", err)
-	}
-
-	if len(child.Results) != 1 {
-		return types.SubJob{}, fmt.Errorf("unexpected number of child sub-jobs: %d", len(child.Results))
-	}
-	return child.Results[0], nil
 }

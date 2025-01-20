@@ -5,6 +5,7 @@ import (
 	"math"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -44,9 +45,27 @@ var StopCmd = &cobra.Command{
 			}
 		}
 
-		var children []string
+		var children []int
 		if childrenFlag != "" {
-			children = strings.Split(childrenFlag, ",")
+			for _, part := range strings.Split(childrenFlag, ",") {
+				if strings.Contains(part, "-") {
+					rangeParts := strings.Split(part, "-")
+					if len(rangeParts) == 2 {
+						start, err1 := strconv.Atoi(rangeParts[0])
+						end, err2 := strconv.Atoi(rangeParts[1])
+						if err1 == nil && err2 == nil && start <= end {
+							for i := start; i <= end; i++ {
+								children = append(children, i)
+							}
+						}
+					}
+				} else {
+					child, err := strconv.Atoi(part)
+					if err == nil {
+						children = append(children, child)
+					}
+				}
+			}
 		}
 
 		runs, err := getRelevantRuns(*workflow, allRuns, runID, util.URL)
@@ -62,39 +81,46 @@ var StopCmd = &cobra.Command{
 		var errs []error
 		for _, run := range runs {
 			if len(nodes) == 0 && len(children) == 0 {
-				err = stopRun(run)
-				if err != nil {
+				if err := stopRun(run); err != nil {
 					errs = append(errs, err)
 				} else {
 					fmt.Printf("Successfully sent stop request for run %s\n", run.ID)
 				}
-			} else {
-				version := util.GetWorkflowVersionByID(*run.WorkflowVersionInfo, uuid.Nil)
-				subJobs := util.GetSubJobs(*run.ID)
-				subJobs = util.LabelSubJobs(subJobs, *version)
+				continue
+			}
+
+			version := util.GetWorkflowVersionByID(*run.WorkflowVersionInfo, uuid.Nil)
+			subJobs := util.LabelSubJobs(util.GetSubJobs(*run.ID), *version)
+
+			for _, subJob := range subJobs {
+				labelExists := slices.Contains(nodes, subJob.Label)
+				nameExists := slices.Contains(nodes, subJob.Name)
+
+				if !labelExists && !nameExists {
+					continue
+				}
 
 				if len(nodes) > 0 && len(children) == 0 {
-					for _, subJob := range subJobs {
-						labelExists := slices.Contains(nodes, subJob.Label)
-						nameExists := slices.Contains(nodes, subJob.Name)
-						if nameExists || labelExists {
-							err = stopSubJob(subJob)
-							if err != nil {
-								errs = append(errs, err)
-							} else {
-								fmt.Printf("Successfully sent stop request for node \"%s\" in run %s\n", subJob.Label, run.ID)
-							}
-						}
+					if subJob.TaskGroup {
+						errs = append(errs, fmt.Errorf("the specified node (%s) is a task group. Please specify the child task(s) to stop with the --child <task index|task range> flag", subJob.Label))
+						continue
+					}
+					if subJob.Status != "RUNNING" {
+						errs = append(errs, fmt.Errorf("node %s (%s) is not currently running. Current status: %s", subJob.Label, subJob.ID, subJob.Status))
+						continue
+					}
+
+					if err := stopSubJob(subJob); err != nil {
+						errs = append(errs, err)
+					} else {
+						fmt.Printf("Successfully sent stop request for node \"%s\" in run %s\n", subJob.Label, run.ID)
 					}
 				} else {
-					for _, node := range nodes {
-						for _, child := range children {
-							err = stopSubJobChild(run, node, child)
-							if err != nil {
-								errs = append(errs, err)
-							} else {
-								fmt.Printf("Successfully sent stop request for child %s in node \"%s\" in run %s\n", child, node, run.ID)
-							}
+					for _, child := range children {
+						if err := stopSubJobChild(subJob, child); err != nil {
+							errs = append(errs, err)
+						} else {
+							fmt.Printf("Successfully sent stop request for child %d in node \"%s\" in run %s\n", child, subJob.Label, run.ID)
 						}
 					}
 				}
@@ -102,7 +128,7 @@ var StopCmd = &cobra.Command{
 		}
 
 		if len(errs) > 0 {
-			fmt.Println("errors encountered while stopping runs:")
+			fmt.Println("Errors encountered while stopping runs:")
 			for _, err := range errs {
 				fmt.Printf("    %v\n", err)
 			}
@@ -176,7 +202,19 @@ func stopSubJob(subJob types.SubJob) error {
 	return nil
 }
 
-func stopSubJobChild(run types.Run, node string, child string) error {
-	fmt.Printf("Mock for stopping child %s in node %s in run %s\n", child, node, run.ID)
+func stopSubJobChild(subJob types.SubJob, child int) error {
+	subJobChild, err := util.GetChildSubJob(subJob.ID, child)
+	if err != nil {
+		return fmt.Errorf("failed to get child %d of node %s (%s): %v", child, subJob.Label, subJob.ID, err)
+	}
+
+	if subJobChild.Status != "RUNNING" {
+		return fmt.Errorf("child %d of node %s (%s) is not currently running. Current status: %s", child, subJob.Label, subJobChild.ID, subJobChild.Status)
+	}
+
+	err = stopSubJob(subJobChild)
+	if err != nil {
+		return fmt.Errorf("failed to stop child %d of node %s (%s): %v", child, subJob.Label, subJob.ID, err)
+	}
 	return nil
 }

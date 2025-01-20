@@ -455,6 +455,53 @@ func GetWorkflowVersionMaxMachines(version string, fleet uuid.UUID) (types.Machi
 	return machines, nil
 }
 
+func GetChildrenSubJobsCount(subJob types.SubJob) (int, error) {
+	urlReq := "subjob/children/?parent=" + subJob.ID.String()
+	urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
+
+	resp := request.Trickest.Get().DoF(urlReq)
+	if resp == nil {
+		return -1, fmt.Errorf("couldn't get children sub-jobs count for sub-job %s", subJob.Label)
+	}
+
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
+	}
+
+	var subJobs types.SubJobs
+	err := json.Unmarshal(resp.Body(), &subJobs)
+	if err != nil {
+		return -1, fmt.Errorf("couldn't unmarshal sub-job children response for sub-job %s: %v", subJob.Label, err)
+	}
+
+	return subJobs.Count, nil
+}
+
+func GetChildSubJob(subJobID uuid.UUID, taskIndex int) (types.SubJob, error) {
+	urlReq := "subjob/children/?parent=" + subJobID.String()
+	urlReq += "&task_index=" + strconv.Itoa(taskIndex)
+
+	resp := request.Trickest.Get().DoF(urlReq)
+	if resp == nil {
+		return types.SubJob{}, fmt.Errorf("couldn't get child sub-job: %d", taskIndex)
+	}
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
+	}
+
+	var child types.SubJobs
+
+	err := json.Unmarshal(resp.Body(), &child)
+	if err != nil {
+		return types.SubJob{}, fmt.Errorf("couldn't unmarshal child sub-job response: %v", err)
+	}
+
+	if len(child.Results) != 1 {
+		return types.SubJob{}, fmt.Errorf("unexpected number of child sub-jobs: %d", len(child.Results))
+	}
+	return child.Results[0], nil
+}
+
 func ResolveObjectPath(path string, silent bool) (*types.SpaceDetailed, *types.Project, *types.Workflow, bool) {
 	pathSplit := strings.Split(strings.Trim(path, "/"), "/")
 	if len(pathSplit) > 3 {
