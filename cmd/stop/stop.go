@@ -22,7 +22,7 @@ var (
 	childrenFlag string
 )
 
-// StopCmd represents the export command
+// StopCmd represents the stop command
 var StopCmd = &cobra.Command{
 	Use:   "stop",
 	Short: "Stop a workflow/node",
