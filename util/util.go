@@ -260,6 +260,64 @@ func GetWorkflows(projectID, spaceID uuid.UUID, search string, library bool) []t
 	return workflows.Results
 }
 
+func GetRuns(workflowID uuid.UUID, pageSize int, status string) []types.Run {
+	urlReq := "execution/?type=Editor&vault=" + GetVault().String()
+
+	if workflowID != uuid.Nil {
+		urlReq += "&workflow=" + workflowID.String()
+	}
+
+	if pageSize != 0 {
+		urlReq += "&page_size=" + strconv.Itoa(pageSize)
+	} else {
+		urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
+	}
+
+	if status != "" {
+		urlReq += "&status=" + status
+	}
+
+	resp := request.Trickest.Get().DoF(urlReq)
+	if resp == nil {
+		fmt.Println("Error: Couldn't get runs!")
+		return nil
+	}
+
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
+	}
+
+	var runs types.Runs
+	err := json.Unmarshal(resp.Body(), &runs)
+	if err != nil {
+		fmt.Println("Error unmarshalling runs response!")
+		return nil
+	}
+
+	return runs.Results
+}
+
+func GetRunByID(id uuid.UUID) *types.Run {
+	resp := request.Trickest.Get().DoF("execution/%s/", id)
+	if resp == nil {
+		fmt.Println("Error: Couldn't get run!")
+		os.Exit(0)
+	}
+
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
+	}
+
+	var run types.Run
+	err := json.Unmarshal(resp.Body(), &run)
+	if err != nil {
+		fmt.Println("Error unmarshalling run response!")
+		return nil
+	}
+
+	return &run
+}
+
 func GetWorkflowByID(id uuid.UUID) *types.Workflow {
 	resp := request.Trickest.Get().DoF("workflow/%s/", id.String())
 	if resp == nil {
@@ -279,6 +337,169 @@ func GetWorkflowByID(id uuid.UUID) *types.Workflow {
 	}
 
 	return &workflow
+}
+
+func GetSubJobs(runID uuid.UUID) []types.SubJob {
+	if runID == uuid.Nil {
+		fmt.Println("Couldn't list sub-jobs, no run ID parameter specified!")
+		return nil
+	}
+	urlReq := "subjob/?execution=" + runID.String()
+	urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
+
+	resp := request.Trickest.Get().DoF(urlReq)
+	if resp == nil {
+		fmt.Println("Error: Couldn't get sub-jobs!")
+		return nil
+	}
+
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
+	}
+
+	var subJobs types.SubJobs
+	err := json.Unmarshal(resp.Body(), &subJobs)
+	if err != nil {
+		fmt.Println("Error unmarshalling sub-jobs response!")
+		return nil
+	}
+
+	return subJobs.Results
+}
+
+func LabelSubJobs(subJobs []types.SubJob, version types.WorkflowVersionDetailed) []types.SubJob {
+	labels := make(map[string]bool)
+	for i := range subJobs {
+		subJobs[i].Label = version.Data.Nodes[subJobs[i].Name].Meta.Label
+		subJobs[i].Label = strings.ReplaceAll(subJobs[i].Label, "/", "-")
+		if labels[subJobs[i].Label] {
+			existingLabel := subJobs[i].Label
+			subJobs[i].Label = subJobs[i].Name
+			if labels[subJobs[i].Label] {
+				subJobs[i].Label += "-1"
+				for c := 1; c >= 1; c++ {
+					if labels[subJobs[i].Label] {
+						subJobs[i].Label = strings.TrimSuffix(subJobs[i].Label, "-"+strconv.Itoa(c))
+						subJobs[i].Label += "-" + strconv.Itoa(c+1)
+					} else {
+						labels[subJobs[i].Label] = true
+						break
+					}
+				}
+			} else {
+				for s := 0; s < i; s++ {
+					if subJobs[s].Label == existingLabel {
+						subJobs[s].Label = subJobs[s].Name
+						if subJobs[s].Children != nil {
+							for j := range subJobs[s].Children {
+								subJobs[s].Children[j].Label = strconv.Itoa(subJobs[s].Children[j].TaskIndex) + "-" + subJobs[s].Name
+							}
+						}
+					}
+				}
+				labels[subJobs[i].Label] = true
+			}
+		} else {
+			labels[subJobs[i].Label] = true
+		}
+	}
+	return subJobs
+}
+
+func GetWorkflowVersionByID(versionID, fleetID uuid.UUID) *types.WorkflowVersionDetailed {
+	resp := request.Trickest.Get().DoF("workflow-version/%s/", versionID)
+	if resp == nil {
+		fmt.Println("Error: Couldn't get workflow version!")
+		return nil
+	}
+
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
+	}
+
+	var workflowVersion types.WorkflowVersionDetailed
+	err := json.Unmarshal(resp.Body(), &workflowVersion)
+	if err != nil {
+		fmt.Println("Error unmarshalling workflow version response!")
+		return nil
+	}
+
+	if fleetID != uuid.Nil {
+		maxMachines, err := GetWorkflowVersionMaxMachines(versionID.String(), fleetID)
+		if err != nil {
+			fmt.Printf("Error getting maximum machines: %v", err)
+			return nil
+		}
+		workflowVersion.MaxMachines = maxMachines
+
+	}
+	return &workflowVersion
+}
+
+func GetWorkflowVersionMaxMachines(version string, fleet uuid.UUID) (types.Machines, error) {
+	resp := request.Trickest.Get().DoF("workflow-version/%s/max-machines/?fleet=%s", version, fleet)
+	if resp == nil {
+		return types.Machines{}, fmt.Errorf("couldn't get workflow version's maximum machines")
+	}
+
+	if resp.Status() != http.StatusOK {
+		return types.Machines{}, fmt.Errorf("unexpected response status code for workflow version's maximum machines: %d", resp.Status())
+	}
+
+	var machines types.Machines
+	err := json.Unmarshal(resp.Body(), &machines)
+	if err != nil {
+		return types.Machines{}, fmt.Errorf("couldn't unmarshal workflow versions's maximum machines: %v", err)
+	}
+
+	return machines, nil
+}
+
+func GetChildrenSubJobsCount(subJob types.SubJob) (int, error) {
+	urlReq := "subjob/children/?parent=" + subJob.ID.String()
+	urlReq += "&page_size=" + strconv.Itoa(math.MaxInt)
+
+	resp := request.Trickest.Get().DoF(urlReq)
+	if resp == nil {
+		return -1, fmt.Errorf("couldn't get children sub-jobs count for sub-job %s", subJob.Label)
+	}
+
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
+	}
+
+	var subJobs types.SubJobs
+	err := json.Unmarshal(resp.Body(), &subJobs)
+	if err != nil {
+		return -1, fmt.Errorf("couldn't unmarshal sub-job children response for sub-job %s: %v", subJob.Label, err)
+	}
+
+	return subJobs.Count, nil
+}
+
+func GetChildSubJob(subJobID uuid.UUID, taskIndex int) (types.SubJob, error) {
+	urlReq := "subjob/children/?parent=" + subJobID.String()
+	urlReq += "&task_index=" + strconv.Itoa(taskIndex)
+
+	resp := request.Trickest.Get().DoF(urlReq)
+	if resp == nil {
+		return types.SubJob{}, fmt.Errorf("couldn't get child sub-job: %d", taskIndex)
+	}
+	if resp.Status() != http.StatusOK {
+		request.ProcessUnexpectedResponse(resp)
+	}
+
+	var child types.SubJobs
+
+	err := json.Unmarshal(resp.Body(), &child)
+	if err != nil {
+		return types.SubJob{}, fmt.Errorf("couldn't unmarshal child sub-job response: %v", err)
+	}
+
+	if len(child.Results) != 1 {
+		return types.SubJob{}, fmt.Errorf("unexpected number of child sub-jobs: %d", len(child.Results))
+	}
+	return child.Results[0], nil
 }
 
 func ResolveObjectPath(path string, silent bool) (*types.SpaceDetailed, *types.Project, *types.Workflow, bool) {

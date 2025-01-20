@@ -9,7 +9,6 @@ import (
 
 	"github.com/trickest/trickest-cli/client/request"
 	"github.com/trickest/trickest-cli/cmd/execute"
-	"github.com/trickest/trickest-cli/cmd/output"
 	"github.com/trickest/trickest-cli/types"
 	"github.com/trickest/trickest-cli/util"
 
@@ -48,7 +47,7 @@ var GetCmd = &cobra.Command{
 			}
 		}
 		if runID == "" {
-			runs = output.GetRuns(version.WorkflowInfo, 1)
+			runs = util.GetRuns(version.WorkflowInfo, 1, "")
 		} else {
 			runUUID, err := uuid.Parse(runID)
 			if err != nil {

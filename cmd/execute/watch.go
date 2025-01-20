@@ -67,7 +67,7 @@ func WatchRun(runID uuid.UUID, downloadPath string, nodesToDownload []string, fi
 			mutex.Unlock()
 			break
 		}
-		version := output.GetWorkflowVersionByID(*run.WorkflowVersionInfo, uuid.Nil)
+		version := util.GetWorkflowVersionByID(*run.WorkflowVersionInfo, uuid.Nil)
 		allNodes, roots := CreateTrees(version, false)
 
 		out := ""

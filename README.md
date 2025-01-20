@@ -189,6 +189,25 @@ Example GitHub action usage
         output: "report"
 ```
 
+## Stop
+
+Use the **stop** command to stop a running workflow or node
+
+```
+trickest stop --workflow <workflow_name> --space <space_name> [--run <run_id>] [--all] [--nodes <node_name_or_id>] [--child <child_task_index>]
+```
+
+| Flag       | Type    | Default | Description                                                                                                                     |
+| ---------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| --url      | string  | /       | URL copied from the Trickest platform, referencing a workflow and, optionally, a run/node                                       |
+| --workflow | string  | /       | The name of the workflow.                                                                                                       |
+| --project | string   | /       | The name of the project to which workflow belongs                                                                               |
+| --space    | string  | /       | The name of the space to which workflow belongs                                                                                 |
+| --run      | string  | /       | Stop a specific run                                                                                                             |
+| --all      | bool    | false   | Stop all runs                                                                                                                   |
+| --nodes    | string  | /       | A comma-separated list of nodes to stop. If none specified, the entire run will be stopped. If a node is a task group, the `--child` flag must be used               |
+| --child    | string  | /       | A comma-separated list or range of child tasks to stop. Example: `--child 1,2,3` or `--child 1-3` will stop the first three tasks in the specified node's taskgroup |
+
 ## Output
 Use the **output** command to download the outputs of your particular workflow execution(s) to your local environment.
 
