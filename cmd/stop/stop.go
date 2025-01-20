@@ -140,7 +140,7 @@ func init() {
 	StopCmd.Flags().BoolVar(&allRuns, "all", false, "Stop all runs")
 	StopCmd.Flags().StringVar(&runID, "run", "", "Stop a specific run")
 	StopCmd.Flags().StringVar(&nodesFlag, "nodes", "", "A comma-separated list of nodes to stop. If a node is a taskgroup (connected to a file-splitter), all tasks in the taskgroup will be stopped unless a --child flag is provided")
-	StopCmd.Flags().StringVar(&childrenFlag, "child", "", "A comma-separated list of child tasks to stop. Example: \"--nodes python-script-1 --child 1,2,3\" will stop the first three tasks in the python-script-1 node's taskgroup")
+	StopCmd.Flags().StringVar(&childrenFlag, "child", "", "A comma-separated list or range of child tasks to stop. Example: \"--child 1,2,3\" or \"--child 1-3\" will stop the first three tasks in the specified node's taskgroup")
 }
 
 func getRelevantRuns(workflow types.Workflow, allRuns bool, runID string, workflowURL string) ([]types.Run, error) {
