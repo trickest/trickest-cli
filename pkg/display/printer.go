@@ -329,6 +329,7 @@ func (p *RunPrinter) printTree(node *TreeNode, branch *treeprint.Tree, allNodes 
 							}
 						}
 					}
+					v = strings.ReplaceAll(v, "%", "%%")
 					if strings.HasPrefix(param, "file/") || strings.HasPrefix(param, "folder/") {
 						parameters.AddNode(v)
 					} else {
