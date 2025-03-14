@@ -1,0 +1,78 @@
+package trickest
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// Space represents a space
+type Space struct {
+	ID             uuid.UUID  `json:"id"`
+	Name           string     `json:"name"`
+	Description    string     `json:"description"`
+	VaultInfo      uuid.UUID  `json:"vault_info"`
+	Playground     bool       `json:"playground"`
+	Projects       []Project  `json:"projects"`
+	ProjectsCount  int        `json:"projects_count"`
+	Workflows      []Workflow `json:"workflows"`
+	WorkflowsCount int        `json:"workflows_count"`
+	CreatedDate    time.Time  `json:"created_date"`
+	ModifiedDate   time.Time  `json:"modified_date"`
+}
+
+// GetSpace retrieves a space by ID
+func (c *Client) GetSpace(ctx context.Context, id uuid.UUID) (*Space, error) {
+	var space Space
+	path := fmt.Sprintf("/spaces/%s/", id)
+	if err := c.doJSON(ctx, http.MethodGet, path, nil, &space); err != nil {
+		return nil, fmt.Errorf("failed to get space: %w", err)
+	}
+
+	return &space, nil
+}
+
+// GetSpaces retrieves all spaces for the current vault
+func (c *Client) GetSpaces(ctx context.Context, name string) ([]Space, error) {
+	var spaces struct {
+		Results []Space `json:"results"`
+	}
+	path := fmt.Sprintf("/spaces/?vault=%s", c.vaultID)
+	if name != "" {
+		path += fmt.Sprintf("&name=%s", name)
+	}
+
+	if err := c.doJSON(ctx, http.MethodGet, path, nil, &spaces); err != nil {
+		return nil, fmt.Errorf("failed to get spaces: %w", err)
+	}
+
+	return spaces.Results, nil
+}
+
+// GetSpaceByName retrieves a space by name
+func (c *Client) GetSpaceByName(ctx context.Context, name string) (*Space, error) {
+	spaces, err := c.GetSpaces(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(spaces) == 0 {
+		return nil, fmt.Errorf("space not found: %s", name)
+	}
+
+	// loop through the results to find the space with the exact name
+	for _, space := range spaces {
+		if space.Name == name {
+			space, err := c.GetSpace(ctx, space.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get space: %w", err)
+			}
+			return space, nil
+		}
+	}
+
+	return nil, fmt.Errorf("space not found: %s", name)
+}

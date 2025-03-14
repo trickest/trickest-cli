@@ -1,0 +1,152 @@
+package trickest
+
+import (
+	"context"
+	"fmt"
+	"math"
+	"net/http"
+	"net/url"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// Run represents a workflow run
+type Run struct {
+	ID                  *uuid.UUID `json:"id,omitempty"`
+	Name                string     `json:"name,omitempty"`
+	Status              string     `json:"status,omitempty"`
+	Machines            Machines   `json:"machines,omitempty"`
+	WorkflowVersionInfo *uuid.UUID `json:"workflow_version_info,omitempty"`
+	WorkflowInfo        *uuid.UUID `json:"workflow_info,omitempty"`
+	WorkflowName        string     `json:"workflow_name,omitempty"`
+	SpaceInfo           *uuid.UUID `json:"space_info,omitempty"`
+	SpaceName           string     `json:"space_name,omitempty"`
+	ProjectInfo         *uuid.UUID `json:"project_info,omitempty"`
+	ProjectName         string     `json:"project_name,omitempty"`
+	CreationType        string     `json:"creation_type,omitempty"`
+	CreatedDate         time.Time  `json:"created_date,omitempty"`
+	StartedDate         time.Time  `json:"started_date,omitempty"`
+	CompletedDate       time.Time  `json:"completed_date,omitempty"`
+	Finished            bool       `json:"finished,omitempty"`
+	Author              string     `json:"author,omitempty"`
+	Fleet               *uuid.UUID `json:"fleet,omitempty"`
+	IPAddresses         []string   `json:"ip_addresses,omitempty"`
+}
+
+// Machines represents machine configuration
+type Machines struct {
+	Small      *int `json:"small,omitempty"`
+	Medium     *int `json:"medium,omitempty"`
+	Large      *int `json:"large,omitempty"`
+	Default    *int `json:"default,omitempty"`
+	SelfHosted *int `json:"self_hosted,omitempty"`
+}
+
+// GetRun retrieves a run by ID
+func (c *Client) GetRun(ctx context.Context, id uuid.UUID) (*Run, error) {
+	var run Run
+	path := fmt.Sprintf("/execution/%s/", id.String())
+
+	if err := c.doJSON(ctx, http.MethodGet, path, nil, &run); err != nil {
+		return nil, fmt.Errorf("failed to get run: %w", err)
+	}
+
+	return &run, nil
+}
+
+// GetRunByURL retrieves a run from a workflow URL
+func (c *Client) GetRunByURL(ctx context.Context, workflowURL string) (*Run, error) {
+	u, err := url.Parse(workflowURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid URL: %w", err)
+	}
+
+	queryParams, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
+		return nil, fmt.Errorf("invalid URL query: %w", err)
+	}
+
+	runIDs, found := queryParams["run"]
+	if !found {
+		return nil, nil // No run ID present, but this isn't an error
+	}
+
+	if len(runIDs) != 1 {
+		return nil, fmt.Errorf("invalid number of run parameters in URL: %d", len(runIDs))
+	}
+
+	runID, err := uuid.Parse(runIDs[0])
+	if err != nil {
+		return nil, fmt.Errorf("invalid run ID format: %w", err)
+	}
+
+	return c.GetRun(ctx, runID)
+}
+
+// GetRuns retrieves workflow runs with optional filtering
+func (c *Client) GetRuns(ctx context.Context, workflowID uuid.UUID, pageSize int, status string) ([]Run, error) {
+	path := "/execution/?type=Editor"
+
+	if workflowID != uuid.Nil {
+		path += fmt.Sprintf("&workflow=%s", workflowID)
+	}
+
+	if pageSize != 0 {
+		path += fmt.Sprintf("&page_size=%d", pageSize)
+	} else {
+		path += fmt.Sprintf("&page_size=%d", math.MaxInt)
+	}
+
+	if status != "" {
+		path += fmt.Sprintf("&status=%s", status)
+	}
+
+	var runs struct {
+		Count    int    `json:"count"`
+		Next     string `json:"next"`
+		Previous string `json:"previous"`
+		Results  []Run  `json:"results"`
+	}
+
+	if err := c.doJSON(ctx, http.MethodGet, path, nil, &runs); err != nil {
+		return nil, fmt.Errorf("failed to get runs: %w", err)
+	}
+
+	return runs.Results, nil
+}
+
+// GetLatestRun retrieves the latest run for a workflow
+func (c *Client) GetLatestRun(ctx context.Context, workflowID uuid.UUID) (*Run, error) {
+	runs, err := c.GetRuns(ctx, workflowID, 1, "")
+	if err != nil {
+		return nil, fmt.Errorf("error getting runs: %w", err)
+	}
+	if len(runs) < 1 {
+		return nil, fmt.Errorf("no runs found for workflow")
+	}
+	return &runs[0], nil
+}
+
+// GetRunIPAddresses retrieves the IP addresses associated with a run
+func (c *Client) GetRunIPAddresses(ctx context.Context, runID uuid.UUID) ([]string, error) {
+	var ipAddresses []string
+	path := fmt.Sprintf("/execution/%s/ips/", runID)
+
+	if err := c.doJSON(ctx, http.MethodGet, path, nil, &ipAddresses); err != nil {
+		return nil, fmt.Errorf("failed to get run IP addresses: %w", err)
+	}
+
+	return ipAddresses, nil
+}
+
+// StopRun stops a workflow run
+func (c *Client) StopRun(ctx context.Context, id uuid.UUID) error {
+	path := fmt.Sprintf("/execution/%s/stop/", id.String())
+
+	if err := c.doJSON(ctx, http.MethodPost, path, nil, &Run{}); err != nil {
+		return fmt.Errorf("failed to stop run: %w", err)
+	}
+
+	return nil
+}
