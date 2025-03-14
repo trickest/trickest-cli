@@ -14,7 +14,6 @@ import (
 
 	"github.com/hako/durafmt"
 	"github.com/trickest/trickest-cli/pkg/trickest"
-	"github.com/trickest/trickest-cli/util"
 	"github.com/xlab/treeprint"
 )
 
@@ -245,23 +244,7 @@ func (p *RunPrinter) printTrees(roots []*TreeNode, allNodes *map[string]*TreeNod
 	nodePattern := regexp.MustCompile(`\([-a-z0-9]+-[0-9]+\)`)
 
 	for _, root := range roots {
-		prefixSymbol := ""
-		switch root.Status {
-		case "pending":
-			prefixSymbol = "\u23f3 " //⏳
-		case "running":
-			prefixSymbol = "\U0001f535 " //🔵
-		case "succeeded":
-			prefixSymbol = "\u2705 " //✅
-		case "error", "failed":
-			prefixSymbol = "\u274c " //❌
-		case "stopped", "stopping":
-			prefixSymbol = "\u26d4 " //⛔
-		}
-
-		printValue := prefixSymbol + root.Label + " (" + root.Name + ")"
-		tree := treeprint.NewWithRoot(printValue)
-		treeStr := p.printTree(root, &tree, allNodes)
+		tree := p.printTree(root, nil, allNodes)
 
 		for _, node := range *allNodes {
 			node.Printed = false
@@ -271,15 +254,15 @@ func (p *RunPrinter) printTrees(roots []*TreeNode, allNodes *map[string]*TreeNod
 		w := tabwriter.NewWriter(writerBuffer, 0, 0, 2, ' ', 0)
 		_, _ = fmt.Fprintf(w, "\tNODE\t STATUS\t DURATION\t OUTPUT\n")
 
-		treeSplit := strings.Split(treeStr, "\n")
+		treeSplit := strings.Split(tree, "\n")
 		for _, line := range treeSplit {
 			if line != "" {
-				if match := nodePattern.MatchString(line); match {
+				if nodePattern.MatchString(line) {
 					lineSplit := strings.Split(line, "(")
 					nodeName := strings.Trim(lineSplit[1], ")")
 					node := (*allNodes)[nodeName]
 					_, _ = fmt.Fprintf(w, "\t"+line+"\t"+node.Status+"\t"+
-						util.FormatDuration(node.Duration)+"\t"+node.OutputStatus+"\n")
+						formatDuration(node.Duration)+"\t"+node.OutputStatus+"\n")
 				} else {
 					_, _ = fmt.Fprintf(w, "\t"+line+"\t\t\t\n")
 				}
