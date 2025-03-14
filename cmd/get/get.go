@@ -1,27 +1,40 @@
 package get
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"strings"
-	"time"
+	"os"
 
-	"github.com/trickest/trickest-cli/client/request"
-	"github.com/trickest/trickest-cli/cmd/execute"
-	"github.com/trickest/trickest-cli/types"
+	"github.com/trickest/trickest-cli/pkg/config"
+	"github.com/trickest/trickest-cli/pkg/display"
+	"github.com/trickest/trickest-cli/pkg/trickest"
 	"github.com/trickest/trickest-cli/util"
 
-	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
 
-var (
-	watch          bool
-	showNodeParams bool
-	runID          string
-	jsonOutput     bool
-)
+// Config holds the configuration for the get command
+type Config struct {
+	Token   string
+	BaseURL string
+
+	Watch                 bool
+	IncludePrimitiveNodes bool
+	JSONOutput            bool
+
+	RunID   string
+	RunSpec config.RunSpec
+}
+
+var cfg = &Config{}
+
+func init() {
+	GetCmd.Flags().BoolVar(&cfg.Watch, "watch", false, "Watch the workflow execution if it's still running")
+	GetCmd.Flags().BoolVar(&cfg.IncludePrimitiveNodes, "show-params", false, "Show parameters in the workflow tree")
+	GetCmd.Flags().StringVar(&cfg.RunID, "run", "", "Get the status of a specific run")
+	GetCmd.Flags().BoolVar(&cfg.JSONOutput, "json", false, "Display output in JSON format")
+}
 
 // GetCmd represents the get command
 var GetCmd = &cobra.Command{
@@ -29,103 +42,88 @@ var GetCmd = &cobra.Command{
 	Short: "Displays status of a workflow",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		_, _, workflow, found := util.GetObjects(args)
-
-		if !found || workflow == nil {
-			fmt.Println("Error: Workflow not found")
-			return
+		cfg.Token = util.GetToken()
+		cfg.BaseURL = util.BaseURL
+		cfg.RunSpec = config.RunSpec{
+			RunID:        cfg.RunID,
+			SpaceName:    util.SpaceName,
+			ProjectName:  util.ProjectName,
+			WorkflowName: util.WorkflowName,
+			URL:          util.URL,
 		}
-
-		version := execute.GetLatestWorkflowVersion(workflow.ID, uuid.Nil)
-		allNodes, roots := execute.CreateTrees(version, false)
-
-		var runs []types.Run
-		if runID == "" && util.URL != "" {
-			workflowURLRunID, err := util.GetRunIDFromWorkflowURL(util.URL)
-			if err == nil {
-				runID = workflowURLRunID
-			}
-		}
-		if runID == "" {
-			runs = util.GetRuns(version.WorkflowInfo, 1, "")
-		} else {
-			runUUID, err := uuid.Parse(runID)
-			if err != nil {
-				fmt.Println("Invalid run ID")
-				return
-			}
-			run := execute.GetRunByID(runUUID)
-			runs = []types.Run{*run}
-		}
-		if len(runs) > 0 {
-			run := runs[0]
-			if run.Status == "COMPLETED" && run.CompletedDate.IsZero() {
-				run.Status = "RUNNING"
-			}
-
-			ipAddresses, err := getRunIPAddresses(*run.ID)
-			if err != nil {
-				fmt.Printf("Warning: Couldn't get the run IP addresses: %s", err)
-			}
-			run.IPAddresses = ipAddresses
-
-			if jsonOutput {
-				data, err := json.Marshal(run)
-				if err != nil {
-					fmt.Println("Error marshalling project data")
-					return
-				}
-				output := string(data)
-				fmt.Println(output)
-			} else {
-				execute.WatchRun(*run.ID, "", []string{}, []string{}, !watch, &runs[0].Machines, showNodeParams)
-			}
-			return
-		} else {
-			if jsonOutput {
-				// No runs
-				fmt.Println("{}")
-			} else {
-				const fmtStr = "%-15s %v\n"
-				out := ""
-				out += fmt.Sprintf(fmtStr, "Name:", workflow.Name)
-				status := "no runs"
-				if len(runs) > 0 {
-					status = strings.ToLower(runs[0].Status)
-				}
-				out += fmt.Sprintf(fmtStr, "Status:", status)
-				out += fmt.Sprintf(fmtStr, "Created:", workflow.CreatedDate.In(time.Local).Format(time.RFC1123)+
-					" ("+util.FormatDuration(time.Since(workflow.CreatedDate))+" ago)")
-
-				for _, node := range allNodes {
-					node.Status = ""
-				}
-				out += "\n" + execute.PrintTrees(roots, &allNodes, showNodeParams, false)
-				fmt.Print(out)
-			}
-		}
-
+		run(cfg)
 	},
 }
 
-func init() {
-	GetCmd.Flags().BoolVar(&watch, "watch", false, "Watch the workflow execution if it's still running")
-	GetCmd.Flags().BoolVar(&showNodeParams, "show-params", false, "Show parameters in the workflow tree")
-	GetCmd.Flags().StringVar(&runID, "run", "", "Get the status of a specific run")
-	GetCmd.Flags().BoolVar(&jsonOutput, "json", false, "Display output in JSON format")
+func run(cfg *Config) {
+	client, err := trickest.NewClient(
+		trickest.WithToken(cfg.Token),
+		trickest.WithBaseURL(cfg.BaseURL),
+	)
+
+	if err != nil {
+		fmt.Printf("Error creating client: %v\n", err)
+		return
+	}
+
+	ctx := context.Background()
+
+	run, err := cfg.RunSpec.GetRun(ctx, client)
+	if err != nil {
+		fmt.Printf("Error getting run: %v\n", err)
+		return
+	}
+
+	err = displayRunDetails(ctx, client, run, cfg)
+	if err != nil {
+		fmt.Printf("Error handling run output: %v\n", err)
+		return
+	}
 }
 
-func getRunIPAddresses(runID uuid.UUID) ([]string, error) {
-	resp := request.Trickest.Get().DoF("execution/%s/ips/", runID)
-	if resp == nil || resp.Status() != http.StatusOK {
-		return nil, fmt.Errorf("unexpected response status code: %d", resp.Status())
-	}
+func displayRunDetails(ctx context.Context, client *trickest.Client, run *trickest.Run, cfg *Config) error {
+	if cfg.JSONOutput {
+		ipAddresses, err := client.GetRunIPAddresses(ctx, *run.ID)
+		if err != nil {
+			fmt.Printf("Warning: Couldn't get the run IP addresses: %s", err)
+		} else {
+			run.IPAddresses = ipAddresses
+		}
 
-	var ipAddresses []string
-	err := json.Unmarshal(resp.Body(), &ipAddresses)
-	if err != nil {
-		return nil, fmt.Errorf("couldn't unmarshal IP addresses response: %s", err)
-	}
+		data, err := json.MarshalIndent(run, "", "  ")
+		if err != nil {
+			return fmt.Errorf("error marshaling run data: %w", err)
+		}
+		output := string(data)
+		fmt.Println(output)
+	} else {
+		version, err := client.GetWorkflowVersion(ctx, *run.WorkflowVersionInfo)
+		if err != nil {
+			return fmt.Errorf("error getting workflow version: %w", err)
+		}
+		if cfg.Watch {
+			watcher, err := display.NewRunWatcher(
+				client,
+				*run.ID,
+				display.WithWorkflowVersion(version),
+				display.WithIncludePrimitiveNodes(cfg.IncludePrimitiveNodes),
+			)
+			if err != nil {
+				return fmt.Errorf("error creating run watcher: %w", err)
+			}
 
-	return ipAddresses, nil
+			err = watcher.Watch(ctx)
+			if err != nil {
+				return fmt.Errorf("error watching run: %w", err)
+			}
+		} else {
+			printer := display.NewRunPrinter(cfg.IncludePrimitiveNodes, os.Stdout)
+			subjobs, err := client.GetSubJobs(*run.ID)
+			if err != nil {
+				return fmt.Errorf("error getting subjobs: %w", err)
+			}
+			printer.PrintAll(run, subjobs, version)
+		}
+	}
+	return nil
 }
