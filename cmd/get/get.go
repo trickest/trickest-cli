@@ -51,41 +51,42 @@ var GetCmd = &cobra.Command{
 			WorkflowName: util.WorkflowName,
 			URL:          util.URL,
 		}
-		run(cfg)
+		if err := run(cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 	},
 }
 
-func run(cfg *Config) {
+func run(cfg *Config) error {
 	client, err := trickest.NewClient(
 		trickest.WithToken(cfg.Token),
 		trickest.WithBaseURL(cfg.BaseURL),
 	)
 
 	if err != nil {
-		fmt.Printf("Error creating client: %v\n", err)
-		return
+		return fmt.Errorf("error creating client: %w", err)
 	}
 
 	ctx := context.Background()
 
 	run, err := cfg.RunSpec.GetRun(ctx, client)
 	if err != nil {
-		fmt.Printf("Error getting run: %v\n", err)
-		return
+		return fmt.Errorf("error getting run: %w", err)
 	}
 
 	err = displayRunDetails(ctx, client, run, cfg)
 	if err != nil {
-		fmt.Printf("Error handling run output: %v\n", err)
-		return
+		return fmt.Errorf("error handling run output: %w", err)
 	}
+	return nil
 }
 
 func displayRunDetails(ctx context.Context, client *trickest.Client, run *trickest.Run, cfg *Config) error {
 	if cfg.JSONOutput {
 		ipAddresses, err := client.GetRunIPAddresses(ctx, *run.ID)
 		if err != nil {
-			fmt.Printf("Warning: Couldn't get the run IP addresses: %s", err)
+			fmt.Fprintf(os.Stderr, "Warning: Couldn't get the run IP addresses: %s", err)
 		} else {
 			run.IPAddresses = ipAddresses
 		}
