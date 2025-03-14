@@ -322,7 +322,11 @@ func (p *RunPrinter) printTree(node *TreeNode, branch *treeprint.Tree, allNodes 
 								fmt.Println("Error getting node name:", err)
 								continue
 							}
-							v = nodeName
+							if primitiveNode, exists := (*allNodes)[nodeName]; exists && primitiveNode.Inputs == nil {
+								v = primitiveNode.Label
+							} else {
+								v = nodeName
+							}
 						}
 					}
 					if strings.HasPrefix(param, "file/") || strings.HasPrefix(param, "folder/") {
@@ -340,7 +344,7 @@ func (p *RunPrinter) printTree(node *TreeNode, branch *treeprint.Tree, allNodes 
 	}
 
 	for _, child := range node.Children {
-		if !(*allNodes)[node.Name].Printed {
+		if !(*allNodes)[node.Name].Printed && (*allNodes)[child.Name].Inputs != nil {
 			p.printTree(child, branch, allNodes)
 		}
 	}
