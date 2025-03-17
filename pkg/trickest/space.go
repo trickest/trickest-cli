@@ -37,19 +37,17 @@ func (c *Client) GetSpace(ctx context.Context, id uuid.UUID) (*Space, error) {
 
 // GetSpaces retrieves all spaces for the current vault
 func (c *Client) GetSpaces(ctx context.Context, name string) ([]Space, error) {
-	var spaces struct {
-		Results []Space `json:"results"`
-	}
 	path := fmt.Sprintf("/spaces/?vault=%s", c.vaultID)
 	if name != "" {
 		path += fmt.Sprintf("&name=%s", name)
 	}
 
-	if err := c.doJSON(ctx, http.MethodGet, path, nil, &spaces); err != nil {
+	spaces, err := GetPaginated[Space](c, ctx, path, 0)
+	if err != nil {
 		return nil, fmt.Errorf("failed to get spaces: %w", err)
 	}
 
-	return spaces.Results, nil
+	return spaces, nil
 }
 
 // GetSpaceByName retrieves a space by name

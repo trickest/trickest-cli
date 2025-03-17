@@ -3,7 +3,6 @@ package trickest
 import (
 	"context"
 	"fmt"
-	"math"
 	"net/http"
 	"net/url"
 	"time"
@@ -85,40 +84,28 @@ func (c *Client) GetRunByURL(ctx context.Context, workflowURL string) (*Run, err
 }
 
 // GetRuns retrieves workflow runs with optional filtering
-func (c *Client) GetRuns(ctx context.Context, workflowID uuid.UUID, pageSize int, status string) ([]Run, error) {
+func (c *Client) GetRuns(ctx context.Context, workflowID uuid.UUID, status string, limit int) ([]Run, error) {
 	path := "/execution/?type=Editor"
 
 	if workflowID != uuid.Nil {
 		path += fmt.Sprintf("&workflow=%s", workflowID)
 	}
 
-	if pageSize != 0 {
-		path += fmt.Sprintf("&page_size=%d", pageSize)
-	} else {
-		path += fmt.Sprintf("&page_size=%d", math.MaxInt)
-	}
-
 	if status != "" {
 		path += fmt.Sprintf("&status=%s", status)
 	}
 
-	var runs struct {
-		Count    int    `json:"count"`
-		Next     string `json:"next"`
-		Previous string `json:"previous"`
-		Results  []Run  `json:"results"`
-	}
-
-	if err := c.doJSON(ctx, http.MethodGet, path, nil, &runs); err != nil {
+	runs, err := GetPaginated[Run](c, ctx, path, limit)
+	if err != nil {
 		return nil, fmt.Errorf("failed to get runs: %w", err)
 	}
 
-	return runs.Results, nil
+	return runs, nil
 }
 
 // GetLatestRun retrieves the latest run for a workflow
 func (c *Client) GetLatestRun(ctx context.Context, workflowID uuid.UUID) (*Run, error) {
-	runs, err := c.GetRuns(ctx, workflowID, 1, "")
+	runs, err := c.GetRuns(ctx, workflowID, "", 1)
 	if err != nil {
 		return nil, fmt.Errorf("error getting runs: %w", err)
 	}

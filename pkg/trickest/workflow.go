@@ -187,23 +187,20 @@ func (c *Client) GetWorkflowByURL(ctx context.Context, workflowURL string) (*Wor
 
 // GetWorkflows retrieves workflows filtered by space ID, project name and search term
 func (c *Client) GetWorkflows(ctx context.Context, spaceID uuid.UUID, projectID uuid.UUID, workflowSearchQuery string) ([]Workflow, error) {
-	var workflow struct {
-		Results []Workflow `json:"results"`
-	}
-
 	path := fmt.Sprintf("/workflow/?space=%s", spaceID)
 	if projectID != uuid.Nil {
 		path += fmt.Sprintf("&project=%s", projectID)
 	}
 	if workflowSearchQuery != "" {
-		path += fmt.Sprintf("&search=%s", workflowSearchQuery)
+		path += fmt.Sprintf("&search=%s", url.QueryEscape(workflowSearchQuery))
 	}
 
-	if err := c.doJSON(ctx, http.MethodGet, path, nil, &workflow); err != nil {
+	workflows, err := GetPaginated[Workflow](c, ctx, path, 0)
+	if err != nil {
 		return nil, fmt.Errorf("failed to get workflows: %w", err)
 	}
 
-	return workflow.Results, nil
+	return workflows, nil
 }
 
 // GetWorkflowByLocation retrieves a workflow by its location in the space/project hierarchy
