@@ -70,12 +70,16 @@ func run(cfg *Config) error {
 
 	ctx := context.Background()
 
-	run, err := cfg.RunSpec.GetRun(ctx, client)
+	runs, err := cfg.RunSpec.GetRuns(ctx, client)
 	if err != nil {
 		return fmt.Errorf("error getting run: %w", err)
 	}
+	if len(runs) != 1 {
+		return fmt.Errorf("expected 1 run, got %d", len(runs))
+	}
+	run := runs[0]
 
-	err = displayRunDetails(ctx, client, run, cfg)
+	err = displayRunDetails(ctx, client, &run, cfg)
 	if err != nil {
 		return fmt.Errorf("error handling run output: %w", err)
 	}
