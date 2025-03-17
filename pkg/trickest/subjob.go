@@ -37,6 +37,12 @@ type SubJobOutput struct {
 	SignedURL  string    `json:"signed_url,omitempty"`
 }
 
+type SignedURL struct {
+	Url        string `json:"url"`
+	Size       int    `json:"size"`
+	PrettySize string `json:"pretty_size"`
+}
+
 // GetSubJobs retrieves all sub-jobs for a run
 func (c *Client) GetSubJobs(ctx context.Context, runID uuid.UUID) ([]SubJob, error) {
 	path := fmt.Sprintf("/subjob/?execution=%s", runID.String())
@@ -47,6 +53,34 @@ func (c *Client) GetSubJobs(ctx context.Context, runID uuid.UUID) ([]SubJob, err
 	}
 
 	return subjobs, nil
+}
+
+// GetChildSubJobs retrieves all child sub-jobs for a lifted sub-job (task group)
+func (c *Client) GetChildSubJobs(ctx context.Context, parentID uuid.UUID) ([]SubJob, error) {
+	path := fmt.Sprintf("/subjob/children/?parent=%s", parentID.String())
+
+	children, err := GetPaginated[SubJob](c, ctx, path, 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get child sub-jobs: %w", err)
+	}
+
+	return children, nil
+}
+
+// GetChildSubJob retrieves a specific child sub-job by task index
+func (c *Client) GetChildSubJob(ctx context.Context, parentID uuid.UUID, taskIndex int) (SubJob, error) {
+	path := fmt.Sprintf("/subjob/children/?parent=%s&task_index=%d", parentID.String(), taskIndex)
+
+	children, err := GetPaginated[SubJob](c, ctx, path, 1)
+	if err != nil {
+		return SubJob{}, fmt.Errorf("failed to get child sub-job: %w", err)
+	}
+
+	if len(children) == 0 {
+		return SubJob{}, fmt.Errorf("no child sub-job found for task index %d", taskIndex)
+	}
+
+	return children[0], nil
 }
 
 func (c *Client) GetSubJobOutputs(ctx context.Context, subJobID uuid.Domain) ([]SubJobOutput, error) {
@@ -71,12 +105,12 @@ func (c *Client) GetModuleSubJobOutputs(ctx context.Context, moduleName string, 
 	return subJobOutputs, nil
 }
 
-func (c *Client) GetOutputSignedURL(ctx context.Context, outputID uuid.UUID) (string, error) {
+func (c *Client) GetOutputSignedURL(ctx context.Context, outputID uuid.UUID) (SignedURL, error) {
 	path := fmt.Sprintf("/subjob-output/%s/signed_url/", outputID)
 
-	var signedURL string
+	var signedURL SignedURL
 	if err := c.doJSON(ctx, http.MethodGet, path, nil, &signedURL); err != nil {
-		return "", fmt.Errorf("failed to get output signed URL: %w", err)
+		return SignedURL{}, fmt.Errorf("failed to get output signed URL: %w", err)
 	}
 
 	return signedURL, nil
