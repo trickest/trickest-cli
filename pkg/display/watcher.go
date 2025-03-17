@@ -116,7 +116,7 @@ func (w *RunWatcher) Watch(ctx context.Context) error {
 				return nil
 			}
 
-			subJobs, err := w.client.GetSubJobs(w.runID)
+			subJobs, err := w.client.GetSubJobs(ctx, w.runID)
 			if err != nil {
 				w.mutex.Unlock()
 				return fmt.Errorf("failed to get sub-jobs: %w", err)

@@ -119,7 +119,7 @@ func displayRunDetails(ctx context.Context, client *trickest.Client, run *tricke
 			}
 		} else {
 			printer := display.NewRunPrinter(cfg.IncludePrimitiveNodes, os.Stdout)
-			subjobs, err := client.GetSubJobs(*run.ID)
+			subjobs, err := client.GetSubJobs(ctx, *run.ID)
 			if err != nil {
 				return fmt.Errorf("error getting subjobs: %w", err)
 			}
