@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -83,7 +85,7 @@ func (c *Client) GetChildSubJob(ctx context.Context, parentID uuid.UUID, taskInd
 	return children[0], nil
 }
 
-func (c *Client) GetSubJobOutputs(ctx context.Context, subJobID uuid.Domain) ([]SubJobOutput, error) {
+func (c *Client) GetSubJobOutputs(ctx context.Context, subJobID uuid.UUID) ([]SubJobOutput, error) {
 	path := fmt.Sprintf("/subjob-output/?subjob=%s", subJobID.String())
 
 	subJobOutputs, err := GetPaginated[SubJobOutput](c, ctx, path, 0)
@@ -114,4 +116,43 @@ func (c *Client) GetOutputSignedURL(ctx context.Context, outputID uuid.UUID) (Si
 	}
 
 	return signedURL, nil
+}
+
+func LabelSubJobs(subJobs []SubJob, version WorkflowVersion) []SubJob {
+	labels := make(map[string]bool)
+	for i := range subJobs {
+		subJobs[i].Label = version.Data.Nodes[subJobs[i].Name].Meta.Label
+		subJobs[i].Label = strings.ReplaceAll(subJobs[i].Label, "/", "-")
+		if labels[subJobs[i].Label] {
+			existingLabel := subJobs[i].Label
+			subJobs[i].Label = subJobs[i].Name
+			if labels[subJobs[i].Label] {
+				subJobs[i].Label += "-1"
+				for c := 1; c >= 1; c++ {
+					if labels[subJobs[i].Label] {
+						subJobs[i].Label = strings.TrimSuffix(subJobs[i].Label, "-"+strconv.Itoa(c))
+						subJobs[i].Label += "-" + strconv.Itoa(c+1)
+					} else {
+						labels[subJobs[i].Label] = true
+						break
+					}
+				}
+			} else {
+				for s := 0; s < i; s++ {
+					if subJobs[s].Label == existingLabel {
+						subJobs[s].Label = subJobs[s].Name
+						if subJobs[s].Children != nil {
+							for j := range subJobs[s].Children {
+								subJobs[s].Children[j].Label = strconv.Itoa(subJobs[s].Children[j].TaskIndex) + "-" + subJobs[s].Name
+							}
+						}
+					}
+				}
+				labels[subJobs[i].Label] = true
+			}
+		} else {
+			labels[subJobs[i].Label] = true
+		}
+	}
+	return subJobs
 }
