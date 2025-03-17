@@ -25,15 +25,34 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var (
-	configFile   string
-	allRuns      bool
-	numberOfRuns int
-	runID        string
-	outputDir    string
-	nodesFlag    string
-	filesFlag    string
-)
+// Config holds the configuration for the output command
+type Config struct {
+	Token   string
+	BaseURL string
+
+	ConfigFile string
+
+	Nodes string
+	Files string
+
+	AllRuns      bool
+	NumberOfRuns int
+	RunID        string
+
+	OutputDir string
+}
+
+var cfg = &Config{}
+
+func init() {
+	OutputCmd.Flags().StringVar(&cfg.ConfigFile, "config", "", "YAML file to determine which nodes output(s) should be downloaded")
+	OutputCmd.Flags().BoolVar(&cfg.AllRuns, "all", false, "Download output data for all runs")
+	OutputCmd.Flags().IntVar(&cfg.NumberOfRuns, "runs", 1, "Number of recent runs which outputs should be downloaded")
+	OutputCmd.Flags().StringVar(&cfg.RunID, "run", "", "Download output data of a specific run")
+	OutputCmd.Flags().StringVar(&cfg.OutputDir, "output-dir", "", "Path to directory which should be used to store outputs")
+	OutputCmd.Flags().StringVar(&cfg.Nodes, "nodes", "", "A comma-separated list of nodes whose outputs should be downloaded")
+	OutputCmd.Flags().StringVar(&cfg.Files, "files", "", "A comma-separated list of file names that should be downloaded from the selected node")
+}
 
 // OutputCmd represents the download command
 var OutputCmd = &cobra.Command{
@@ -53,91 +72,86 @@ The YAML config file should be formatted like:
       - bar
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		_, _, workflow, found := util.GetObjects(args)
-		if !found {
-			return
-		}
-
-		var nodes []string
-		if nodesFlag != "" {
-			for _, node := range strings.Split(nodesFlag, ",") {
-				nodes = append(nodes, strings.ReplaceAll(node, "/", "-"))
-			}
-		} else if util.URL != "" {
-			node, err := util.GetNodeIDFromWorkflowURL(util.URL)
-			if err == nil {
-				nodes = append(nodes, node)
-			}
-		}
-
-		var files []string
-		if filesFlag != "" {
-			files = append(files, strings.Split(filesFlag, ",")...)
-		}
-
-		if configFile != "" {
-			file, err := os.Open(configFile)
-			if err != nil {
-				fmt.Println("Couldn't open config file to read outputs!")
-				return
-			}
-
-			bytes, err := io.ReadAll(file)
-			if err != nil {
-				fmt.Println("Couldn't read outputs config!")
-				return
-			}
-
-			var conf types.OutputsConfig
-			err = yaml.Unmarshal(bytes, &conf)
-			if err != nil {
-				fmt.Println("Couldn't unmarshal outputs config!")
-				return
-			}
-
-			for _, node := range conf.Outputs {
-				nodes = append(nodes, strings.ReplaceAll(node, "/", "-"))
-			}
-		}
-
-		runs, err := getRelevantRuns(*workflow, allRuns, runID, numberOfRuns, util.URL)
-		if err != nil {
-			fmt.Printf("Couldn't get workflow runs: %v\n", err)
-			return
-		}
-		if len(runs) == 0 {
-			fmt.Printf("No runs found for the workflow: %s (%s)\n", workflow.Name, workflow.ID)
-			return
-		}
-
-		path := util.FormatPath()
-		if outputDir != "" {
-			path = outputDir
-		}
-		for _, run := range runs {
-			if run.Status == "SCHEDULED" {
-				continue
-			}
-			DownloadRunOutput(&run, nodes, files, path)
+		cfg.Token = util.GetToken()
+		cfg.BaseURL = util.BaseURL
+		if err := run(cfg, args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
 		}
 	},
 }
 
-func init() {
-	OutputCmd.Flags().StringVar(&configFile, "config", "", "YAML file to determine which nodes output(s) should be downloaded")
-	OutputCmd.Flags().BoolVar(&allRuns, "all", false, "Download output data for all runs")
-	OutputCmd.Flags().IntVar(&numberOfRuns, "runs", 1, "Number of recent runs which outputs should be downloaded")
-	OutputCmd.Flags().StringVar(&runID, "run", "", "Download output data of a specific run")
-	OutputCmd.Flags().StringVar(&outputDir, "output-dir", "", "Path to directory which should be used to store outputs")
-	OutputCmd.Flags().StringVar(&nodesFlag, "nodes", "", "A comma-separated list of nodes whose outputs should be downloaded")
-	OutputCmd.Flags().StringVar(&filesFlag, "files", "", "A comma-separated list of file names that should be downloaded from the selected node")
+func run(cfg *Config, args []string) error {
+	_, _, workflow, found := util.GetObjects(args)
+	if !found {
+		return fmt.Errorf("workflow not found")
+	}
+
+	var nodes []string
+	if cfg.Nodes != "" {
+		for _, node := range strings.Split(cfg.Nodes, ",") {
+			nodes = append(nodes, strings.ReplaceAll(node, "/", "-"))
+		}
+	} else if util.URL != "" {
+		node, err := util.GetNodeIDFromWorkflowURL(util.URL)
+		if err == nil {
+			nodes = append(nodes, node)
+		}
+	}
+
+	var files []string
+	if cfg.Files != "" {
+		files = append(files, strings.Split(cfg.Files, ",")...)
+	}
+
+	if cfg.ConfigFile != "" {
+		file, err := os.Open(cfg.ConfigFile)
+		if err != nil {
+			return fmt.Errorf("couldn't open config file to read outputs: %w", err)
+		}
+
+		bytes, err := io.ReadAll(file)
+		if err != nil {
+			return fmt.Errorf("couldn't read outputs config: %w", err)
+		}
+
+		var conf types.OutputsConfig
+		err = yaml.Unmarshal(bytes, &conf)
+		if err != nil {
+			return fmt.Errorf("couldn't unmarshal outputs config: %w", err)
+		}
+
+		for _, node := range conf.Outputs {
+			nodes = append(nodes, strings.ReplaceAll(node, "/", "-"))
+		}
+	}
+
+	runs, err := getRelevantRuns(*workflow, cfg.AllRuns, cfg.RunID, cfg.NumberOfRuns, util.URL)
+	if err != nil {
+		return fmt.Errorf("couldn't get workflow runs: %w", err)
+	}
+	if len(runs) == 0 {
+		return fmt.Errorf("no runs found for the workflow: %s (%s)", workflow.Name, workflow.ID)
+	}
+
+	path := util.FormatPath()
+	if cfg.OutputDir != "" {
+		path = cfg.OutputDir
+	}
+	for _, run := range runs {
+		if run.Status == "SCHEDULED" {
+			continue
+		}
+		if err := DownloadRunOutput(&run, nodes, files, path); err != nil {
+			return fmt.Errorf("failed to download run output: %w", err)
+		}
+	}
+	return nil
 }
 
-func DownloadRunOutput(run *types.Run, nodes []string, files []string, destinationPath string) {
+func DownloadRunOutput(run *types.Run, nodes []string, files []string, destinationPath string) error {
 	if run.Status == "PENDING" || run.Status == "SUBMITTED" {
-		fmt.Println("The workflow run hasn't started yet!")
-		fmt.Println("Run ID: " + run.ID.String() + "   Status: " + run.Status)
-		return
+		return fmt.Errorf("workflow run hasn't started yet (Run ID: %s, Status: %s)", run.ID.String(), run.Status)
 	}
 
 	version := util.GetWorkflowVersionByID(*run.WorkflowVersionInfo, uuid.Nil)
@@ -151,11 +165,8 @@ func DownloadRunOutput(run *types.Run, nodes []string, files []string, destinati
 	runDir = strings.Replace(runDir, "T", "-", 1)
 	runDir = path.Join(destinationPath, runDir)
 
-	err := os.MkdirAll(runDir, 0755)
-	if err != nil {
-		fmt.Println(err)
-		fmt.Println("Couldn't create a directory to store run output!")
-		os.Exit(0)
+	if err := os.MkdirAll(runDir, 0755); err != nil {
+		return fmt.Errorf("couldn't create directory to store run output: %w", err)
 	}
 
 	if len(nodes) == 0 {
@@ -164,9 +175,8 @@ func DownloadRunOutput(run *types.Run, nodes []string, files []string, destinati
 			if (version.Data.Nodes[subJob.Name]).Type == "WORKFLOW" {
 				isModule = true
 			}
-			err = downloadSubJobOutput(runDir, &subJob, files, run.ID, isModule)
-			if err != nil {
-				fmt.Printf("Error downloading output for node %s: %v\n", subJob.Label, err)
+			if err := downloadSubJobOutput(runDir, &subJob, files, run.ID, isModule); err != nil {
+				return fmt.Errorf("error downloading output for node %s: %w", subJob.Label, err)
 			}
 		}
 	} else {
@@ -187,23 +197,23 @@ func DownloadRunOutput(run *types.Run, nodes []string, files []string, destinati
 				if (version.Data.Nodes[subJob.Name]).Type == "WORKFLOW" {
 					isModule = true
 				}
-				err = downloadSubJobOutput(runDir, &subJob, files, run.ID, isModule)
-				if err != nil {
-					fmt.Printf("Error downloading output for node %s: %v\n", subJob.Label, err)
+				if err := downloadSubJobOutput(runDir, &subJob, files, run.ID, isModule); err != nil {
+					return fmt.Errorf("error downloading output for node %s: %w", subJob.Label, err)
 				}
 			}
 		}
 		if noneFound {
 			runURL := fmt.Sprintf("https://trickest.io/editor/%s?run=%s", run.WorkflowInfo, run.ID)
-			fmt.Printf("No completed node outputs matching your query were found in the \"%s\" run: %s\n", run.StartedDate.Format(layout), runURL)
+			return fmt.Errorf("no completed node outputs matching your query were found in the \"%s\" run: %s", run.StartedDate.Format(layout), runURL)
 		} else {
 			for _, node := range nodes {
 				if !slices.Contains(foundNodes, node) {
-					fmt.Println("Couldn't find any sub-job named " + node + "!")
+					return fmt.Errorf("couldn't find any sub-job named %s", node)
 				}
 			}
 		}
 	}
+	return nil
 }
 
 func getRelevantRuns(workflow types.Workflow, allRuns bool, runID string, numberOfRuns int, workflowURL string) ([]types.Run, error) {
