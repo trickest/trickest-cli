@@ -14,10 +14,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func readConfig(fileName string, wfVersion *types.WorkflowVersionDetailed, tool *types.Tool) (
+func readConfig(fileName string, wfVersion *types.WorkflowVersionDetailed) (
 	bool, *types.WorkflowVersionDetailed, map[string]*types.PrimitiveNode) {
-	if wfVersion == nil && tool == nil {
-		fmt.Println("No workflow or tool found for execution!")
+	if wfVersion == nil {
+		fmt.Println("No workflow found for execution!")
 		os.Exit(0)
 	}
 	if fileName == "" {
@@ -45,18 +45,14 @@ func readConfig(fileName string, wfVersion *types.WorkflowVersionDetailed, tool 
 		os.Exit(0)
 	}
 
-	if tool != nil {
-		executionMachines = *readConfigMachines(&config, true, nil)
-	} else {
-		executionMachines = *readConfigMachines(&config, false, &wfVersion.MaxMachines)
-	}
+	executionMachines = *readConfigMachines(&config, &wfVersion.MaxMachines)
 	nodesToDownload = readConfigOutputs(&config)
-	updateNeeded, primitiveNodes := readConfigInputs(&config, wfVersion, tool)
+	updateNeeded, primitiveNodes := readConfigInputs(&config, wfVersion)
 
 	return updateNeeded, wfVersion, primitiveNodes
 }
 
-func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowVersionDetailed, tool *types.Tool) (
+func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowVersionDetailed) (
 	bool, map[string]*types.PrimitiveNode) {
 	updateNeeded := false
 	newPrimitiveNodes := make(map[string]*types.PrimitiveNode, 0)
@@ -64,10 +60,6 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 		inputsList, isList := inputs.(map[string]interface{})
 		if !isList {
 			processInvalidInputStructure()
-		}
-		if tool != nil && len(inputsList) == 0 {
-			fmt.Println("You must specify input parameters when creating a tool workflow!")
-			os.Exit(0)
 		}
 		stringInputsCnt := 0
 		booleanInputsCnt := 0
@@ -79,10 +71,7 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 			var paramName, nodeName string
 			newPNode := types.PrimitiveNode{Name: "", Value: paramValue}
 			if !strings.Contains(param, ".") {
-				if tool != nil {
-					paramName = param
-					nodeName = tool.Name + "-1"
-				} else if wfVersion != nil {
+				if wfVersion != nil {
 					if len(wfVersion.Data.Nodes) == 1 {
 						for _, n := range wfVersion.Data.Nodes {
 							node = n
@@ -100,7 +89,7 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 					}
 					nodeName = node.Name
 				} else {
-					fmt.Println("No version or tool specified, can't read config inputs!")
+					fmt.Println("No version specified, can't read config inputs!")
 					os.Exit(0)
 				}
 			} else {
@@ -140,30 +129,20 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 						os.Exit(0)
 					}
 					nodeName = node.Name
-				} else {
-					nodeName = tool.Name + "-1"
 				}
 			}
 
 			inputType := ""
-			if tool != nil {
-				toolInput, paramExists := tool.Inputs[paramName]
+
+			isSplitter := strings.HasPrefix(node.Name, "file-splitter") || strings.HasPrefix(node.Name, "split-to-string")
+			if node.Script == nil && !isSplitter {
+				oldParam, paramExists := node.Inputs[paramName]
+				// paramExists = paramExists && oldParam.Value != nil
 				if !paramExists {
-					fmt.Println("Input parameter " + paramName + " doesn't exist for tool named " + tool.Name + "!")
+					fmt.Println("Parameter " + paramName + " doesn't exist for node " + nodeName)
 					os.Exit(0)
 				}
-				inputType = toolInput.Type
-			} else {
-				isSplitter := strings.HasPrefix(node.Name, "file-splitter") || strings.HasPrefix(node.Name, "split-to-string")
-				if node.Script == nil && !isSplitter {
-					oldParam, paramExists := node.Inputs[paramName]
-					// paramExists = paramExists && oldParam.Value != nil
-					if !paramExists {
-						fmt.Println("Parameter " + paramName + " doesn't exist for node " + nodeName)
-						os.Exit(0)
-					}
-					inputType = oldParam.Type
-				}
+				inputType = oldParam.Type
 			}
 
 			switch val := newPNode.Value.(type) {
@@ -268,13 +247,6 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 							if wfVersion != nil {
 								needsUpdate := addPrimitiveNodeFromConfig(wfVersion, &newPrimitiveNodes, newPNode, node, paramName)
 								updateNeeded = updateNeeded || needsUpdate
-							} else {
-								if strings.ToLower(newPNode.Type) != strings.ToLower(inputType) {
-									fmt.Println("Input parameter " + tool.Name + "." + paramName + " should be of type " +
-										tool.Type + " instead of " + newPNode.Type + "!")
-									os.Exit(0)
-								}
-								newPrimitiveNodes[newPNode.Name] = &newPNode
 							}
 						default:
 							fmt.Println(file)
@@ -323,13 +295,6 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 								if wfVersion != nil {
 									needsUpdate := addPrimitiveNodeFromConfig(wfVersion, &newPrimitiveNodes, newPNode, node, paramName)
 									updateNeeded = updateNeeded || needsUpdate
-								} else {
-									if strings.ToLower(newPNode.Type) != strings.ToLower(inputType) {
-										fmt.Println("Input parameter " + tool.Name + "." + paramName + " should be of type " +
-											tool.Type + " instead of " + newPNode.Type + "!")
-										os.Exit(0)
-									}
-									newPrimitiveNodes[newPNode.Name] = &newPNode
 								}
 							default:
 								fmt.Println(folder)
@@ -357,20 +322,7 @@ func readConfigInputs(config *map[string]interface{}, wfVersion *types.WorkflowV
 			if wfVersion != nil {
 				needsUpdate := addPrimitiveNodeFromConfig(wfVersion, &newPrimitiveNodes, newPNode, node, paramName)
 				updateNeeded = updateNeeded || needsUpdate
-			} else {
-				if strings.ToLower(newPNode.Type) != strings.ToLower(inputType) {
-					fmt.Println("Input parameter " + tool.Name + "." + paramName + " should be of type " +
-						tool.Type + " instead of " + newPNode.Type + "!")
-					os.Exit(0)
-				}
-				newPNode.ParamName = &paramName
-				newPrimitiveNodes[newPNode.Name] = &newPNode
 			}
-		}
-	} else {
-		if tool != nil {
-			fmt.Println("You must specify input parameters when creating a tool workflow!")
-			os.Exit(0)
 		}
 	}
 
@@ -511,8 +463,8 @@ func readConfigOutputs(config *map[string]interface{}) []string {
 	return downloadNodes
 }
 
-func readConfigMachines(config *map[string]interface{}, isTool bool, maximumMachines *types.Machines) *types.Machines {
-	if !isTool && maximumMachines == nil {
+func readConfigMachines(config *map[string]interface{}, maximumMachines *types.Machines) *types.Machines {
+	if maximumMachines == nil {
 		fmt.Println("No maximum machines specified!")
 		os.Exit(0)
 	}
@@ -545,31 +497,18 @@ func readConfigMachines(config *map[string]interface{}, isTool bool, maximumMach
 						fmt.Println("Number of machines cannot be negative!")
 						os.Exit(0)
 					}
-					if isTool && value > 1 {
-						fmt.Println("You can specify only one machine of a single machine type for tool execution!")
-						os.Exit(0)
-					}
 					numberOfMachines = &value
 				}
 			case string:
 				if strings.ToLower(value) == "max" || strings.ToLower(value) == "maximum" || maxMachines {
-					if isTool {
-						oneMachine := 1
-						if (isSmall && isMedium) || (isMedium && isLarge) || (isLarge && isSmall) {
-							fmt.Println("You can specify only one machine of a single machine type for tool execution!")
-							os.Exit(0)
-						}
-						numberOfMachines = &oneMachine
-					} else {
-						if isSmall {
-							numberOfMachines = maximumMachines.Small
-						} else if isMedium {
-							numberOfMachines = maximumMachines.Medium
-						} else if isLarge {
-							numberOfMachines = maximumMachines.Large
-						} else if isDefault {
-							numberOfMachines = maximumMachines.Default
-						}
+					if isSmall {
+						numberOfMachines = maximumMachines.Small
+					} else if isMedium {
+						numberOfMachines = maximumMachines.Medium
+					} else if isLarge {
+						numberOfMachines = maximumMachines.Large
+					} else if isDefault {
+						numberOfMachines = maximumMachines.Default
 					}
 				} else {
 					processInvalidMachineString(value)
@@ -590,42 +529,31 @@ func readConfigMachines(config *map[string]interface{}, isTool bool, maximumMach
 
 		}
 
-		if !isTool {
-			maxMachinesOverflow := false
-			if executionMachines.Small != nil {
-				if maximumMachines.Small == nil || (*executionMachines.Small > *maximumMachines.Small) {
-					maxMachinesOverflow = true
-				}
-			}
-			if executionMachines.Medium != nil {
-				if maximumMachines.Medium == nil || (*executionMachines.Medium > *maximumMachines.Medium) {
-					maxMachinesOverflow = true
-				}
-			}
-			if executionMachines.Large != nil {
-				if maximumMachines.Large == nil || (*executionMachines.Large > *maximumMachines.Large) {
-					maxMachinesOverflow = true
-				}
-			}
-
-			if maxMachinesOverflow {
-				processMaxMachinesOverflow(*maximumMachines)
+		maxMachinesOverflow := false
+		if executionMachines.Small != nil {
+			if maximumMachines.Small == nil || (*executionMachines.Small > *maximumMachines.Small) {
+				maxMachinesOverflow = true
 			}
 		}
+		if executionMachines.Medium != nil {
+			if maximumMachines.Medium == nil || (*executionMachines.Medium > *maximumMachines.Medium) {
+				maxMachinesOverflow = true
+			}
+		}
+		if executionMachines.Large != nil {
+			if maximumMachines.Large == nil || (*executionMachines.Large > *maximumMachines.Large) {
+				maxMachinesOverflow = true
+			}
+		}
+
+		if maxMachinesOverflow {
+			processMaxMachinesOverflow(*maximumMachines)
+		}
 	} else {
-		if isTool {
-			oneMachine := 1
-			if maxMachines {
-				return &types.Machines{Large: &oneMachine}
-			} else {
-				return &types.Machines{Small: &oneMachine}
-			}
+		if maxMachines {
+			return maximumMachines
 		} else {
-			if maxMachines {
-				return maximumMachines
-			} else {
-				*execMachines = setMachinesToMinimum(*maximumMachines)
-			}
+			*execMachines = setMachinesToMinimum(*maximumMachines)
 		}
 	}
 

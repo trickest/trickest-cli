@@ -8,7 +8,6 @@ import (
 	"math"
 	"mime/multipart"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -16,7 +15,6 @@ import (
 
 	"github.com/trickest/trickest-cli/client/request"
 	"github.com/trickest/trickest-cli/cmd/delete"
-	"github.com/trickest/trickest-cli/cmd/list"
 	"github.com/trickest/trickest-cli/types"
 	"github.com/trickest/trickest-cli/util"
 
@@ -24,78 +22,6 @@ import (
 
 	"github.com/schollz/progressbar/v3"
 )
-
-func getSplitter() *types.Splitter {
-	resp := request.Trickest.Get().DoF("library/splitter/")
-	if resp == nil {
-		fmt.Println("Error: Couldn't get splitter.")
-	}
-
-	if resp.Status() != http.StatusOK {
-		request.ProcessUnexpectedResponse(resp)
-	}
-
-	var splitters types.SplitterResponse
-	err := json.Unmarshal(resp.Body(), &splitters)
-	if err != nil {
-		fmt.Println("Error unmarshalling splitter response!")
-		return nil
-	}
-
-	if splitters.Results == nil || len(splitters.Results) == 0 {
-		fmt.Println("Couldn't find any splitter!")
-		os.Exit(0)
-	}
-
-	return &splitters.Results[0]
-}
-
-func getScriptByName(name string) *types.Script {
-	scripts := getScripts(1, "", name)
-	if scripts == nil || len(scripts) == 0 {
-		fmt.Println("No scripts found with the given name: " + name)
-		return nil
-	}
-	return &scripts[0]
-}
-
-func getScripts(pageSize int, search string, name string) []types.Script {
-	urlReq := "library/script/"
-	if pageSize > 0 {
-		urlReq = urlReq + "?page_size=" + strconv.Itoa(pageSize)
-	} else {
-		urlReq = urlReq + "?page_size=" + strconv.Itoa(math.MaxInt)
-	}
-
-	if search != "" {
-		search = url.QueryEscape(search)
-		urlReq += "&search=" + search
-	}
-
-	if name != "" {
-		name = url.QueryEscape(name)
-		urlReq += "&name=" + name
-	}
-
-	resp := request.Trickest.Get().DoF(urlReq)
-	if resp == nil {
-		fmt.Println("Error: Couldn't get scripts!")
-		return nil
-	}
-
-	if resp.Status() != http.StatusOK {
-		request.ProcessUnexpectedResponse(resp)
-	}
-
-	var scripts types.Scripts
-	err := json.Unmarshal(resp.Body(), &scripts)
-	if err != nil {
-		fmt.Println("Error unmarshalling scripts response!")
-		return nil
-	}
-
-	return scripts.Results
-}
 
 func createRun(versionID, fleetID uuid.UUID, watch bool, outputNodes []string, outputsDir string, useStaticIPs bool) {
 
@@ -620,86 +546,4 @@ func verifyMachineType(machine, maxMachine *int) bool {
 	}
 
 	return true
-}
-
-func getToolScriptOrSplitterFromYAMLNode(node types.WorkflowYAMLNode) (*types.Tool, *types.Script, *types.Splitter) {
-	var tool *types.Tool
-	var script *types.Script
-	var splitter *types.Splitter
-	idSplit := strings.Split(node.ID, "-")
-	if len(idSplit) == 1 {
-		fmt.Println("Invalid node ID format: " + node.ID)
-		os.Exit(0)
-	}
-	libraryName := strings.TrimSuffix(node.ID, "-"+idSplit[len(idSplit)-1])
-
-	if node.Script == nil {
-		tools := list.GetTools(1, "", libraryName)
-		if tools == nil || len(tools) == 0 {
-			splitter = getSplitter()
-			if splitter == nil {
-				fmt.Println("Couldn't find a tool named " + libraryName + " in the library!")
-				fmt.Println("Use \"trickest library list\" to see all available workflows and tools, " +
-					"or search the library using \"trickest library search <name/description>\"")
-				os.Exit(0)
-			}
-		} else {
-			tool = &tools[0]
-		}
-	} else {
-		script = getScriptByName(libraryName)
-		if script == nil {
-			os.Exit(0)
-		}
-	}
-
-	return tool, script, splitter
-}
-
-func setConnectedSplitters(version *types.WorkflowVersionDetailed, splitterIDs *map[string]string) {
-	if splitterIDs == nil {
-		tempMap := make(map[string]string, 0)
-		splitterIDs = &tempMap
-		for _, node := range version.Data.Nodes {
-			if strings.HasPrefix(node.Name, "file-splitter") || strings.HasPrefix(node.Name, "split-to-string") {
-				(*splitterIDs)[node.Name] = node.Name
-				continue
-			}
-			if node.WorkerConnected != nil {
-				(*splitterIDs)[node.Name] = *node.WorkerConnected
-			}
-		}
-		setConnectedSplitters(version, splitterIDs)
-	} else {
-		newConnectionFound := false
-		for nodeName, splitterID := range *splitterIDs {
-			for _, connection := range version.Data.Connections {
-				if strings.Contains(connection.Source.ID, nodeName) {
-					destinationNodeID := getNodeNameFromConnectionID(connection.Destination.ID)
-					_, exists := (*splitterIDs)[destinationNodeID]
-					isSplitter := strings.HasPrefix(destinationNodeID, "file-splitter-") || strings.HasPrefix(destinationNodeID, "split-to-string-")
-					if isSplitter ||
-						(strings.Contains(connection.Destination.ID, "folder") &&
-							version.Data.Nodes[destinationNodeID].Script != nil) || exists {
-						continue
-					}
-					version.Data.Nodes[destinationNodeID].WorkerConnected = &splitterID
-					(*splitterIDs)[destinationNodeID] = splitterID
-					newConnectionFound = true
-				}
-			}
-		}
-		if newConnectionFound {
-			setConnectedSplitters(version, splitterIDs)
-		}
-	}
-}
-
-func nodeExists(nodes []types.WorkflowYAMLNode, id string) bool {
-	for _, node := range nodes {
-		if node.ID == id {
-			return true
-		}
-	}
-	return false
 }
