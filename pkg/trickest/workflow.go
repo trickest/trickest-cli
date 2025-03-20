@@ -113,12 +113,12 @@ type NodeOutput struct {
 
 // Connection represents a connection between nodes
 type Connection struct {
-	Source struct {
-		ID string `json:"id"`
-	} `json:"source"`
-	Destination struct {
-		ID string `json:"id"`
-	} `json:"destination"`
+	Source      ConnectionEndpoint `json:"source"`
+	Destination ConnectionEndpoint `json:"destination"`
+}
+
+type ConnectionEndpoint struct {
+	ID string `json:"id"`
 }
 
 // PrimitiveNode represents a primitive node
@@ -258,4 +258,30 @@ func (c *Client) GetWorkflowVersion(ctx context.Context, id uuid.UUID) (*Workflo
 	}
 
 	return &version, nil
+}
+
+// GetLatestWorkflowVersion retrieves the latest version of a workflow
+func (c *Client) GetLatestWorkflowVersion(ctx context.Context, workflowID uuid.UUID) (*WorkflowVersion, error) {
+	var version WorkflowVersion
+	path := fmt.Sprintf("/workflow-version/latest/?workflow=%s", workflowID)
+
+	if err := c.doJSON(ctx, http.MethodGet, path, nil, &version); err != nil {
+		return nil, fmt.Errorf("failed to get latest workflow version: %w", err)
+	}
+
+	return &version, nil
+}
+
+// UpdateWorkflowVersion creates a new version of a workflow
+func (c *Client) UpdateWorkflowVersion(ctx context.Context, version *WorkflowVersion) (*WorkflowVersion, error) {
+	for _, pNode := range version.Data.PrimitiveNodes {
+		pNode.ParamName = nil
+	}
+
+	var newVersion WorkflowVersion
+	if err := c.doJSON(ctx, http.MethodPost, "/workflow-version/", version, &newVersion); err != nil {
+		return nil, fmt.Errorf("failed to create workflow version: %w", err)
+	}
+
+	return &newVersion, nil
 }
