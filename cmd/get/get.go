@@ -24,7 +24,7 @@ type Config struct {
 	JSONOutput            bool
 
 	RunID   string
-	RunSpec config.RunSpec
+	RunSpec config.WorkflowRunSpec
 }
 
 var cfg = &Config{}
@@ -44,7 +44,7 @@ var GetCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg.Token = util.GetToken()
 		cfg.BaseURL = util.BaseURL
-		cfg.RunSpec = config.RunSpec{
+		cfg.RunSpec = config.WorkflowRunSpec{
 			RunID:        cfg.RunID,
 			SpaceName:    util.SpaceName,
 			ProjectName:  util.ProjectName,

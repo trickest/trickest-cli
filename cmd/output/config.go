@@ -24,7 +24,7 @@ type Config struct {
 	AllRuns      bool
 	NumberOfRuns int
 	RunID        string
-	RunSpec      config.RunSpec
+	RunSpec      config.WorkflowRunSpec
 
 	OutputDir string
 }
