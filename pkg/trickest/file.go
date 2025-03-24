@@ -58,8 +58,8 @@ func (c *Client) GetFileByName(ctx context.Context, name string) (File, error) {
 }
 
 // GetFileSignedURL retrieves a signed URL for a file
-func (c *Client) GetFileSignedURL(ctx context.Context, fileID string) (string, error) {
-	path := fmt.Sprintf("/file/%s/signed_url/", fileID)
+func (c *Client) GetFileSignedURL(ctx context.Context, id uuid.UUID) (string, error) {
+	path := fmt.Sprintf("/file/%s/signed_url/", id.String())
 
 	var signedURL string
 	if err := c.doJSON(ctx, http.MethodGet, path, nil, &signedURL); err != nil {
@@ -73,9 +73,14 @@ func (c *Client) GetFileSignedURL(ctx context.Context, fileID string) (string, e
 func (c *Client) DeleteFile(ctx context.Context, id uuid.UUID) error {
 	path := fmt.Sprintf("/file/%s/", id.String())
 
-	var deletedFile File
-	if err := c.doJSON(ctx, http.MethodDelete, path, nil, &deletedFile); err != nil {
+	resp, err := c.doRequest(ctx, http.MethodDelete, path, nil)
+	if err != nil {
 		return fmt.Errorf("failed to delete file: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
 	return nil
