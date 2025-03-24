@@ -24,20 +24,19 @@ type Run struct {
 	ProjectInfo         *uuid.UUID `json:"project_info,omitempty"`
 	ProjectName         string     `json:"project_name,omitempty"`
 	CreationType        string     `json:"creation_type,omitempty"`
-	CreatedDate         time.Time  `json:"created_date,omitempty"`
-	StartedDate         time.Time  `json:"started_date,omitempty"`
-	CompletedDate       time.Time  `json:"completed_date,omitempty"`
+	CreatedDate         *time.Time `json:"created_date,omitempty"`
+	StartedDate         *time.Time `json:"started_date,omitempty"`
+	CompletedDate       *time.Time `json:"completed_date,omitempty"`
 	Finished            bool       `json:"finished,omitempty"`
 	Author              string     `json:"author,omitempty"`
 	Fleet               *uuid.UUID `json:"fleet,omitempty"`
+	Vault               *uuid.UUID `json:"vault,omitempty"`
+	UseStaticIPs        *bool      `json:"use_static_ips,omitempty"`
 	IPAddresses         []string   `json:"ip_addresses,omitempty"`
 }
 
 // Machines represents machine configuration
 type Machines struct {
-	Small      *int `json:"small,omitempty"`
-	Medium     *int `json:"medium,omitempty"`
-	Large      *int `json:"large,omitempty"`
 	Default    *int `json:"default,omitempty"`
 	SelfHosted *int `json:"self_hosted,omitempty"`
 }
@@ -136,4 +135,44 @@ func (c *Client) StopRun(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return nil
+}
+
+func (c *Client) CreateRun(ctx context.Context, versionID uuid.UUID, machines int, fleet Fleet, useStaticIPs bool) (*Run, error) {
+	path := "/execution/"
+
+	if versionID == uuid.Nil {
+		return nil, fmt.Errorf("version ID cannot be nil")
+	}
+
+	if fleet.ID == uuid.Nil {
+		return nil, fmt.Errorf("invalid fleet")
+	}
+
+	if len(fleet.Machines) == 0 {
+		return nil, fmt.Errorf("fleet has no machines")
+	}
+
+	run := Run{
+		WorkflowVersionInfo: &versionID,
+		Fleet:               &fleet.ID,
+		Vault:               &fleet.Vault,
+		UseStaticIPs:        &useStaticIPs,
+	}
+
+	if fleet.Machines[0].Name == "self_hosted" {
+		run.Machines = Machines{
+			SelfHosted: &machines,
+		}
+	} else {
+		run.Machines = Machines{
+			Default: &machines,
+		}
+	}
+
+	var createdRun Run
+	if err := c.doJSON(ctx, http.MethodPost, path, &run, &createdRun); err != nil {
+		return nil, fmt.Errorf("failed to create run: %w", err)
+	}
+
+	return &createdRun, nil
 }

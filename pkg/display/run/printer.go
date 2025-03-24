@@ -76,20 +76,26 @@ func (p *RunPrinter) PrintAll(run *trickest.Run, subJobs []trickest.SubJob, vers
 	output.WriteString(p.formatKeyValue("Machines", formatMachines(run.Machines)))
 
 	// Print timestamps
-	output.WriteString(p.formatKeyValue("Created",
-		run.CreatedDate.In(time.Local).Format(time.RFC1123)+" ("+formatDuration(time.Since(run.CreatedDate))+" ago)"))
+	if run.CreatedDate != nil {
+		output.WriteString(p.formatKeyValue("Created",
+			run.CreatedDate.In(time.Local).Format(time.RFC1123)+" ("+formatDuration(time.Since(*run.CreatedDate))+" ago)"))
+	}
 
 	if run.Status != "PENDING" {
-		output.WriteString(p.formatKeyValue("Started",
-			run.StartedDate.In(time.Local).Format(time.RFC1123)+" ("+formatDuration(time.Since(run.StartedDate))+" ago)"))
+		if run.StartedDate != nil {
+			output.WriteString(p.formatKeyValue("Started",
+				run.StartedDate.In(time.Local).Format(time.RFC1123)+" ("+formatDuration(time.Since(*run.StartedDate))+" ago)"))
+		}
 	}
 
 	if run.Finished {
 		output.WriteString(p.formatKeyValue("Finished",
-			run.CompletedDate.In(time.Local).Format(time.RFC1123)+" ("+formatDuration(time.Since(run.CompletedDate))+" ago)"))
-		output.WriteString(p.formatKeyValue("Duration", formatDuration(run.CompletedDate.Sub(run.StartedDate))))
+			run.CompletedDate.In(time.Local).Format(time.RFC1123)+" ("+formatDuration(time.Since(*run.CompletedDate))+" ago)"))
+		output.WriteString(p.formatKeyValue("Duration", formatDuration(run.CompletedDate.Sub(*run.StartedDate))))
 	} else if run.Status == "RUNNING" {
-		output.WriteString(p.formatKeyValue("Duration", formatDuration(time.Since(run.StartedDate))))
+		if run.StartedDate != nil {
+			output.WriteString(p.formatKeyValue("Duration", formatDuration(time.Since(*run.StartedDate))))
+		}
 	}
 
 	output.WriteString("\n")
@@ -103,9 +109,6 @@ func (p *RunPrinter) PrintAll(run *trickest.Run, subJobs []trickest.SubJob, vers
 // formatMachines formats the machine allocation for the run
 func formatMachines(machines trickest.Machines) string {
 	machineCounts := map[string]*int{
-		"small":       machines.Small,
-		"medium":      machines.Medium,
-		"large":       machines.Large,
 		"self hosted": machines.SelfHosted,
 		"default":     machines.Default,
 	}
