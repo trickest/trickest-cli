@@ -285,3 +285,33 @@ func (c *Client) UpdateWorkflowVersion(ctx context.Context, version *WorkflowVer
 
 	return &newVersion, nil
 }
+
+// GetWorkflowVersionMaxMachines retrieves the maximum machines for a workflow version
+func (c *Client) GetWorkflowVersionMaxMachines(ctx context.Context, versionID uuid.UUID, fleetID uuid.UUID) (*Machines, error) {
+	var machines Machines
+	path := fmt.Sprintf("/workflow-version/%s/max-machines/?fleet=%s", versionID, fleetID)
+
+	if err := c.doJSON(ctx, http.MethodGet, path, nil, &machines); err != nil {
+		return nil, fmt.Errorf("failed to get workflow version max machines: %w", err)
+	}
+
+	return &machines, nil
+}
+
+// GetWorkflowVersionMaxMachineCount is a convenience function that retrieves the maximum machines for a workflow version as an int
+func (c *Client) GetWorkflowVersionMaxMachineCount(ctx context.Context, versionID uuid.UUID, fleetID uuid.UUID) (int, error) {
+	machines, err := c.GetWorkflowVersionMaxMachines(ctx, versionID, fleetID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get workflow version max machines: %w", err)
+	}
+
+	if machines.Default != nil {
+		return *machines.Default, nil
+	}
+
+	if machines.SelfHosted != nil {
+		return *machines.SelfHosted, nil
+	}
+
+	return 0, fmt.Errorf("no max machines found for workflow version")
+}
