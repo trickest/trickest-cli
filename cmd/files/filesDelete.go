@@ -1,14 +1,30 @@
 package files
 
 import (
+	"context"
 	"fmt"
-	"net/http"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/trickest/trickest-cli/client/request"
+	"github.com/trickest/trickest-cli/pkg/trickest"
+	"github.com/trickest/trickest-cli/util"
 )
+
+type DeleteConfig struct {
+	Token   string
+	BaseURL string
+
+	FileNames []string
+}
+
+var deleteCfg = &DeleteConfig{}
+
+func init() {
+	FilesCmd.AddCommand(filesDeleteCmd)
+
+	filesDeleteCmd.Flags().StringSliceVar(&deleteCfg.FileNames, "file", []string{}, "File(s) to delete")
+	filesDeleteCmd.MarkFlagRequired("file")
+}
 
 // filesDeleteCmd represents the filesDelete command
 var filesDeleteCmd = &cobra.Command{
@@ -16,58 +32,38 @@ var filesDeleteCmd = &cobra.Command{
 	Short: "Delete files from the Trickest file storage",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		fileNames := strings.Split(Files, ",")
-		for _, fileName := range fileNames {
-			err := deleteFile(fileName)
-			if err != nil {
-				fmt.Printf("Error: %s\n", err)
-				os.Exit(1)
-			} else {
-				fmt.Printf("Deleted %s successfully\n", fileName)
-			}
+		deleteCfg.Token = util.GetToken()
+		deleteCfg.BaseURL = util.BaseURL
+		if err := runDelete(deleteCfg); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
 		}
 	},
 }
 
-func init() {
-	FilesCmd.AddCommand(filesDeleteCmd)
-
-	filesDeleteCmd.Flags().StringVar(&Files, "file", "", "File or files (comma-separated)")
-	filesDeleteCmd.MarkFlagRequired("file")
-}
-
-func deleteFile(fileName string) error {
-	metadata, err := getMetadata(fileName)
+func runDelete(cfg *DeleteConfig) error {
+	client, err := trickest.NewClient(
+		trickest.WithToken(cfg.Token),
+		trickest.WithBaseURL(cfg.BaseURL),
+	)
 	if err != nil {
-		return fmt.Errorf("couldn't search for %s: %s", fileName, err)
+		return fmt.Errorf("error creating client: %w", err)
 	}
 
-	if len(metadata) == 0 {
-		return fmt.Errorf("couldn't find any matches for %s", fileName)
-	}
+	ctx := context.Background()
 
-	matchFound := false
-	for _, fileMetadata := range metadata {
-		if fileMetadata.Name == fileName {
-			matchFound = true
-			err := deleteFileByID(fileMetadata.ID)
-			if err != nil {
-				return fmt.Errorf("couldn't delete %s: %s", fileMetadata.Name, err)
-			}
+	for _, fileName := range cfg.FileNames {
+		file, err := client.GetFileByName(ctx, fileName)
+		if err != nil {
+			return fmt.Errorf("error getting file: %w", err)
 		}
-	}
 
-	if !matchFound {
-		return fmt.Errorf("couldn't find any matches for %s", fileName)
-	}
+		err = client.DeleteFile(ctx, file.ID)
+		if err != nil {
+			return fmt.Errorf("error deleting file: %w", err)
+		}
 
-	return nil
-}
-
-func deleteFileByID(fileID string) error {
-	resp := request.Trickest.Delete().DoF("file/%s/", fileID)
-	if resp == nil || resp.Status() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status code: %d", resp.Status())
+		fmt.Printf("Deleted \"%s\" successfully\n", fileName)
 	}
 
 	return nil
