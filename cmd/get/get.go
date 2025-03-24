@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/trickest/trickest-cli/pkg/config"
-	"github.com/trickest/trickest-cli/pkg/display"
+	display "github.com/trickest/trickest-cli/pkg/display/run"
 	"github.com/trickest/trickest-cli/pkg/trickest"
 	"github.com/trickest/trickest-cli/util"
 
