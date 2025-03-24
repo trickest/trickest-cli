@@ -13,6 +13,10 @@ import (
 
 // CreateRunDir creates a directory for a run based on the run's started date
 func CreateRunDir(baseDir string, run trickest.Run) (string, error) {
+	if run.StartedDate == nil {
+		return "", fmt.Errorf("run started date is nil, either the run has not started or the run object is incomplete or outdated")
+	}
+
 	const layout = "2006-01-02T150405Z"
 	runDir := "run-" + run.StartedDate.Format(layout)
 	runDir = path.Join(baseDir, runDir)
