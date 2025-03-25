@@ -272,20 +272,6 @@ func (c *Client) GetLatestWorkflowVersion(ctx context.Context, workflowID uuid.U
 	return &version, nil
 }
 
-// UpdateWorkflowVersion creates a new version of a workflow
-func (c *Client) UpdateWorkflowVersion(ctx context.Context, version *WorkflowVersion) (*WorkflowVersion, error) {
-	for _, pNode := range version.Data.PrimitiveNodes {
-		pNode.ParamName = nil
-	}
-
-	var newVersion WorkflowVersion
-	if err := c.doJSON(ctx, http.MethodPost, "/workflow-version/", version, &newVersion); err != nil {
-		return nil, fmt.Errorf("failed to create workflow version: %w", err)
-	}
-
-	return &newVersion, nil
-}
-
 // GetWorkflowVersionMaxMachines retrieves the maximum machines for a workflow version
 func (c *Client) GetWorkflowVersionMaxMachines(ctx context.Context, versionID uuid.UUID, fleetID uuid.UUID) (*Machines, error) {
 	var machines Machines
