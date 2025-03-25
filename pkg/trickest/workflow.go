@@ -221,7 +221,7 @@ func (c *Client) GetWorkflowByLocation(ctx context.Context, spaceName, projectNa
 	if projectName != "" {
 		for _, project := range space.Projects {
 			if project.Name == projectName {
-				projectID = project.ID
+				projectID = *project.ID
 				break
 			}
 		}
@@ -230,7 +230,7 @@ func (c *Client) GetWorkflowByLocation(ctx context.Context, spaceName, projectNa
 		}
 	}
 
-	workflows, err := c.GetWorkflows(ctx, space.ID, projectID, workflowName)
+	workflows, err := c.GetWorkflows(ctx, *space.ID, projectID, workflowName)
 	if err != nil {
 		return nil, err
 	}

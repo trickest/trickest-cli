@@ -11,17 +11,17 @@ import (
 
 // Space represents a space
 type Space struct {
-	ID             uuid.UUID  `json:"id"`
-	Name           string     `json:"name"`
-	Description    string     `json:"description"`
-	VaultInfo      uuid.UUID  `json:"vault_info"`
-	Playground     bool       `json:"playground"`
-	Projects       []Project  `json:"projects"`
-	ProjectsCount  int        `json:"projects_count"`
-	Workflows      []Workflow `json:"workflows"`
-	WorkflowsCount int        `json:"workflows_count"`
-	CreatedDate    time.Time  `json:"created_date"`
-	ModifiedDate   time.Time  `json:"modified_date"`
+	ID             *uuid.UUID `json:"id,omitempty"`
+	Name           string     `json:"name,omitempty"`
+	Description    string     `json:"description,omitempty"`
+	VaultID        *uuid.UUID `json:"vault_info,omitempty"`
+	Playground     bool       `json:"playground,omitempty"`
+	Projects       []Project  `json:"projects,omitempty"`
+	ProjectsCount  int        `json:"projects_count,omitempty"`
+	Workflows      []Workflow `json:"workflows,omitempty"`
+	WorkflowsCount int        `json:"workflows_count,omitempty"`
+	CreatedDate    *time.Time `json:"created_date,omitempty"`
+	ModifiedDate   *time.Time `json:"modified_date,omitempty"`
 }
 
 // GetSpace retrieves a space by ID
@@ -64,7 +64,7 @@ func (c *Client) GetSpaceByName(ctx context.Context, name string) (*Space, error
 	// loop through the results to find the space with the exact name
 	for _, space := range spaces {
 		if space.Name == name {
-			space, err := c.GetSpace(ctx, space.ID)
+			space, err := c.GetSpace(ctx, *space.ID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get space: %w", err)
 			}
@@ -73,4 +73,22 @@ func (c *Client) GetSpaceByName(ctx context.Context, name string) (*Space, error
 	}
 
 	return nil, fmt.Errorf("space not found: %s", name)
+}
+
+// CreateSpace creates a new space
+func (c *Client) CreateSpace(ctx context.Context, name string, description string) (*Space, error) {
+	path := "/spaces/"
+
+	space := Space{
+		Name:        name,
+		Description: description,
+		VaultID:     &c.vaultID,
+	}
+
+	var newSpace Space
+	if err := c.doJSON(ctx, http.MethodPost, path, &space, &newSpace); err != nil {
+		return nil, fmt.Errorf("failed to create space: %w", err)
+	}
+
+	return &newSpace, nil
 }

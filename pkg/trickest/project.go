@@ -1,6 +1,9 @@
 package trickest
 
 import (
+	"context"
+	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -8,14 +11,31 @@ import (
 
 // Project represents a project
 type Project struct {
-	ID            uuid.UUID  `json:"id"`
-	Name          string     `json:"name"`
-	Description   string     `json:"description"`
-	SpaceInfo     uuid.UUID  `json:"space_info"`
-	SpaceName     string     `json:"space_name"`
-	WorkflowCount int        `json:"workflow_count"`
-	CreatedDate   time.Time  `json:"created_date"`
-	ModifiedDate  time.Time  `json:"modified_date"`
-	Author        string     `json:"author"`
+	ID            *uuid.UUID `json:"id,omitempty"`
+	Name          string     `json:"name,omitempty"`
+	Description   string     `json:"description,omitempty"`
+	SpaceID       *uuid.UUID `json:"space_info,omitempty"`
+	SpaceName     string     `json:"space_name,omitempty"`
+	WorkflowCount int        `json:"workflow_count,omitempty"`
+	CreatedDate   *time.Time `json:"created_date,omitempty"`
+	ModifiedDate  *time.Time `json:"modified_date,omitempty"`
+	Author        string     `json:"author,omitempty"`
 	Workflows     []Workflow `json:"workflows,omitempty"`
+}
+
+func (c *Client) CreateProject(ctx context.Context, name string, description string, spaceID uuid.UUID) (Project, error) {
+	path := fmt.Sprintf("/projects/?vault=%s", c.vaultID)
+
+	project := Project{
+		Name:        name,
+		Description: description,
+		SpaceID:     &spaceID,
+	}
+
+	var newProject Project
+	if err := c.doJSON(ctx, http.MethodPost, path, &project, &newProject); err != nil {
+		return Project{}, fmt.Errorf("failed to create project: %w", err)
+	}
+
+	return newProject, nil
 }
