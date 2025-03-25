@@ -70,13 +70,17 @@ func setPrimitiveNodeValue(pNode *trickest.PrimitiveNode, value any) error {
 		return fmt.Errorf("primitive node cannot be nil")
 	}
 
-	normalizedValue, label, err := processPrimitiveNodeValue(pNode.Type, value)
+	normalizedValue, impliedLabel, err := processPrimitiveNodeValue(pNode.Type, value)
 	if err != nil {
 		return err
 	}
 
+	// Only update the label if it matches the current value, indicating it's using the default behavior
+	// This preserves custom labels that were manually set to user-friendly names
+	if pNode.Label == pNode.Value {
+		pNode.Label = impliedLabel
+	}
 	pNode.Value = normalizedValue
-	pNode.Label = label
 
 	return nil
 }
