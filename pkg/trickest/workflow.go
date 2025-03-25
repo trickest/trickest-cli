@@ -315,3 +315,13 @@ func (c *Client) GetWorkflowVersionMaxMachineCount(ctx context.Context, versionI
 
 	return 0, fmt.Errorf("no max machines found for workflow version")
 }
+
+func (c *Client) CreateWorkflowVersion(ctx context.Context, version *WorkflowVersion) (*WorkflowVersion, error) {
+	var newVersion WorkflowVersion
+	path := "/workflow-version/"
+	if err := c.doJSON(ctx, http.MethodPost, path, version, &newVersion); err != nil {
+		return nil, fmt.Errorf("failed to create workflow version: %w", err)
+	}
+
+	return &newVersion, nil
+}
