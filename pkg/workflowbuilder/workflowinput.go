@@ -10,6 +10,12 @@ type WorkflowInput interface {
 	ApplyToWorkflowVersion(wfVersion *trickest.WorkflowVersion) error
 }
 
+// Inputs represents a collection of primitive node and node inputs
+type Inputs struct {
+	PrimitiveNodeInputs []PrimitiveNodeInput
+	NodeInputs          []NodeInput
+}
+
 // PrimitiveNodeInput represents a primitive node (string, boolean, file, or folder) input
 type PrimitiveNodeInput struct {
 	PrimitiveNodeID string
