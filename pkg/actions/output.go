@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path"
 	"slices"
 	"sync"
 
@@ -55,8 +54,6 @@ func downloadSubJobOutput(client *trickest.Client, savePath string, subJob *tric
 	if !subJob.TaskGroup && subJob.Status != "SUCCEEDED" {
 		return fmt.Errorf("subjob %s (ID: %s) is not completed (status: %s)", subJob.Label, subJob.ID, subJob.Status)
 	}
-
-	savePath = path.Join(savePath, subJob.Label)
 
 	if subJob.TaskGroup {
 		return downloadTaskGroupOutput(client, savePath, subJob, files, runID)
