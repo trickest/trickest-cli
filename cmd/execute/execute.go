@@ -43,7 +43,8 @@ type Config struct {
 	NodesToDownload  []string
 	DownloadAllNodes bool
 
-	Inputs workflowbuilder.Inputs
+	RawInputs []string
+	Inputs    workflowbuilder.Inputs
 
 	ConfigFile string
 
@@ -57,6 +58,8 @@ func init() {
 	ExecuteCmd.Flags().BoolVar(&cfg.MaxMachines, "max", false, "Use maximum number of machines for workflow execution")
 	ExecuteCmd.Flags().StringVar(&cfg.FleetName, "fleet", DefaultFleetName, "The name of the fleet to use to execute the workflow")
 	ExecuteCmd.Flags().BoolVar(&cfg.UseStaticIPs, "use-static-ips", false, "Use static IP addresses for the execution")
+
+	ExecuteCmd.Flags().StringSliceVar(&cfg.RawInputs, "inputs", []string{}, "Inputs to pass to the workflow in the format key=value (can be used multiple times)")
 
 	ExecuteCmd.Flags().BoolVar(&cfg.Watch, "watch", false, "Watch the execution running")
 	ExecuteCmd.Flags().BoolVar(&cfg.IncludePrimitiveNodes, "include-primitive-nodes", false, "Include primitive nodes in the workflow tree")
@@ -111,6 +114,25 @@ func run(cfg *Config) error {
 		cfg.Inputs.NodeInputs = append(cfg.Inputs.NodeInputs, runConfig.NodeInputs...)
 		cfg.Inputs.PrimitiveNodeInputs = append(cfg.Inputs.PrimitiveNodeInputs, runConfig.PrimitiveNodeInputs...)
 		cfg.NodesToDownload = append(cfg.NodesToDownload, runConfig.Outputs...)
+	}
+
+	for _, rawInput := range cfg.RawInputs {
+		inputMap := make(map[string]any)
+		parts := strings.SplitN(rawInput, "=", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid input format %q, expected format: key=value", rawInput)
+		}
+		key := parts[0]
+		value := parts[1]
+		inputMap[key] = value
+
+		nodeInput, primitiveNodeInput, err := config.ParseInputs(inputMap)
+		if err != nil {
+			return fmt.Errorf("failed to parse input %q: %w", rawInput, err)
+		}
+
+		cfg.Inputs.NodeInputs = append(cfg.Inputs.NodeInputs, nodeInput...)
+		cfg.Inputs.PrimitiveNodeInputs = append(cfg.Inputs.PrimitiveNodeInputs, primitiveNodeInput...)
 	}
 
 	client, err := trickest.NewClient(
