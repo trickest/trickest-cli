@@ -237,7 +237,7 @@ func run(cfg *Config) error {
 
 	run, err := client.CreateRun(ctx, workflowVersion.ID, cfg.Machines, *fleet, cfg.UseStaticIPs)
 	if err != nil {
-		return fmt.Errorf("error creating run: %w", err)
+		return fmt.Errorf("failed to create run: %w", err)
 	}
 
 	if cfg.DownloadAllNodes || len(cfg.NodesToDownload) > 0 {
@@ -253,18 +253,18 @@ func run(cfg *Config) error {
 			display.WithCI(cfg.Ci),
 		)
 		if err != nil {
-			return fmt.Errorf("error creating run watcher: %w", err)
+			return fmt.Errorf("failed to create run watcher: %w", err)
 		}
 		err = watcher.Watch(ctx)
 		if err != nil {
-			return fmt.Errorf("error watching run: %w", err)
+			return fmt.Errorf("failed to watch run: %w", err)
 		}
 	}
 
 	if cfg.DownloadAllNodes || len(cfg.NodesToDownload) > 0 {
 		run, err := client.GetRun(ctx, *run.ID) // Refresh the run to get the startedDate
 		if err != nil {
-			return fmt.Errorf("error getting run: %w", err)
+			return fmt.Errorf("failed to get run: %w", err)
 		}
 		actions.DownloadRunOutput(client, run, cfg.NodesToDownload, []string{}, cfg.OutputDirectory)
 	}

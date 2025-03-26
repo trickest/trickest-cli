@@ -43,7 +43,7 @@ func DownloadRunOutput(client *trickest.Client, run *trickest.Run, nodes []strin
 	for _, subJob := range matchingSubJobs {
 		isModule := version.Data.Nodes[subJob.Name].Type == "WORKFLOW"
 		if err := downloadSubJobOutput(client, runDir, &subJob, files, run.ID, isModule); err != nil {
-			return fmt.Errorf("error downloading output for node %s: %w", subJob.Label, err)
+			return fmt.Errorf("failed to download output for node %s: %w", subJob.Label, err)
 		}
 	}
 

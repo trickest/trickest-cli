@@ -48,7 +48,7 @@ func runCreate(cfg *CreateConfig) error {
 		trickest.WithBaseURL(cfg.BaseURL),
 	)
 	if err != nil {
-		return fmt.Errorf("error creating client: %w", err)
+		return fmt.Errorf("failed to create client: %w", err)
 	}
 
 	ctx := context.Background()
@@ -56,7 +56,7 @@ func runCreate(cfg *CreateConfig) error {
 	for _, filePath := range cfg.FilePaths {
 		_, err := client.UploadFile(ctx, filePath, true)
 		if err != nil {
-			return fmt.Errorf("error uploading file: %w", err)
+			return fmt.Errorf("failed to upload file: %w", err)
 		}
 	}
 

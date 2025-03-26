@@ -65,14 +65,14 @@ func run(cfg *Config) error {
 	)
 
 	if err != nil {
-		return fmt.Errorf("error creating client: %w", err)
+		return fmt.Errorf("failed to create client: %w", err)
 	}
 
 	ctx := context.Background()
 
 	runs, err := cfg.RunSpec.GetRuns(ctx, client)
 	if err != nil {
-		return fmt.Errorf("error getting run: %w", err)
+		return fmt.Errorf("failed to get run: %w", err)
 	}
 	if len(runs) != 1 {
 		return fmt.Errorf("expected 1 run, got %d", len(runs))
@@ -81,7 +81,7 @@ func run(cfg *Config) error {
 
 	err = displayRunDetails(ctx, client, &run, cfg)
 	if err != nil {
-		return fmt.Errorf("error handling run output: %w", err)
+		return fmt.Errorf("failed to handle run output: %w", err)
 	}
 	return nil
 }
@@ -97,14 +97,14 @@ func displayRunDetails(ctx context.Context, client *trickest.Client, run *tricke
 
 		data, err := json.MarshalIndent(run, "", "  ")
 		if err != nil {
-			return fmt.Errorf("error marshaling run data: %w", err)
+			return fmt.Errorf("failed to marshal run data: %w", err)
 		}
 		output := string(data)
 		fmt.Println(output)
 	} else {
 		version, err := client.GetWorkflowVersion(ctx, *run.WorkflowVersionInfo)
 		if err != nil {
-			return fmt.Errorf("error getting workflow version: %w", err)
+			return fmt.Errorf("failed to get workflow version: %w", err)
 		}
 		if cfg.Watch {
 			watcher, err := display.NewRunWatcher(
@@ -114,18 +114,18 @@ func displayRunDetails(ctx context.Context, client *trickest.Client, run *tricke
 				display.WithIncludePrimitiveNodes(cfg.IncludePrimitiveNodes),
 			)
 			if err != nil {
-				return fmt.Errorf("error creating run watcher: %w", err)
+				return fmt.Errorf("failed to create run watcher: %w", err)
 			}
 
 			err = watcher.Watch(ctx)
 			if err != nil {
-				return fmt.Errorf("error watching run: %w", err)
+				return fmt.Errorf("failed to watch run: %w", err)
 			}
 		} else {
 			printer := display.NewRunPrinter(cfg.IncludePrimitiveNodes, os.Stdout)
 			subjobs, err := client.GetSubJobs(ctx, *run.ID)
 			if err != nil {
-				return fmt.Errorf("error getting subjobs: %w", err)
+				return fmt.Errorf("failed to get subjobs: %w", err)
 			}
 			printer.PrintAll(run, subjobs, version)
 		}

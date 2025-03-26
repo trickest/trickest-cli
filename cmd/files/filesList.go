@@ -50,29 +50,29 @@ func runList(cfg *ListConfig) error {
 		trickest.WithBaseURL(cfg.BaseURL),
 	)
 	if err != nil {
-		return fmt.Errorf("error creating client: %w", err)
+		return fmt.Errorf("failed to create client: %w", err)
 	}
 
 	ctx := context.Background()
 
 	files, err := client.SearchFiles(ctx, cfg.SearchQuery)
 	if err != nil {
-		return fmt.Errorf("error getting files: %w", err)
+		return fmt.Errorf("failed to get files: %w", err)
 	}
 
 	if cfg.JSONOutput {
 		data, err := json.Marshal(files)
 		if err != nil {
-			return fmt.Errorf("error marshalling files: %w", err)
+			return fmt.Errorf("failed to marshall files: %w", err)
 		}
 		_, err = fmt.Fprintln(os.Stdout, string(data))
 		if err != nil {
-			return fmt.Errorf("error printing files: %w", err)
+			return fmt.Errorf("failed to print files: %w", err)
 		}
 	} else {
 		err = display.PrintFiles(os.Stdout, files)
 		if err != nil {
-			return fmt.Errorf("error printing files: %w", err)
+			return fmt.Errorf("failed to print files: %w", err)
 		}
 	}
 	return nil

@@ -47,7 +47,7 @@ func runDelete(cfg *DeleteConfig) error {
 		trickest.WithBaseURL(cfg.BaseURL),
 	)
 	if err != nil {
-		return fmt.Errorf("error creating client: %w", err)
+		return fmt.Errorf("failed to create client: %w", err)
 	}
 
 	ctx := context.Background()
@@ -55,15 +55,15 @@ func runDelete(cfg *DeleteConfig) error {
 	for _, fileName := range cfg.FileNames {
 		file, err := client.GetFileByName(ctx, fileName)
 		if err != nil {
-			return fmt.Errorf("error getting file: %w", err)
+			return fmt.Errorf("failed to get file: %w", err)
 		}
 
 		err = client.DeleteFile(ctx, file.ID)
 		if err != nil {
-			return fmt.Errorf("error deleting file: %w", err)
+			return fmt.Errorf("failed to delete file: %w", err)
 		}
 
-		fmt.Printf("Deleted \"%s\" successfully\n", fileName)
+		fmt.Printf("Deleted file %q successfully\n", fileName)
 	}
 
 	return nil

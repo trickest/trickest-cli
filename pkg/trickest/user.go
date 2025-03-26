@@ -114,5 +114,5 @@ func (c *Client) GetFleetByName(ctx context.Context, fleetName string) (*Fleet, 
 		}
 	}
 
-	return nil, fmt.Errorf("fleet \"%s\" not found", fleetName)
+	return nil, fmt.Errorf("fleet %q not found", fleetName)
 }

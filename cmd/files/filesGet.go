@@ -52,7 +52,7 @@ func runGet(cfg *GetConfig) error {
 		trickest.WithBaseURL(cfg.BaseURL),
 	)
 	if err != nil {
-		return fmt.Errorf("error creating client: %w", err)
+		return fmt.Errorf("failed to create client: %w", err)
 	}
 
 	ctx := context.Background()
@@ -62,13 +62,13 @@ func runGet(cfg *GetConfig) error {
 		if cfg.PartialNameMatch {
 			matchingFiles, err := client.SearchFiles(ctx, fileName)
 			if err != nil {
-				return fmt.Errorf("error searching for files: %w", err)
+				return fmt.Errorf("failed to search for files: %w", err)
 			}
 			files = append(files, matchingFiles...)
 		} else {
 			file, err := client.GetFileByName(ctx, fileName)
 			if err != nil {
-				return fmt.Errorf("error getting file: %w", err)
+				return fmt.Errorf("failed to get file: %w", err)
 			}
 			files = append(files, file)
 		}
@@ -77,12 +77,12 @@ func runGet(cfg *GetConfig) error {
 	for _, file := range files {
 		signedURL, err := client.GetFileSignedURL(ctx, file.ID)
 		if err != nil {
-			return fmt.Errorf("error getting file signed URL: %w", err)
+			return fmt.Errorf("failed to get file signed URL: %w", err)
 		}
 
 		err = filesystem.DownloadFile(signedURL, cfg.OutputDir, file.Name, true)
 		if err != nil {
-			return fmt.Errorf("error downloading file: %w", err)
+			return fmt.Errorf("failed to download file: %w", err)
 		}
 	}
 

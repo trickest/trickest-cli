@@ -50,7 +50,7 @@ func (s WorkflowRunSpec) GetRuns(ctx context.Context, client *trickest.Client) (
 
 	runs, err := client.GetRuns(ctx, workflow.ID, "", limit)
 	if err != nil {
-		return nil, fmt.Errorf("error getting runs: %w", err)
+		return nil, fmt.Errorf("failed to get runs: %w", err)
 	}
 	return runs, nil
 }

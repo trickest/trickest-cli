@@ -106,7 +106,7 @@ func (c *Client) GetRuns(ctx context.Context, workflowID uuid.UUID, status strin
 func (c *Client) GetLatestRun(ctx context.Context, workflowID uuid.UUID) (*Run, error) {
 	runs, err := c.GetRuns(ctx, workflowID, "", 1)
 	if err != nil {
-		return nil, fmt.Errorf("error getting runs: %w", err)
+		return nil, fmt.Errorf("failed to get runs: %w", err)
 	}
 	if len(runs) < 1 {
 		return nil, fmt.Errorf("no runs found for workflow")

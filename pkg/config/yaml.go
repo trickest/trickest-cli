@@ -75,7 +75,7 @@ func parseRunConfig(data []byte) (*RunConfig, error) {
 			// primitive node reference
 			switch v := value.(type) {
 			case []any:
-				return nil, fmt.Errorf("invalid input for node '%s': got an array of values %v. For primitive input nodes, use a single value '%s: <value>'. For tool/module/script input nodes, use the node-reference format '%s.param-name: <values>", key, v, key, key)
+				return nil, fmt.Errorf("invalid input for node %q: got an array of values %v. For primitive input nodes, use a single value '%s: <value>'. For tool/module/script input nodes, use the node-reference format '%s.param-name: <values>", key, v, key, key)
 			default:
 				config.PrimitiveNodeInputs = append(config.PrimitiveNodeInputs, workflowbuilder.PrimitiveNodeInput{
 					PrimitiveNodeID: key,

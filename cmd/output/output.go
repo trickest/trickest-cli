@@ -67,13 +67,13 @@ func run(cfg *Config) error {
 		trickest.WithBaseURL(cfg.BaseURL),
 	)
 	if err != nil {
-		return fmt.Errorf("error creating client: %w", err)
+		return fmt.Errorf("failed to create client: %w", err)
 	}
 
 	ctx := context.Background()
 	runs, err := cfg.RunSpec.GetRuns(ctx, client)
 	if err != nil {
-		return fmt.Errorf("error getting runs: %w", err)
+		return fmt.Errorf("failed to get runs: %w", err)
 	}
 	if len(runs) == 0 {
 		return fmt.Errorf("no runs found for the specified workflow")
