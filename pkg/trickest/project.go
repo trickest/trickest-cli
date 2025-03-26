@@ -23,7 +23,7 @@ type Project struct {
 	Workflows     []Workflow `json:"workflows,omitempty"`
 }
 
-func (c *Client) CreateProject(ctx context.Context, name string, description string, spaceID uuid.UUID) (Project, error) {
+func (c *Client) CreateProject(ctx context.Context, name string, description string, spaceID uuid.UUID) (*Project, error) {
 	path := fmt.Sprintf("/projects/?vault=%s", c.vaultID)
 
 	project := Project{
@@ -34,8 +34,8 @@ func (c *Client) CreateProject(ctx context.Context, name string, description str
 
 	var newProject Project
 	if err := c.doJSON(ctx, http.MethodPost, path, &project, &newProject); err != nil {
-		return Project{}, fmt.Errorf("failed to create project: %w", err)
+		return nil, fmt.Errorf("failed to create project: %w", err)
 	}
 
-	return newProject, nil
+	return &newProject, nil
 }

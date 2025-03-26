@@ -20,6 +20,10 @@ type WorkflowRunSpec struct {
 	ProjectName  string
 	WorkflowName string
 	URL          string
+
+	// Resolved objects
+	Space   *trickest.Space
+	Project *trickest.Project
 }
 
 // GetRuns retrieves runs based on the specification
@@ -53,18 +57,45 @@ func (s WorkflowRunSpec) GetRuns(ctx context.Context, client *trickest.Client) (
 
 // GetWorkflow gets the workflow ID from the specification
 func (s WorkflowRunSpec) GetWorkflow(ctx context.Context, client *trickest.Client) (*trickest.Workflow, error) {
+	var workflow *trickest.Workflow
+	var err error
+
 	if s.URL != "" {
-		workflow, err := client.GetWorkflowByURL(ctx, s.URL)
+		workflow, err = client.GetWorkflowByURL(ctx, s.URL)
 		if err != nil {
-			return nil, fmt.Errorf("error getting workflow by URL: %w", err)
+			return nil, fmt.Errorf("failed to get workflow by URL: %w", err)
 		}
 		return workflow, nil
 	}
 
 	if s.SpaceName != "" && s.WorkflowName != "" {
-		workflow, err := client.GetWorkflowByLocation(ctx, s.SpaceName, s.ProjectName, s.WorkflowName)
-		if err != nil {
-			return nil, fmt.Errorf("error getting workflow by location: %w", err)
+		if s.Space == nil {
+			workflow, err = client.GetWorkflowByLocation(ctx, s.SpaceName, s.ProjectName, s.WorkflowName)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get workflow by location: %w", err)
+			}
+		} else {
+			var projectID uuid.UUID
+			if s.Project != nil {
+				projectID = *s.Project.ID
+			}
+
+			workflows, err := client.GetWorkflows(ctx, *s.Space.ID, projectID, s.WorkflowName)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get workflows by location: %w", err)
+			}
+			if len(workflows) == 0 {
+				return nil, fmt.Errorf("workflow %q not found in space %q", s.WorkflowName, s.SpaceName)
+			}
+			for _, wf := range workflows {
+				if wf.Name == s.WorkflowName {
+					workflow = &wf
+					break
+				}
+			}
+			if workflow == nil {
+				return nil, fmt.Errorf("workflow %q not found in space %q", s.WorkflowName, s.SpaceName)
+			}
 		}
 		return workflow, nil
 	}
@@ -72,12 +103,57 @@ func (s WorkflowRunSpec) GetWorkflow(ctx context.Context, client *trickest.Clien
 	return nil, fmt.Errorf("must provide either URL or space and workflow name to resolve workflow")
 }
 
+// CreateMissing creates a space if it doesn't exist, and optionally creates a project if one was specified and also doesn't exist
+// If the space or project already exist, it will do nothing
+func (s *WorkflowRunSpec) CreateMissing(ctx context.Context, client *trickest.Client) error {
+	if s.SpaceName == "" {
+		return fmt.Errorf("space name is required")
+	}
+
+	if s.Space == nil {
+		space, err := client.CreateSpace(ctx, s.SpaceName, "")
+		if err != nil {
+			return fmt.Errorf("failed to create space %q: %w", s.SpaceName, err)
+		}
+		s.Space = space
+	}
+
+	if s.ProjectName != "" && s.Project == nil {
+		project, err := client.CreateProject(ctx, s.ProjectName, "", *s.Space.ID)
+		if err != nil {
+			return fmt.Errorf("failed to create project %q: %w", s.ProjectName, err)
+		}
+		s.Project = project
+	}
+
+	return nil
+}
+
+func (s *WorkflowRunSpec) ResolveSpaceAndProject(ctx context.Context, client *trickest.Client) error {
+	if s.Space == nil {
+		space, err := client.GetSpaceByName(ctx, s.SpaceName)
+		if err != nil {
+			return fmt.Errorf("failed to get space %q: %w", s.SpaceName, err)
+		}
+		s.Space = space
+	}
+
+	if s.ProjectName != "" && s.Project == nil {
+		project, err := s.Space.GetProjectByName(s.ProjectName)
+		if err != nil {
+			return fmt.Errorf("failed to get project %q: %w", s.ProjectName, err)
+		}
+		s.Project = project
+	}
+	return nil
+}
+
 // resolveSingleRun resolves a single run from the specification
 func (s WorkflowRunSpec) resolveSingleRun(ctx context.Context, client *trickest.Client) (*trickest.Run, error) {
 	if s.RunID != "" {
 		run, err := client.GetRun(ctx, uuid.MustParse(s.RunID))
 		if err != nil {
-			return nil, fmt.Errorf("error getting run: %w", err)
+			return nil, fmt.Errorf("failed to get run: %w", err)
 		}
 		return run, nil
 	}
@@ -86,7 +162,7 @@ func (s WorkflowRunSpec) resolveSingleRun(ctx context.Context, client *trickest.
 		// First try to get run ID from URL
 		run, err := client.GetRunByURL(ctx, s.URL)
 		if err != nil {
-			return nil, fmt.Errorf("error getting run from URL run ID: %w", err)
+			return nil, fmt.Errorf("failed to get run from URL: %w", err)
 		}
 		if run != nil {
 			return run, nil
@@ -101,7 +177,7 @@ func (s WorkflowRunSpec) resolveSingleRun(ctx context.Context, client *trickest.
 
 	run, err := client.GetLatestRun(ctx, workflow.ID)
 	if err != nil {
-		return nil, fmt.Errorf("error getting latest run: %w", err)
+		return nil, fmt.Errorf("failed to get latest run: %w", err)
 	}
 	return run, nil
 }

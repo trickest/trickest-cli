@@ -92,3 +92,13 @@ func (c *Client) CreateSpace(ctx context.Context, name string, description strin
 
 	return &newSpace, nil
 }
+
+// GetProjectByName retrieves a project by name from a space
+func (s *Space) GetProjectByName(name string) (*Project, error) {
+	for _, project := range s.Projects {
+		if project.Name == name {
+			return &project, nil
+		}
+	}
+	return nil, fmt.Errorf("project %q not found in space %q", name, s.Name)
+}
