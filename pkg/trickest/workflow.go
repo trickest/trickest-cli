@@ -168,7 +168,7 @@ func (c *Client) GetWorkflowByURL(ctx context.Context, workflowURL string) (*Wor
 	}
 
 	if !strings.HasPrefix(u.Path, "/editor/") {
-		return nil, fmt.Errorf("invalid workflow URL: The URL must start with /editor/")
+		return nil, fmt.Errorf("invalid workflow URL: The URL path must start with /editor/")
 	}
 
 	// Extract workflow ID from URL
@@ -185,7 +185,23 @@ func (c *Client) GetWorkflowByURL(ctx context.Context, workflowURL string) (*Wor
 	return c.GetWorkflow(ctx, workflowID)
 }
 
-// GetWorkflows retrieves workflows filtered by space ID, project name and search term
+// RenameWorkflow renames a workflow
+func (c *Client) RenameWorkflow(ctx context.Context, workflowID uuid.UUID, newName string) (*Workflow, error) {
+	path := fmt.Sprintf("/workflow/%s/", workflowID)
+
+	workflow := Workflow{
+		Name: newName,
+	}
+
+	var updatedWorkflow Workflow
+	if err := c.doJSON(ctx, http.MethodPatch, path, workflow, &updatedWorkflow); err != nil {
+		return nil, fmt.Errorf("failed to rename workflow: %w", err)
+	}
+
+	return &updatedWorkflow, nil
+}
+
+// GetWorkflows retrieves workflows filtered by space ID, project ID and search term
 func (c *Client) GetWorkflows(ctx context.Context, spaceID uuid.UUID, projectID uuid.UUID, workflowSearchQuery string) ([]Workflow, error) {
 	path := fmt.Sprintf("/workflow/?space=%s", spaceID)
 	if projectID != uuid.Nil {
