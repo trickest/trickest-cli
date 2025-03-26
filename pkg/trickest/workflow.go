@@ -153,7 +153,7 @@ func (c *Client) GetWorkflow(ctx context.Context, id uuid.UUID) (*Workflow, erro
 	var workflow Workflow
 	path := fmt.Sprintf("/workflow/%s/", id.String())
 
-	if err := c.doJSON(ctx, http.MethodGet, path, nil, &workflow); err != nil {
+	if err := c.Hive.doJSON(ctx, http.MethodGet, path, nil, &workflow); err != nil {
 		return nil, fmt.Errorf("failed to get workflow: %w", err)
 	}
 
@@ -194,7 +194,7 @@ func (c *Client) RenameWorkflow(ctx context.Context, workflowID uuid.UUID, newNa
 	}
 
 	var updatedWorkflow Workflow
-	if err := c.doJSON(ctx, http.MethodPatch, path, workflow, &updatedWorkflow); err != nil {
+	if err := c.Hive.doJSON(ctx, http.MethodPatch, path, workflow, &updatedWorkflow); err != nil {
 		return nil, fmt.Errorf("failed to rename workflow: %w", err)
 	}
 
@@ -211,7 +211,7 @@ func (c *Client) GetWorkflows(ctx context.Context, spaceID uuid.UUID, projectID 
 		path += fmt.Sprintf("&search=%s", url.QueryEscape(workflowSearchQuery))
 	}
 
-	workflows, err := GetPaginated[Workflow](c, ctx, path, 0)
+	workflows, err := GetPaginated[Workflow](c.Hive, ctx, path, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workflows: %w", err)
 	}
@@ -269,7 +269,7 @@ func (c *Client) GetWorkflowVersion(ctx context.Context, id uuid.UUID) (*Workflo
 	var version WorkflowVersion
 	path := fmt.Sprintf("/workflow-version/%s/", id.String())
 
-	if err := c.doJSON(ctx, http.MethodGet, path, nil, &version); err != nil {
+	if err := c.Hive.doJSON(ctx, http.MethodGet, path, nil, &version); err != nil {
 		return nil, fmt.Errorf("failed to get workflow version: %w", err)
 	}
 
@@ -281,7 +281,7 @@ func (c *Client) GetLatestWorkflowVersion(ctx context.Context, workflowID uuid.U
 	var version WorkflowVersion
 	path := fmt.Sprintf("/workflow-version/latest/?workflow=%s", workflowID)
 
-	if err := c.doJSON(ctx, http.MethodGet, path, nil, &version); err != nil {
+	if err := c.Hive.doJSON(ctx, http.MethodGet, path, nil, &version); err != nil {
 		return nil, fmt.Errorf("failed to get latest workflow version: %w", err)
 	}
 
@@ -293,7 +293,7 @@ func (c *Client) GetWorkflowVersionMaxMachines(ctx context.Context, versionID uu
 	var machines Machines
 	path := fmt.Sprintf("/workflow-version/%s/max-machines/?fleet=%s", versionID, fleetID)
 
-	if err := c.doJSON(ctx, http.MethodGet, path, nil, &machines); err != nil {
+	if err := c.Hive.doJSON(ctx, http.MethodGet, path, nil, &machines); err != nil {
 		return nil, fmt.Errorf("failed to get workflow version max machines: %w", err)
 	}
 
@@ -321,7 +321,7 @@ func (c *Client) GetWorkflowVersionMaxMachineCount(ctx context.Context, versionI
 func (c *Client) CreateWorkflowVersion(ctx context.Context, version *WorkflowVersion) (*WorkflowVersion, error) {
 	var newVersion WorkflowVersion
 	path := "/workflow-version/"
-	if err := c.doJSON(ctx, http.MethodPost, path, version, &newVersion); err != nil {
+	if err := c.Hive.doJSON(ctx, http.MethodPost, path, version, &newVersion); err != nil {
 		return nil, fmt.Errorf("failed to create workflow version: %w", err)
 	}
 

@@ -49,7 +49,7 @@ type SignedURL struct {
 func (c *Client) GetSubJobs(ctx context.Context, runID uuid.UUID) ([]SubJob, error) {
 	path := fmt.Sprintf("/subjob/?execution=%s", runID.String())
 
-	subjobs, err := GetPaginated[SubJob](c, ctx, path, 0)
+	subjobs, err := GetPaginated[SubJob](c.Hive, ctx, path, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sub-jobs: %w", err)
 	}
@@ -61,7 +61,7 @@ func (c *Client) GetSubJobs(ctx context.Context, runID uuid.UUID) ([]SubJob, err
 func (c *Client) GetChildSubJobs(ctx context.Context, parentID uuid.UUID) ([]SubJob, error) {
 	path := fmt.Sprintf("/subjob/children/?parent=%s", parentID.String())
 
-	children, err := GetPaginated[SubJob](c, ctx, path, 0)
+	children, err := GetPaginated[SubJob](c.Hive, ctx, path, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get child sub-jobs: %w", err)
 	}
@@ -73,7 +73,7 @@ func (c *Client) GetChildSubJobs(ctx context.Context, parentID uuid.UUID) ([]Sub
 func (c *Client) GetChildSubJob(ctx context.Context, parentID uuid.UUID, taskIndex int) (SubJob, error) {
 	path := fmt.Sprintf("/subjob/children/?parent=%s&task_index=%d", parentID.String(), taskIndex)
 
-	children, err := GetPaginated[SubJob](c, ctx, path, 1)
+	children, err := GetPaginated[SubJob](c.Hive, ctx, path, 1)
 	if err != nil {
 		return SubJob{}, fmt.Errorf("failed to get child sub-job: %w", err)
 	}
@@ -88,7 +88,7 @@ func (c *Client) GetChildSubJob(ctx context.Context, parentID uuid.UUID, taskInd
 func (c *Client) GetSubJobOutputs(ctx context.Context, subJobID uuid.UUID) ([]SubJobOutput, error) {
 	path := fmt.Sprintf("/subjob-output/?subjob=%s", subJobID.String())
 
-	subJobOutputs, err := GetPaginated[SubJobOutput](c, ctx, path, 0)
+	subJobOutputs, err := GetPaginated[SubJobOutput](c.Hive, ctx, path, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sub-job outputs: %w", err)
 	}
@@ -99,7 +99,7 @@ func (c *Client) GetSubJobOutputs(ctx context.Context, subJobID uuid.UUID) ([]Su
 func (c *Client) GetModuleSubJobOutputs(ctx context.Context, moduleName string, runID uuid.UUID) ([]SubJobOutput, error) {
 	path := fmt.Sprintf("/subjob-output/module-outputs/?module_name=%s&execution=%s", moduleName, runID.String())
 
-	subJobOutputs, err := GetPaginated[SubJobOutput](c, ctx, path, 0)
+	subJobOutputs, err := GetPaginated[SubJobOutput](c.Hive, ctx, path, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get module sub-job outputs: %w", err)
 	}
@@ -111,7 +111,7 @@ func (c *Client) GetOutputSignedURL(ctx context.Context, outputID uuid.UUID) (Si
 	path := fmt.Sprintf("/subjob-output/%s/signed_url/", outputID)
 
 	var signedURL SignedURL
-	if err := c.doJSON(ctx, http.MethodGet, path, nil, &signedURL); err != nil {
+	if err := c.Hive.doJSON(ctx, http.MethodGet, path, nil, &signedURL); err != nil {
 		return SignedURL{}, fmt.Errorf("failed to get output signed URL: %w", err)
 	}
 

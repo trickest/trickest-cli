@@ -12,7 +12,7 @@ import (
 func (c *Client) GetLibraryWorkflows(ctx context.Context, search string) ([]Workflow, error) {
 	path := fmt.Sprintf("/library/workflow/?search=%s", search)
 
-	workflows, err := GetPaginated[Workflow](c, ctx, path, 0)
+	workflows, err := GetPaginated[Workflow](c.Hive, ctx, path, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workflows: %w", err)
 	}
@@ -53,7 +53,7 @@ func (c *Client) CopyWorkflowFromLibrary(ctx context.Context, workflowID uuid.UU
 	}
 
 	var workflow Workflow
-	if err := c.doJSON(ctx, http.MethodPost, path, destination, &workflow); err != nil {
+	if err := c.Hive.doJSON(ctx, http.MethodPost, path, destination, &workflow); err != nil {
 		return Workflow{}, fmt.Errorf("failed to copy workflow: %w", err)
 	}
 

@@ -28,7 +28,7 @@ type File struct {
 func (c *Client) SearchFiles(ctx context.Context, query string) ([]File, error) {
 	path := fmt.Sprintf("/file/?search=%s&vault=%s", query, c.vaultID)
 
-	files, err := GetPaginated[File](c, ctx, path, 0)
+	files, err := GetPaginated[File](c.Hive, ctx, path, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func (c *Client) GetFileSignedURL(ctx context.Context, id uuid.UUID) (string, er
 	path := fmt.Sprintf("/file/%s/signed_url/", id.String())
 
 	var signedURL string
-	if err := c.doJSON(ctx, http.MethodGet, path, nil, &signedURL); err != nil {
+	if err := c.Hive.doJSON(ctx, http.MethodGet, path, nil, &signedURL); err != nil {
 		return "", fmt.Errorf("failed to get file signed URL: %w", err)
 	}
 
@@ -73,7 +73,7 @@ func (c *Client) GetFileSignedURL(ctx context.Context, id uuid.UUID) (string, er
 func (c *Client) DeleteFile(ctx context.Context, id uuid.UUID) error {
 	path := fmt.Sprintf("/file/%s/", id.String())
 
-	resp, err := c.doRequest(ctx, http.MethodDelete, path, nil)
+	resp, err := c.Hive.doRequest(ctx, http.MethodDelete, path, nil)
 	if err != nil {
 		return fmt.Errorf("failed to delete file: %w", err)
 	}
@@ -136,7 +136,7 @@ func (c *Client) UploadFile(ctx context.Context, filePath string, showProgress b
 	}
 
 	path := "/file/"
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+c.apiVersion+path, body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+c.Hive.basePath+path, body)
 	if err != nil {
 		return File{}, fmt.Errorf("failed to create request: %w", err)
 	}

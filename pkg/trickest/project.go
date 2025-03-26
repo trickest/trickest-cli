@@ -33,7 +33,7 @@ func (c *Client) CreateProject(ctx context.Context, name string, description str
 	}
 
 	var newProject Project
-	if err := c.doJSON(ctx, http.MethodPost, path, &project, &newProject); err != nil {
+	if err := c.Hive.doJSON(ctx, http.MethodPost, path, &project, &newProject); err != nil {
 		return nil, fmt.Errorf("failed to create project: %w", err)
 	}
 

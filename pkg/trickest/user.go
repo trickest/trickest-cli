@@ -69,7 +69,7 @@ type Fleet struct {
 // GetCurrentUser retrieves the current user's information
 func (c *Client) GetCurrentUser(ctx context.Context) (*User, error) {
 	var user User
-	if err := c.doJSON(ctx, http.MethodGet, "/users/me/", nil, &user); err != nil {
+	if err := c.Hive.doJSON(ctx, http.MethodGet, "/users/me/", nil, &user); err != nil {
 		return nil, fmt.Errorf("failed to get user info: %w", err)
 	}
 	return &user, nil
@@ -79,7 +79,7 @@ func (c *Client) GetCurrentUser(ctx context.Context) (*User, error) {
 func (c *Client) GetVaultIPAddresses(ctx context.Context) ([]IPAddress, error) {
 	path := fmt.Sprintf("/ip/?vault=%s", c.vaultID)
 
-	ipAddresses, err := GetPaginated[IPAddress](c, ctx, path, 0)
+	ipAddresses, err := GetPaginated[IPAddress](c.Hive, ctx, path, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get IP addresses: %w", err)
 	}
@@ -90,7 +90,7 @@ func (c *Client) GetVaultIPAddresses(ctx context.Context) ([]IPAddress, error) {
 func (c *Client) GetFleets(ctx context.Context) ([]Fleet, error) {
 	path := fmt.Sprintf("/fleet/?vault=%s", c.vaultID)
 
-	fleets, err := GetPaginated[Fleet](c, ctx, path, 0)
+	fleets, err := GetPaginated[Fleet](c.Hive, ctx, path, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get fleets: %w", err)
 	}

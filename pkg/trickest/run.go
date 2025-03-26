@@ -46,7 +46,7 @@ func (c *Client) GetRun(ctx context.Context, id uuid.UUID) (*Run, error) {
 	var run Run
 	path := fmt.Sprintf("/execution/%s/", id.String())
 
-	if err := c.doJSON(ctx, http.MethodGet, path, nil, &run); err != nil {
+	if err := c.Hive.doJSON(ctx, http.MethodGet, path, nil, &run); err != nil {
 		return nil, fmt.Errorf("failed to get run: %w", err)
 	}
 
@@ -94,7 +94,7 @@ func (c *Client) GetRuns(ctx context.Context, workflowID uuid.UUID, status strin
 		path += fmt.Sprintf("&status=%s", status)
 	}
 
-	runs, err := GetPaginated[Run](c, ctx, path, limit)
+	runs, err := GetPaginated[Run](c.Hive, ctx, path, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get runs: %w", err)
 	}
@@ -119,7 +119,7 @@ func (c *Client) GetRunIPAddresses(ctx context.Context, runID uuid.UUID) ([]stri
 	var ipAddresses []string
 	path := fmt.Sprintf("/execution/%s/ips/", runID)
 
-	if err := c.doJSON(ctx, http.MethodGet, path, nil, &ipAddresses); err != nil {
+	if err := c.Hive.doJSON(ctx, http.MethodGet, path, nil, &ipAddresses); err != nil {
 		return nil, fmt.Errorf("failed to get run IP addresses: %w", err)
 	}
 
@@ -130,7 +130,7 @@ func (c *Client) GetRunIPAddresses(ctx context.Context, runID uuid.UUID) ([]stri
 func (c *Client) StopRun(ctx context.Context, id uuid.UUID) error {
 	path := fmt.Sprintf("/execution/%s/stop/", id.String())
 
-	if err := c.doJSON(ctx, http.MethodPost, path, nil, &Run{}); err != nil {
+	if err := c.Hive.doJSON(ctx, http.MethodPost, path, nil, &Run{}); err != nil {
 		return fmt.Errorf("failed to stop run: %w", err)
 	}
 
@@ -170,7 +170,7 @@ func (c *Client) CreateRun(ctx context.Context, versionID uuid.UUID, machines in
 	}
 
 	var createdRun Run
-	if err := c.doJSON(ctx, http.MethodPost, path, &run, &createdRun); err != nil {
+	if err := c.Hive.doJSON(ctx, http.MethodPost, path, &run, &createdRun); err != nil {
 		return nil, fmt.Errorf("failed to create run: %w", err)
 	}
 

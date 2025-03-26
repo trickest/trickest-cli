@@ -28,7 +28,7 @@ type Space struct {
 func (c *Client) GetSpace(ctx context.Context, id uuid.UUID) (*Space, error) {
 	var space Space
 	path := fmt.Sprintf("/spaces/%s/", id)
-	if err := c.doJSON(ctx, http.MethodGet, path, nil, &space); err != nil {
+	if err := c.Hive.doJSON(ctx, http.MethodGet, path, nil, &space); err != nil {
 		return nil, fmt.Errorf("failed to get space: %w", err)
 	}
 
@@ -42,7 +42,7 @@ func (c *Client) GetSpaces(ctx context.Context, name string) ([]Space, error) {
 		path += fmt.Sprintf("&name=%s", name)
 	}
 
-	spaces, err := GetPaginated[Space](c, ctx, path, 0)
+	spaces, err := GetPaginated[Space](c.Hive, ctx, path, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get spaces: %w", err)
 	}
@@ -86,7 +86,7 @@ func (c *Client) CreateSpace(ctx context.Context, name string, description strin
 	}
 
 	var newSpace Space
-	if err := c.doJSON(ctx, http.MethodPost, path, &space, &newSpace); err != nil {
+	if err := c.Hive.doJSON(ctx, http.MethodPost, path, &space, &newSpace); err != nil {
 		return nil, fmt.Errorf("failed to create space: %w", err)
 	}
 
