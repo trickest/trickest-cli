@@ -59,7 +59,6 @@ func init() {
 	RootCmd.AddCommand(tools.ToolsCmd)
 	RootCmd.AddCommand(scripts.ScriptsCmd)
 	RootCmd.AddCommand(stop.StopCmd)
-	// RootCmd.AddCommand(export.ExportCmd)
 }
 
 func initVaultID() {
