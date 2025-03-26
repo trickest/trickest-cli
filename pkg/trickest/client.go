@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -17,15 +18,31 @@ type Client struct {
 	token      string
 	httpClient *http.Client
 	vaultID    uuid.UUID
-	apiVersion string
+
+	Hive         *Service
+	Orchestrator *Service
+}
+
+type Service struct {
+	client   *Client
+	basePath string
 }
 
 // NewClient creates a new Trickest API client
 func NewClient(opts ...Option) (*Client, error) {
 	c := &Client{
-		baseURL:    "https://api.trickest.io/hive/",
+		baseURL:    "https://api.trickest.io",
 		httpClient: &http.Client{},
-		apiVersion: "v1",
+	}
+
+	c.Hive = &Service{
+		client:   c,
+		basePath: "/hive/v1",
+	}
+
+	c.Orchestrator = &Service{
+		client:   c,
+		basePath: "/orchestrator/v1",
 	}
 
 	for _, opt := range opts {
@@ -53,14 +70,7 @@ type Option func(*Client)
 // WithBaseURL sets the base URL for the client
 func WithBaseURL(url string) Option {
 	return func(c *Client) {
-		c.baseURL = url
-	}
-}
-
-// WithAPIVersion sets the API version
-func WithAPIVersion(version string) Option {
-	return func(c *Client) {
-		c.apiVersion = version
+		c.baseURL = strings.TrimSuffix(url, "/")
 	}
 }
 
@@ -85,9 +95,23 @@ func WithHTTPClient(client *http.Client) Option {
 	}
 }
 
+// doRequest performs an HTTP request to a service with common client settings
+func (s *Service) doRequest(ctx context.Context, method, path string, body any) (*http.Response, error) {
+	fullPath := fmt.Sprintf("%s%s", s.basePath, path)
+
+	return doRequest(ctx, s.client, method, fullPath, body)
+}
+
+// doJSON performs a JSON request to a service and decodes the response
+func (s *Service) doJSON(ctx context.Context, method, path string, body, result any) error {
+	fullPath := fmt.Sprintf("%s%s", s.basePath, path)
+
+	return doJSON(ctx, s.client, method, fullPath, body, result)
+}
+
 // doRequest performs an HTTP request with common client settings
-func (c *Client) doRequest(ctx context.Context, method, path string, body any) (*http.Response, error) {
-	url := fmt.Sprintf("%s%s%s", c.baseURL, c.apiVersion, path)
+func doRequest(ctx context.Context, client *Client, method, path string, body any) (*http.Response, error) {
+	url := fmt.Sprintf("%s%s", client.baseURL, path)
 
 	var reqBody io.Reader
 	if body != nil {
@@ -103,13 +127,13 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body any) (
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Token "+c.token)
+	req.Header.Set("Authorization", "Token "+client.token)
 	req.Header.Set("Accept", "application/json")
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := client.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
@@ -118,7 +142,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body any) (
 }
 
 // decodeResponse decodes a JSON response into the provided value
-func (c *Client) decodeResponse(resp *http.Response, v any) error {
+func decodeResponse(resp *http.Response, v any) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
@@ -137,11 +161,11 @@ func (c *Client) decodeResponse(resp *http.Response, v any) error {
 }
 
 // doJSON performs a JSON request and decodes the response
-func (c *Client) doJSON(ctx context.Context, method, path string, body, result any) error {
-	resp, err := c.doRequest(ctx, method, path, body)
+func doJSON(ctx context.Context, client *Client, method, path string, body, result any) error {
+	resp, err := doRequest(ctx, client, method, path, body)
 	if err != nil {
 		return err
 	}
 
-	return c.decodeResponse(resp, result)
+	return decodeResponse(resp, result)
 }

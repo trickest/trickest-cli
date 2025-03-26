@@ -27,14 +27,14 @@ func withPagination(path string, page int) string {
 
 // GetPaginated gets results from a paginated endpoint with a limit.
 // If limit is 0, it will get all results.
-func GetPaginated[T any](c *Client, ctx context.Context, path string, limit int) ([]T, error) {
+func GetPaginated[T any](service *Service, ctx context.Context, path string, limit int) ([]T, error) {
 	var allResults []T
 	currentPage := 1
 
 	for {
 		var response PaginatedResponse[T]
 		currentPath := withPagination(path, currentPage)
-		if err := c.doJSON(ctx, http.MethodGet, currentPath, nil, &response); err != nil {
+		if err := service.doJSON(ctx, http.MethodGet, currentPath, nil, &response); err != nil {
 			return nil, fmt.Errorf("failed to get page %d: %w", currentPage, err)
 		}
 
