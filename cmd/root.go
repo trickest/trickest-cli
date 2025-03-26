@@ -44,9 +44,7 @@ func init() {
 	RootCmd.PersistentFlags().StringVar(&util.WorkflowName, "workflow", "", "Workflow name")
 	RootCmd.PersistentFlags().StringVar(&util.URL, "url", "", "URL for referencing a workflow, project, or space")
 	RootCmd.PersistentFlags().StringVar(&util.Cfg.Dependency, "node-dependency", "", "This flag doesn't affect the execution logic of the CLI in any way and is intended for controlling node execution order on the Trickest platform only.")
-	RootCmd.PersistentFlags().StringVar(&util.Cfg.BaseUrl, "api-endpoint", "https://api.trickest.io/hive/", "The base Trickest platform API endpoint.")
-
-	cobra.OnInitialize(util.CreateRequest, initVaultID)
+	RootCmd.PersistentFlags().StringVar(&util.Cfg.BaseUrl, "api-endpoint", "https://api.trickest.io", "The base Trickest platform API endpoint.")
 
 	RootCmd.AddCommand(list.ListCmd)
 	RootCmd.AddCommand(library.LibraryCmd)
@@ -59,8 +57,4 @@ func init() {
 	RootCmd.AddCommand(tools.ToolsCmd)
 	RootCmd.AddCommand(scripts.ScriptsCmd)
 	RootCmd.AddCommand(stop.StopCmd)
-}
-
-func initVaultID() {
-	util.GetVault()
 }

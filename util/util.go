@@ -26,10 +26,7 @@ import (
 type UnexpectedResponse map[string]interface{}
 
 var (
-	BaseURL = "https://api.trickest.io/hive/"
-	Cfg     = types.Config{
-		BaseUrl: BaseURL,
-	}
+	Cfg          types.Config
 	SpaceName    string
 	ProjectName  string
 	WorkflowName string

@@ -44,7 +44,7 @@ The YAML config file should be formatted like:
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg.Token = util.GetToken()
-		cfg.BaseURL = util.BaseURL
+		cfg.BaseURL = util.Cfg.BaseUrl
 		cfg.RunSpec = config.WorkflowRunSpec{
 			RunID:        cfg.RunID,
 			AllRuns:      cfg.AllRuns,

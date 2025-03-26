@@ -36,7 +36,7 @@ var filesListCmd = &cobra.Command{
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		listCfg.Token = util.GetToken()
-		listCfg.BaseURL = util.BaseURL
+		listCfg.BaseURL = util.Cfg.BaseUrl
 		if err := runList(listCfg); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)

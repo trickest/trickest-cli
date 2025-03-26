@@ -33,7 +33,7 @@ var filesDeleteCmd = &cobra.Command{
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		deleteCfg.Token = util.GetToken()
-		deleteCfg.BaseURL = util.BaseURL
+		deleteCfg.BaseURL = util.Cfg.BaseUrl
 		if err := runDelete(deleteCfg); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)

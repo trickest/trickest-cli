@@ -38,7 +38,7 @@ var filesGetCmd = &cobra.Command{
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		getCfg.Token = util.GetToken()
-		getCfg.BaseURL = util.BaseURL
+		getCfg.BaseURL = util.Cfg.BaseUrl
 		if err := runGet(getCfg); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)

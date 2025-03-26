@@ -82,7 +82,7 @@ var ExecuteCmd = &cobra.Command{
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg.Token = util.GetToken()
-		cfg.BaseURL = util.BaseURL
+		cfg.BaseURL = util.Cfg.BaseUrl
 		cfg.WorkflowSpec = config.WorkflowRunSpec{
 			SpaceName:    util.SpaceName,
 			ProjectName:  util.ProjectName,

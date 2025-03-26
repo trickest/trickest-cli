@@ -34,7 +34,7 @@ var filesCreateCmd = &cobra.Command{
 		"Note: If a file with the same name already exists, it will be overwritten.",
 	Run: func(cmd *cobra.Command, args []string) {
 		createCfg.Token = util.GetToken()
-		createCfg.BaseURL = util.BaseURL
+		createCfg.BaseURL = util.Cfg.BaseUrl
 		if err := runCreate(createCfg); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
