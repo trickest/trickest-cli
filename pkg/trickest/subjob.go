@@ -108,10 +108,10 @@ func (c *Client) GetModuleSubJobOutputs(ctx context.Context, moduleName string, 
 }
 
 func (c *Client) GetOutputSignedURL(ctx context.Context, outputID uuid.UUID) (SignedURL, error) {
-	path := fmt.Sprintf("/subjob-output/%s/signed_url/", outputID)
+	path := fmt.Sprintf("/job/%s/signed_url/", outputID)
 
 	var signedURL SignedURL
-	if err := c.Hive.doJSON(ctx, http.MethodGet, path, nil, &signedURL); err != nil {
+	if err := c.Orchestrator.doJSON(ctx, http.MethodGet, path, nil, &signedURL); err != nil {
 		return SignedURL{}, fmt.Errorf("failed to get output signed URL: %w", err)
 	}
 
