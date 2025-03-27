@@ -56,7 +56,7 @@ func runCreate(cfg *CreateConfig) error {
 	for _, filePath := range cfg.FilePaths {
 		_, err := client.UploadFile(ctx, filePath, true)
 		if err != nil {
-			return fmt.Errorf("failed to upload file: %w", err)
+			return fmt.Errorf("failed to upload file %s: %w", filePath, err)
 		}
 	}
 
