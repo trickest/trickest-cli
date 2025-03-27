@@ -95,6 +95,7 @@ type Node struct {
 type NodeInput struct {
 	Type            string  `json:"type"`
 	Order           int     `json:"order"`
+	Name            string  `json:"name,omitempty"`
 	Value           any     `json:"value,omitempty"`
 	Command         *string `json:"command,omitempty"`
 	Description     *string `json:"description,omitempty"`
