@@ -60,10 +60,9 @@ func runCreate(cfg *CreateConfig) error {
 		return fmt.Errorf("failed to parse %s: %w", cfg.FilePath, err)
 	}
 
-	script, err := client.CreatePrivateScript(ctx, &scriptImportRequest)
+	_, err = client.CreatePrivateScript(ctx, &scriptImportRequest)
 	if err != nil {
 		return fmt.Errorf("failed to create script: %w", err)
 	}
-	fmt.Printf("Succesfuly imported %q from %q (ID: %s)\n", script.Name, cfg.FilePath, script.ID)
 	return nil
 }

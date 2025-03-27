@@ -82,10 +82,9 @@ func runUpdate(cfg *UpdateConfig) error {
 		scriptID = *script.ID
 	}
 
-	updatedScript, err := client.UpdatePrivateScript(ctx, &scriptImportRequest, scriptID)
+	_, err = client.UpdatePrivateScript(ctx, &scriptImportRequest, scriptID)
 	if err != nil {
 		return fmt.Errorf("failed to update script: %w", err)
 	}
-	fmt.Printf("Succesfuly updated %q from %q (ID: %s)\n", updatedScript.Name, cfg.FilePath, updatedScript.ID)
 	return nil
 }

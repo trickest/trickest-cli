@@ -82,11 +82,5 @@ func runDelete(cfg *DeleteConfig) error {
 	if err != nil {
 		return fmt.Errorf("failed to delete script: %w", err)
 	}
-
-	if deleteCfg.ScriptName != "" {
-		fmt.Printf("Succesfuly deleted %q\n", deleteCfg.ScriptName)
-	} else {
-		fmt.Printf("Succesfuly deleted script (ID: %s)\n", scriptID)
-	}
 	return nil
 }
