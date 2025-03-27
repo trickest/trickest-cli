@@ -1,26 +1,33 @@
 package list
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"math"
-	"net/http"
-	"net/url"
 	"os"
-	"strconv"
 
-	"github.com/google/uuid"
-	"github.com/trickest/trickest-cli/client/request"
-	"github.com/trickest/trickest-cli/types"
+	"github.com/trickest/trickest-cli/pkg/config"
+	"github.com/trickest/trickest-cli/pkg/display"
+	"github.com/trickest/trickest-cli/pkg/trickest"
 	"github.com/trickest/trickest-cli/util"
 
 	"github.com/spf13/cobra"
-	"github.com/xlab/treeprint"
 )
 
-var (
-	jsonOutput bool
-)
+type Config struct {
+	Token   string
+	BaseURL string
+
+	WorkflowSpec config.WorkflowRunSpec
+
+	JSONOutput bool
+}
+
+var cfg = &Config{}
+
+func init() {
+	ListCmd.Flags().BoolVar(&cfg.JSONOutput, "json", false, "Display output in JSON format")
+}
 
 // ListCmd represents the list command
 var ListCmd = &cobra.Command{
@@ -28,222 +35,100 @@ var ListCmd = &cobra.Command{
 	Short: "Lists objects on the Trickest platform",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		space, project, workflow, found := util.GetObjects(args)
-
-		if !found {
-			fmt.Println("Error: Not found")
-			return
+		cfg.Token = util.GetToken()
+		cfg.BaseURL = util.Cfg.BaseUrl
+		cfg.WorkflowSpec = config.WorkflowRunSpec{
+			SpaceName:    util.SpaceName,
+			ProjectName:  util.ProjectName,
+			WorkflowName: util.WorkflowName,
+			URL:          util.URL,
 		}
-
-		if workflow != nil {
-			if project != nil && workflow.Name == project.Name {
-				if util.WorkflowName == "" {
-					printProject(*project, jsonOutput)
-					if util.ProjectName != "" {
-						return
-					}
-				}
-			}
-			printWorkflow(*workflow, jsonOutput)
-		} else if project != nil {
-			project.Workflows = util.GetWorkflows(project.ID, uuid.Nil, "", false)
-			printProject(*project, jsonOutput)
-		} else if space != nil {
-			printSpaceDetailed(*space)
+		if err := run(cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
 		}
 	},
 }
 
-func init() {
-	ListCmd.Flags().BoolVar(&jsonOutput, "json", false, "Display output in JSON format")
-}
-
-func printWorkflow(workflow types.Workflow, jsonOutput bool) {
-	var output string
-
-	if jsonOutput {
-		data, err := json.Marshal(workflow)
-		if err != nil {
-			fmt.Println("Error marshalling workflow data")
-			return
-		}
-		output = string(data)
-	} else {
-		tree := treeprint.New()
-		tree.SetValue("\U0001f9be " + workflow.Name) //🦾
-		if workflow.Description != "" {
-			tree.AddNode("\U0001f4cb \033[3m" + workflow.Description + "\033[0m") //📋
-		}
-		tree.AddNode("Author: " + workflow.Author)
-		output = tree.String()
-	}
-
-	fmt.Println(output)
-}
-
-func printProject(project types.Project, jsonOutput bool) {
-	var output string
-
-	if jsonOutput {
-		data, err := json.Marshal(project)
-		if err != nil {
-			fmt.Println("Error marshalling project data")
-			return
-		}
-		output = string(data)
-	} else {
-		tree := treeprint.New()
-		tree.SetValue("\U0001f5c2  " + project.Name) //🗂
-		if project.Description != "" {
-			tree.AddNode("\U0001f4cb \033[3m" + project.Description + "\033[0m") //📋
-		}
-		if project.Workflows != nil && len(project.Workflows) > 0 {
-			wfBranch := tree.AddBranch("Workflows")
-			for _, workflow := range project.Workflows {
-				wfSubBranch := wfBranch.AddBranch("\U0001f9be " + workflow.Name) //🦾
-				if workflow.Description != "" {
-					wfSubBranch.AddNode("\U0001f4cb \033[3m" + workflow.Description + "\033[0m") //📋
-				}
-			}
-		}
-		output = tree.String()
-	}
-
-	fmt.Println(output)
-}
-
-func printSpaceDetailed(space types.SpaceDetailed) {
-	var output string
-
-	if jsonOutput {
-		data, err := json.Marshal(space)
-		if err != nil {
-			fmt.Println("Error marshalling space data")
-			return
-		}
-		output = string(data)
-	} else {
-		tree := treeprint.New()
-		tree.SetValue("\U0001f4c2 " + space.Name) //📂
-		if space.Description != "" {
-			tree.AddNode("\U0001f4cb \033[3m" + space.Description + "\033[0m") //📋
-		}
-		if space.Projects != nil && len(space.Projects) > 0 {
-			projBranch := tree.AddBranch("Projects")
-			for _, proj := range space.Projects {
-				projSubBranch := projBranch.AddBranch("\U0001f5c2  " + proj.Name) //🗂
-				if proj.Description != "" {
-					projSubBranch.AddNode("\U0001f4cb \033[3m" + proj.Description + "\033[0m") //📋
-				}
-			}
-		}
-		if space.Workflows != nil && len(space.Workflows) > 0 {
-			wfBranch := tree.AddBranch("Workflows")
-			for _, workflow := range space.Workflows {
-				wfSubBranch := wfBranch.AddBranch("\U0001f9be " + workflow.Name) //🦾
-				if workflow.Description != "" {
-					wfSubBranch.AddNode("\U0001f4cb \033[3m" + workflow.Description + "\033[0m") //📋
-				}
-			}
-		}
-		output = tree.String()
-	}
-	fmt.Println(output)
-}
-
-func printSpaces(spaces []types.Space, jsonOutput bool) {
-	var output string
-
-	if jsonOutput {
-		data, err := json.Marshal(spaces)
-		if err != nil {
-			fmt.Println("Error marshalling spaces data")
-			return
-		}
-		output = string(data)
-	} else {
-		tree := treeprint.New()
-		tree.SetValue("Spaces")
-		for _, space := range spaces {
-			branch := tree.AddBranch("\U0001f4c1 " + space.Name) //📂
-			if space.Description != "" {
-				branch.AddNode("\U0001f4cb \033[3m" + space.Description + "\033[0m") //📋
-			}
-		}
-
-		output = tree.String()
-	}
-
-	fmt.Println(output)
-}
-
-func GetTools(pageSize int, search string, name string) []types.Tool {
-	urlReq := "library/tool/"
-	if pageSize > 0 {
-		urlReq = urlReq + "?page_size=" + strconv.Itoa(pageSize)
-	} else {
-		urlReq = urlReq + "?page_size=" + strconv.Itoa(math.MaxInt)
-	}
-
-	if search != "" {
-		search = url.QueryEscape(search)
-		urlReq += "&search=" + search
-	}
-
-	if name != "" {
-		name = url.QueryEscape(name)
-		urlReq += "&name=" + name
-	}
-
-	resp := request.Trickest.Get().DoF(urlReq)
-	if resp == nil {
-		fmt.Println("Error: Couldn't get tools!")
-		os.Exit(0)
-	}
-
-	if resp.Status() != http.StatusOK {
-		request.ProcessUnexpectedResponse(resp)
-	}
-
-	var tools types.Tools
-	err := json.Unmarshal(resp.Body(), &tools)
+func run(cfg *Config) error {
+	client, err := trickest.NewClient(
+		trickest.WithToken(cfg.Token),
+		trickest.WithBaseURL(cfg.BaseURL),
+	)
 	if err != nil {
-		fmt.Println("Error unmarshalling tools response!")
+		return fmt.Errorf("failed to create client: %w", err)
+	}
+
+	ctx := context.Background()
+
+	if cfg.WorkflowSpec.SpaceName == "" && cfg.WorkflowSpec.ProjectName == "" && cfg.WorkflowSpec.WorkflowName == "" && cfg.WorkflowSpec.URL == "" {
+		spaces, err := client.GetSpaces(ctx, "")
+		if err != nil {
+			return fmt.Errorf("failed to get spaces: %w", err)
+		}
+		if cfg.JSONOutput {
+			data, err := json.Marshal(spaces)
+			if err != nil {
+				return fmt.Errorf("failed to marshal spaces: %w", err)
+			}
+			fmt.Println(string(data))
+		} else {
+			display.PrintSpaces(os.Stdout, spaces)
+		}
 		return nil
 	}
 
-	return tools.Results
-}
-
-func GetModules(pageSize int, search string) []types.Module {
-	urlReq := "library/module/"
-	if pageSize > 0 {
-		urlReq = urlReq + "?page_size=" + strconv.Itoa(pageSize)
-	} else {
-		urlReq = urlReq + "?page_size=" + strconv.Itoa(math.MaxInt)
+	if err := cfg.WorkflowSpec.ResolveSpaceAndProject(ctx, client); err != nil {
+		return fmt.Errorf("failed to get space/project: %w", err)
 	}
 
-	if search != "" {
-		search = url.QueryEscape(search)
-		urlReq += "&search=" + search
+	var workflow *trickest.Workflow
+	if cfg.WorkflowSpec.WorkflowName != "" || cfg.WorkflowSpec.URL != "" {
+		workflow, err = cfg.WorkflowSpec.GetWorkflow(ctx, client)
+		if err != nil {
+			return fmt.Errorf("failed to get workflow: %w", err)
+		}
 	}
 
-	resp := request.Trickest.Get().DoF(urlReq)
-	if resp == nil {
-		fmt.Println("Error: Couldn't get modules!")
-		os.Exit(0)
+	var output any
+	if workflow != nil {
+		output = workflow
+	} else if cfg.WorkflowSpec.Project != nil {
+		output = cfg.WorkflowSpec.Project
+	} else if cfg.WorkflowSpec.Space != nil {
+		output = cfg.WorkflowSpec.Space
 	}
 
-	if resp.Status() != http.StatusOK {
-		request.ProcessUnexpectedResponse(resp)
+	if project, ok := output.(*trickest.Project); ok {
+		workflows, err := client.GetWorkflows(ctx, *cfg.WorkflowSpec.Space.ID, *project.ID, "")
+		if err != nil {
+			return fmt.Errorf("failed to get project workflows: %w", err)
+		}
+		project.Workflows = workflows
+		output = project
 	}
 
-	var modules types.Modules
-	err := json.Unmarshal(resp.Body(), &modules)
-	if err != nil {
-		fmt.Println("Error unmarshalling modules response!")
+	if cfg.JSONOutput {
+		data, err := json.Marshal(output)
+		if err != nil {
+			return fmt.Errorf("failed to marshal data: %w", err)
+		}
+		fmt.Println(string(data))
 		return nil
 	}
 
-	return modules.Results
+	switch v := output.(type) {
+	case *trickest.Workflow:
+		err = display.PrintWorkflow(os.Stdout, *v)
+	case *trickest.Project:
+		err = display.PrintProject(os.Stdout, *v)
+	case *trickest.Space:
+		err = display.PrintSpace(os.Stdout, *v)
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to print object: %w", err)
+	}
+
+	return nil
 }
