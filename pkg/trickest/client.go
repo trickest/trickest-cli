@@ -141,17 +141,31 @@ func doRequest(ctx context.Context, client *Client, method, path string, body an
 	return resp, nil
 }
 
-// decodeResponse decodes a JSON response into the provided value
-func decodeResponse(resp *http.Response, v any) error {
-	defer resp.Body.Close()
-
+// checkResponseStatus checks the HTTP response status code and returns an error if the status is not successful (2xx).
+// For 404 status, it returns a "resource not found" error.
+// For other non-2xx statuses, it attempts to parse and return the API error details from the JSON response,
+// falling back to a generic "unexpected status code: <status code>" error if parsing fails.
+func checkResponseStatus(resp *http.Response) error {
 	if resp.StatusCode == http.StatusNotFound {
 		return fmt.Errorf("resource not found")
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var errResp struct {
+			Details string `json:"details"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&errResp); err == nil && errResp.Details != "" {
+			return fmt.Errorf("API error: %s", errResp.Details)
+		}
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
+
+	return nil
+}
+
+// decodeResponse decodes a JSON response into the provided value
+func decodeResponse(resp *http.Response, v any) error {
+	defer resp.Body.Close()
 
 	if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
 		return fmt.Errorf("failed to decode response: %w", err)
@@ -165,6 +179,15 @@ func doJSON(ctx context.Context, client *Client, method, path string, body, resu
 	resp, err := doRequest(ctx, client, method, path, body)
 	if err != nil {
 		return err
+	}
+	defer resp.Body.Close()
+
+	if err := checkResponseStatus(resp); err != nil {
+		return err
+	}
+
+	if result == nil {
+		return nil
 	}
 
 	return decodeResponse(resp, result)
