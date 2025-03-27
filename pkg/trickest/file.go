@@ -73,14 +73,8 @@ func (c *Client) GetFileSignedURL(ctx context.Context, id uuid.UUID) (string, er
 func (c *Client) DeleteFile(ctx context.Context, id uuid.UUID) error {
 	path := fmt.Sprintf("/file/%s/", id.String())
 
-	resp, err := c.Hive.doRequest(ctx, http.MethodDelete, path, nil)
-	if err != nil {
+	if err := c.Hive.doJSON(ctx, http.MethodDelete, path, nil, nil); err != nil {
 		return fmt.Errorf("failed to delete file: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusNoContent {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
 	return nil
