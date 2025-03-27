@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/trickest/trickest-cli/types"
+	"github.com/trickest/trickest-cli/pkg/trickest"
 	"github.com/xlab/treeprint"
 )
 
 // PrintScripts writes the scripts list in tree format to the given writer
-func PrintScripts(w io.Writer, scripts []types.Script) error {
+func PrintScripts(w io.Writer, scripts []trickest.Script) error {
 	tree := treeprint.New()
 	tree.SetValue("Scripts")
 	for _, script := range scripts {
