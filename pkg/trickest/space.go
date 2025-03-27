@@ -58,7 +58,7 @@ func (c *Client) GetSpaceByName(ctx context.Context, name string) (*Space, error
 	}
 
 	if len(spaces) == 0 {
-		return nil, fmt.Errorf("space not found: %s", name)
+		return nil, fmt.Errorf("space %q not found", name)
 	}
 
 	// loop through the results to find the space with the exact name
@@ -72,7 +72,7 @@ func (c *Client) GetSpaceByName(ctx context.Context, name string) (*Space, error
 		}
 	}
 
-	return nil, fmt.Errorf("space not found: %s", name)
+	return nil, fmt.Errorf("space %q not found", name)
 }
 
 // CreateSpace creates a new space
@@ -101,4 +101,14 @@ func (s *Space) GetProjectByName(name string) (*Project, error) {
 		}
 	}
 	return nil, fmt.Errorf("project %q not found in space %q", name, s.Name)
+}
+
+// DeleteSpace deletes a space
+func (c *Client) DeleteSpace(ctx context.Context, id uuid.UUID) error {
+	path := fmt.Sprintf("/spaces/%s/", id)
+	if err := c.Hive.doJSON(ctx, http.MethodDelete, path, nil, nil); err != nil {
+		return fmt.Errorf("failed to delete space: %w", err)
+	}
+
+	return nil
 }

@@ -265,6 +265,16 @@ func (c *Client) GetWorkflowByLocation(ctx context.Context, spaceName, projectNa
 	return nil, fmt.Errorf("workflow %q not found in space %q", workflowName, spaceName)
 }
 
+// DeleteWorkflow deletes a workflow
+func (c *Client) DeleteWorkflow(ctx context.Context, id uuid.UUID) error {
+	path := fmt.Sprintf("/workflow/%s/", id.String())
+	if err := c.Hive.doJSON(ctx, http.MethodDelete, path, nil, nil); err != nil {
+		return fmt.Errorf("failed to delete workflow: %w", err)
+	}
+
+	return nil
+}
+
 // GetWorkflowVersion retrieves a workflow version by ID
 func (c *Client) GetWorkflowVersion(ctx context.Context, id uuid.UUID) (*WorkflowVersion, error) {
 	var version WorkflowVersion

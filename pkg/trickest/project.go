@@ -39,3 +39,13 @@ func (c *Client) CreateProject(ctx context.Context, name string, description str
 
 	return &newProject, nil
 }
+
+// DeleteProject deletes a project
+func (c *Client) DeleteProject(ctx context.Context, id uuid.UUID) error {
+	path := fmt.Sprintf("/projects/%s/", id)
+	if err := c.Hive.doJSON(ctx, http.MethodDelete, path, nil, nil); err != nil {
+		return fmt.Errorf("failed to delete project: %w", err)
+	}
+
+	return nil
+}
