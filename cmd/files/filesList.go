@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	display "github.com/trickest/trickest-cli/pkg/display/file"
+	"github.com/trickest/trickest-cli/pkg/display"
 	"github.com/trickest/trickest-cli/pkg/trickest"
 	"github.com/trickest/trickest-cli/util"
 )

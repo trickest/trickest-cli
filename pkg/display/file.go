@@ -9,9 +9,6 @@ import (
 )
 
 const (
-	fileEmoji  = "\U0001f4c4" // 📄
-	sizeEmoji  = "\U0001f522" // 🔢
-	dateEmoji  = "\U0001f4c5" // 📅
 	dateFormat = "2006-01-02 15:04:05"
 )
 
