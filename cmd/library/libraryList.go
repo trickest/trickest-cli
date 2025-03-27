@@ -7,7 +7,7 @@ import (
 // libraryListCmd represents the libraryList command
 var libraryListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List workflows and tools from the Trickest library",
+	Short: "List modules,workflows, and tools from the Trickest library",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		_ = cmd.Help()
