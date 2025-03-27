@@ -95,13 +95,6 @@ func WithHTTPClient(client *http.Client) Option {
 	}
 }
 
-// doRequest performs an HTTP request to a service with common client settings
-func (s *Service) doRequest(ctx context.Context, method, path string, body any) (*http.Response, error) {
-	fullPath := fmt.Sprintf("%s%s", s.basePath, path)
-
-	return doRequest(ctx, s.client, method, fullPath, body)
-}
-
 // doJSON performs a JSON request to a service and decodes the response
 func (s *Service) doJSON(ctx context.Context, method, path string, body, result any) error {
 	fullPath := fmt.Sprintf("%s%s", s.basePath, path)
