@@ -19,7 +19,7 @@ var librarySearchCmd = &cobra.Command{
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
-			fmt.Println("Please provide a search query")
+			fmt.Fprintf(os.Stderr, "Error: search query is required\n")
 			os.Exit(1)
 		}
 		cfg.Token = util.GetToken()
