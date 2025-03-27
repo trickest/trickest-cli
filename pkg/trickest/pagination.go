@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 const defaultPageSize = 500
@@ -18,7 +19,11 @@ type PaginatedResponse[T any] struct {
 
 // withPagination adds pagination parameters to a URL path
 func withPagination(path string, page int) string {
-	path += fmt.Sprintf("&page_size=%d", defaultPageSize)
+	if strings.Contains(path, "?") {
+		path += fmt.Sprintf("&page_size=%d", defaultPageSize)
+	} else {
+		path += fmt.Sprintf("?page_size=%d", defaultPageSize)
+	}
 	if page > 0 {
 		path += fmt.Sprintf("&page=%d", page)
 	}
