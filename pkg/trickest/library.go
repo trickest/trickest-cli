@@ -9,35 +9,12 @@ import (
 	"github.com/google/uuid"
 )
 
-type Tool struct {
-	ID               *uuid.UUID           `json:"id,omitempty"`
-	Name             string               `json:"name,omitempty"`
-	Description      string               `json:"description,omitempty"`
-	VaultInfo        *uuid.UUID           `json:"vault_info,omitempty"`
-	Author           string               `json:"author,omitempty"`
-	AuthorInfo       int                  `json:"author_info,omitempty"`
-	ToolCategory     string               `json:"tool_category,omitempty"`
-	ToolCategoryName string               `json:"tool_category_name,omitempty"`
-	Type             string               `json:"type,omitempty"`
-	Inputs           map[string]NodeInput `json:"inputs,omitempty"`
-	Container        *struct {
-		Args    []string `json:"args,omitempty"`
-		Image   string   `json:"image,omitempty"`
-		Command []string `json:"command,omitempty"`
-	} `json:"container,omitempty"`
-	Outputs struct {
-		File   NodeOutput `json:"file,omitempty"`
-		Folder NodeOutput `json:"folder,omitempty"`
-	} `json:"outputs,omitempty"`
-	SourceURL     string     `json:"source_url,omitempty"`
-	CreatedDate   *time.Time `json:"created_date,omitempty"`
-	ModifiedDate  *time.Time `json:"modified_date,omitempty"`
-	OutputCommand string     `json:"output_command,omitempty"`
-	LicenseInfo   struct {
-		Name string `json:"name,omitempty"`
-		Url  string `json:"url,omitempty"`
-	} `json:"license_info,omitempty"`
-	DocLink string `json:"doc_link,omitempty"`
+type Category struct {
+	ID            uuid.UUID `json:"id"`
+	Name          string    `json:"name"`
+	Description   string    `json:"description"`
+	WorkflowCount int       `json:"workflow_count"`
+	ToolCount     int       `json:"tool_count"`
 }
 
 type Module struct {
@@ -187,4 +164,19 @@ func (c *Client) SearchLibraryModules(ctx context.Context, search string) ([]Mod
 	}
 
 	return modules, nil
+}
+
+func (c *Client) GetLibraryCategoryByName(ctx context.Context, name string) (*Category, error) {
+	path := fmt.Sprintf("/library/categories/?name=%s", name)
+
+	categories, err := GetPaginated[Category](c.Hive, ctx, path, 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get categories: %w", err)
+	}
+
+	if len(categories) == 0 {
+		return nil, fmt.Errorf("category %s was not found in the library", name)
+	}
+
+	return &categories[0], nil
 }

@@ -54,6 +54,7 @@ func (c *Client) ListPrivateScripts(ctx context.Context) ([]Script, error) {
 	return scripts, nil
 }
 
+// GetPrivateScriptByName gets a private script by name
 func (c *Client) GetPrivateScriptByName(ctx context.Context, scriptName string) (*Script, error) {
 	path := fmt.Sprintf("/library/script/?public=False&vault=%s&name=%s", c.vaultID, scriptName)
 
@@ -73,9 +74,7 @@ func (c *Client) GetPrivateScriptByName(ctx context.Context, scriptName string) 
 func (c *Client) CreatePrivateScript(ctx context.Context, script *ScriptImport) (*ScriptImport, error) {
 	path := "/script/"
 
-	if script.VaultInfo == nil {
-		script.VaultInfo = &c.vaultID
-	}
+	script.VaultInfo = &c.vaultID
 
 	var createdScript ScriptImport
 	if err := c.Hive.doJSON(ctx, http.MethodPost, path, script, &createdScript); err != nil {

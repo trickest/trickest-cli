@@ -1,23 +1,35 @@
 package tools
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/trickest/trickest-cli/cmd/library"
+	"github.com/trickest/trickest-cli/pkg/display"
+	"github.com/trickest/trickest-cli/pkg/trickest"
+	"github.com/trickest/trickest-cli/util"
 )
 
-var jsonOutput bool
+type Config struct {
+	Token   string
+	BaseURL string
+
+	JSONOutput bool
+}
+
+var cfg = &Config{}
 
 var toolsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List private tool integrations",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := listTools(jsonOutput)
-		if err != nil {
-			fmt.Printf("Error: %s\n", err)
+		cfg.Token = util.GetToken()
+		cfg.BaseURL = util.Cfg.BaseUrl
+		if err := runList(cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	},
@@ -26,19 +38,40 @@ var toolsListCmd = &cobra.Command{
 func init() {
 	ToolsCmd.AddCommand(toolsListCmd)
 
-	toolsListCmd.Flags().BoolVar(&jsonOutput, "json", false, "Display output in JSON format")
+	toolsListCmd.Flags().BoolVar(&cfg.JSONOutput, "json", false, "Display output in JSON format")
 }
 
-func listTools(jsonOutput bool) error {
-	tools, err := ListPrivateTools("")
+func runList(cfg *Config) error {
+	client, err := trickest.NewClient(
+		trickest.WithToken(cfg.Token),
+		trickest.WithBaseURL(cfg.BaseURL),
+	)
 	if err != nil {
-		return fmt.Errorf("couldn't list private tools: %w", err)
+		return fmt.Errorf("failed to create client: %w", err)
+	}
+
+	ctx := context.Background()
+	tools, err := client.ListPrivateTools(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list tools: %w", err)
 	}
 
 	if len(tools) == 0 {
-		return fmt.Errorf("couldn't find any private tools. Did you mean `library list tools`?")
+		return fmt.Errorf("couldn't find any private tools")
 	}
 
-	library.PrintTools(tools, jsonOutput)
+	if cfg.JSONOutput {
+		data, err := json.Marshal(tools)
+		if err != nil {
+			return fmt.Errorf("failed to marshal tools: %w", err)
+		}
+		fmt.Println(string(data))
+	} else {
+		err = display.PrintTools(os.Stdout, tools)
+		if err != nil {
+			return fmt.Errorf("failed to print tools: %w", err)
+		}
+	}
+
 	return nil
 }

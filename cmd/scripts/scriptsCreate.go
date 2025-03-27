@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/go-yaml/yaml"
 	"github.com/spf13/cobra"
 	"github.com/trickest/trickest-cli/pkg/trickest"
 	"github.com/trickest/trickest-cli/util"
+	"gopkg.in/yaml.v3"
 )
 
 type CreateConfig struct {
