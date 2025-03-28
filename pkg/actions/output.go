@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"sync"
 
 	"github.com/google/uuid"
@@ -30,7 +29,7 @@ func DownloadRunOutput(client *trickest.Client, run *trickest.Run, nodes []strin
 	}
 	subJobs = trickest.LabelSubJobs(subJobs, *version)
 
-	matchingSubJobs, err := filterSubJobs(subJobs, nodes)
+	matchingSubJobs, err := trickest.FilterSubJobs(subJobs, nodes)
 	if err != nil {
 		return fmt.Errorf("no completed node outputs matching your query were found in the run %s: %w", run.ID.String(), err)
 	}
@@ -166,39 +165,6 @@ func downloadOutput(client *trickest.Client, savePath string, subJob *trickest.S
 	}
 
 	return nil
-}
-
-func filterSubJobs(subJobs []trickest.SubJob, identifiers []string) ([]trickest.SubJob, error) {
-	if len(identifiers) == 0 {
-		return subJobs, nil
-	}
-
-	var foundNodes []string
-	var matchingSubJobs []trickest.SubJob
-
-	for _, subJob := range subJobs {
-		labelExists := slices.Contains(identifiers, subJob.Label)
-		nameExists := slices.Contains(identifiers, subJob.Name)
-
-		if labelExists {
-			foundNodes = append(foundNodes, subJob.Label)
-		}
-		if nameExists {
-			foundNodes = append(foundNodes, subJob.Name)
-		}
-
-		if labelExists || nameExists {
-			matchingSubJobs = append(matchingSubJobs, subJob)
-		}
-	}
-
-	for _, identifier := range identifiers {
-		if !slices.Contains(foundNodes, identifier) {
-			return nil, fmt.Errorf("subjob with name or label %s not found", identifier)
-		}
-	}
-
-	return matchingSubJobs, nil
 }
 
 func filterSubJobOutputsByFileNames(outputs []trickest.SubJobOutput, fileNames []string) []trickest.SubJobOutput {

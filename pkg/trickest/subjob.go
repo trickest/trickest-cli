@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -55,6 +56,17 @@ func (c *Client) GetSubJobs(ctx context.Context, runID uuid.UUID) ([]SubJob, err
 	}
 
 	return subjobs, nil
+}
+
+// StopSubJob stops a sub-job
+func (c *Client) StopSubJob(ctx context.Context, subJobID uuid.UUID) error {
+	path := fmt.Sprintf("/subjob/%s/stop/", subJobID)
+
+	if err := c.Hive.doJSON(ctx, http.MethodPost, path, nil, nil); err != nil {
+		return fmt.Errorf("failed to stop sub-job: %w", err)
+	}
+
+	return nil
 }
 
 // GetChildSubJobs retrieves all child sub-jobs for a lifted sub-job (task group)
@@ -155,4 +167,38 @@ func LabelSubJobs(subJobs []SubJob, version WorkflowVersion) []SubJob {
 		}
 	}
 	return subJobs
+}
+
+// FilterSubJobs filters the subjobs based on the identifiers (label or name (node ID))
+func FilterSubJobs(subJobs []SubJob, identifiers []string) ([]SubJob, error) {
+	if len(identifiers) == 0 {
+		return subJobs, nil
+	}
+
+	var foundNodes []string
+	var matchingSubJobs []SubJob
+
+	for _, subJob := range subJobs {
+		labelExists := slices.Contains(identifiers, subJob.Label)
+		nameExists := slices.Contains(identifiers, subJob.Name)
+
+		if labelExists {
+			foundNodes = append(foundNodes, subJob.Label)
+		}
+		if nameExists {
+			foundNodes = append(foundNodes, subJob.Name)
+		}
+
+		if labelExists || nameExists {
+			matchingSubJobs = append(matchingSubJobs, subJob)
+		}
+	}
+
+	for _, identifier := range identifiers {
+		if !slices.Contains(foundNodes, identifier) {
+			return nil, fmt.Errorf("subjob with name or label %s not found", identifier)
+		}
+	}
+
+	return matchingSubJobs, nil
 }

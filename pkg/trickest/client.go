@@ -139,16 +139,15 @@ func doRequest(ctx context.Context, client *Client, method, path string, body an
 // For other non-2xx statuses, it attempts to parse and return the API error details from the JSON response,
 // falling back to a generic "unexpected status code: <status code>" error if parsing fails.
 func checkResponseStatus(resp *http.Response) error {
-	if resp.StatusCode == http.StatusNotFound {
-		return fmt.Errorf("resource not found")
-	}
-
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		var errResp struct {
 			Details string `json:"details"`
 		}
 		if err := json.NewDecoder(resp.Body).Decode(&errResp); err == nil && errResp.Details != "" {
 			return fmt.Errorf("API error: %s", errResp.Details)
+		}
+		if resp.StatusCode == http.StatusNotFound {
+			return fmt.Errorf("resource not found")
 		}
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}

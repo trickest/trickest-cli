@@ -14,6 +14,7 @@ type WorkflowRunSpec struct {
 	RunID        string
 	NumberOfRuns int
 	AllRuns      bool
+	RunStatus    string
 
 	// Workflow identification
 	SpaceName    string
@@ -34,6 +35,9 @@ func (s WorkflowRunSpec) GetRuns(ctx context.Context, client *trickest.Client) (
 		if err != nil {
 			return nil, err
 		}
+		if s.RunStatus != "" && run.Status != s.RunStatus {
+			return nil, fmt.Errorf("run %s has status %q, expected status %q", run.ID, run.Status, s.RunStatus)
+		}
 		return []trickest.Run{*run}, nil
 	}
 
@@ -48,7 +52,7 @@ func (s WorkflowRunSpec) GetRuns(ctx context.Context, client *trickest.Client) (
 		limit = s.NumberOfRuns
 	}
 
-	runs, err := client.GetRuns(ctx, workflow.ID, "", limit)
+	runs, err := client.GetRuns(ctx, workflow.ID, s.RunStatus, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get runs: %w", err)
 	}
