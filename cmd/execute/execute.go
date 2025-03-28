@@ -59,7 +59,7 @@ func init() {
 	ExecuteCmd.Flags().StringVar(&cfg.FleetName, "fleet", DefaultFleetName, "The name of the fleet to use to execute the workflow")
 	ExecuteCmd.Flags().BoolVar(&cfg.UseStaticIPs, "use-static-ips", false, "Use static IP addresses for the execution")
 
-	ExecuteCmd.Flags().StringSliceVar(&cfg.RawInputs, "inputs", []string{}, "Inputs to pass to the workflow in the format key=value (can be used multiple times)")
+	ExecuteCmd.Flags().StringSliceVar(&cfg.RawInputs, "input", []string{}, "Input to pass to the workflow in the format key=value (can be used multiple times)")
 
 	ExecuteCmd.Flags().BoolVar(&cfg.Watch, "watch", false, "Watch the execution running")
 	ExecuteCmd.Flags().BoolVar(&cfg.IncludePrimitiveNodes, "include-primitive-nodes", false, "Include primitive nodes in the workflow tree")
@@ -69,7 +69,7 @@ func init() {
 	ExecuteCmd.Flags().BoolVar(&cfg.CreateMissing, "create-missing", false, "Create space and project if they don't exist")
 
 	ExecuteCmd.Flags().StringVar(&cfg.OutputDirectory, "output-dir", "", "Path to directory which should be used to store outputs")
-	ExecuteCmd.Flags().StringSliceVar(&cfg.NodesToDownload, "output", []string{}, "A comma separated list of nodes which outputs should be downloaded when the execution is finished")
+	ExecuteCmd.Flags().StringSliceVar(&cfg.NodesToDownload, "output", []string{}, "Output to download when the execution is finished (can be used multiple times)")
 	ExecuteCmd.Flags().BoolVar(&cfg.DownloadAllNodes, "output-all", false, "Download all outputs when the execution is finished")
 
 	ExecuteCmd.Flags().StringVar(&cfg.ConfigFile, "config", "", "YAML file for run configuration")
