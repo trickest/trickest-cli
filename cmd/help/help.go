@@ -50,7 +50,7 @@ var HelpCmd = &cobra.Command{
 	},
 }
 
-func generateHelpMarkdown(workflow *trickest.Workflow, labeledNodes []*trickest.PrimitiveNode, workflowSpec config.WorkflowRunSpec) string {
+func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*trickest.PrimitiveNode, labeledNodes []*trickest.Node, workflowSpec config.WorkflowRunSpec) string {
 	var sb strings.Builder
 	workflowURL := constructWorkflowURL(workflow)
 
@@ -66,19 +66,33 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledNodes []*trickest.
 	sb.WriteString(fmt.Sprintf("**Author:** %s\n\n", workflow.Author))
 
 	// Inputs section
-	if len(labeledNodes) > 0 {
+	if len(labeledPrimitiveNodes) > 0 {
 		sb.WriteString("## Inputs\n\n")
-		// Sort nodes by their position on the workflow canvas
-		sort.Slice(labeledNodes, func(i, j int) bool {
-			return labeledNodes[i].Coordinates.Y < labeledNodes[j].Coordinates.Y
+		// Sort nodes by their position on the workflow canvas on the Y axis (top to bottom)
+		sort.Slice(labeledPrimitiveNodes, func(i, j int) bool {
+			return labeledPrimitiveNodes[i].Coordinates.Y < labeledPrimitiveNodes[j].Coordinates.Y
 		})
-		sb.WriteString("These are the current workflow input values. When you execute the workflow, you only need to set the inputs you want to change.\n\n")
-		for _, node := range labeledNodes {
+		sb.WriteString("When you execute the workflow, you can set the inputs you want to change using the `--inputs` flag.\n\n")
+		for _, node := range labeledPrimitiveNodes {
 			inputLine := fmt.Sprintf("- `%s` (%s)", node.Label, strings.ToLower(node.Type))
 			if node.Value != "" {
 				inputLine += fmt.Sprintf(" = %s", node.Value)
 			}
 			sb.WriteString(fmt.Sprintf("%s\n", inputLine))
+		}
+		sb.WriteString("\n")
+	}
+
+	// Outputs section
+	if len(labeledNodes) > 0 {
+		sb.WriteString("## Outputs\n\n")
+		// Sort nodes by their position on the workflow canvas on the X axis (right to left)
+		sort.Slice(labeledNodes, func(i, j int) bool {
+			return labeledNodes[i].Meta.Coordinates.X > labeledNodes[j].Meta.Coordinates.X
+		})
+		sb.WriteString("You can use the `--output` flag to specify the output you want to get from the workflow.\n\n")
+		for _, node := range labeledNodes {
+			sb.WriteString(fmt.Sprintf("- `%s`\n", node.Meta.Label))
 		}
 		sb.WriteString("\n")
 	}
@@ -99,12 +113,16 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledNodes []*trickest.
 	}
 	exampleCommand += fmt.Sprintf(" %s", workflowRef)
 	// Add inputs with example values
-	for _, node := range labeledNodes {
+	for _, node := range labeledPrimitiveNodes {
 		nodeValue := fmt.Sprintf("<%s-value>", strings.ReplaceAll(node.Label, " ", "-"))
 		if node.Value != "" {
 			nodeValue = node.Value.(string)
 		}
 		exampleCommand += fmt.Sprintf(" --inputs \"%s=%s\"", node.Label, nodeValue)
+	}
+	// Add the first output only to avoid cluttering the command too much
+	if len(labeledNodes) > 0 {
+		exampleCommand += fmt.Sprintf(" --output \"%s\"", labeledNodes[0].Meta.Label)
 	}
 	sb.WriteString(fmt.Sprintf("```\n%s\n```\n\n", exampleCommand))
 
@@ -144,12 +162,17 @@ func run(cfg *Config) error {
 		return fmt.Errorf("failed to get workflow version: %w", err)
 	}
 
-	labeledNodes, err := workflowbuilder.GetLabeledPrimitiveNodes(workflowVersion)
+	labeledPrimitiveNodes, err := workflowbuilder.GetLabeledPrimitiveNodes(workflowVersion)
 	if err != nil {
 		return fmt.Errorf("failed to get labeled primitive nodes: %w", err)
 	}
 
-	helpMarkdown := generateHelpMarkdown(workflow, labeledNodes, cfg.WorkflowSpec)
+	labeledNodes, err := workflowbuilder.GetLabeledNodes(workflowVersion)
+	if err != nil {
+		return fmt.Errorf("failed to get labeled nodes: %w", err)
+	}
+
+	helpMarkdown := generateHelpMarkdown(workflow, labeledPrimitiveNodes, labeledNodes, cfg.WorkflowSpec)
 	r, _ := glamour.NewTermRenderer(
 		glamour.WithAutoStyle(),
 		glamour.WithWordWrap(-1),
