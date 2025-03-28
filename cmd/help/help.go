@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/glamour"
+	"github.com/trickest/trickest-cli/cmd/execute"
 	"github.com/trickest/trickest-cli/pkg/config"
 	display "github.com/trickest/trickest-cli/pkg/display/run"
 	"github.com/trickest/trickest-cli/pkg/trickest"
@@ -16,6 +17,10 @@ import (
 	"github.com/trickest/trickest-cli/util"
 
 	"github.com/spf13/cobra"
+)
+
+const (
+	defaultMachineCount = 10
 )
 
 type Config struct {
@@ -52,7 +57,7 @@ var HelpCmd = &cobra.Command{
 	},
 }
 
-func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*trickest.PrimitiveNode, labeledNodes []*trickest.Node, workflowSpec config.WorkflowRunSpec, runs []trickest.Run) string {
+func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*trickest.PrimitiveNode, labeledNodes []*trickest.Node, workflowSpec config.WorkflowRunSpec, runs []trickest.Run, maxMachines int) string {
 	workflowURL := constructWorkflowURL(workflow)
 
 	// Sort input nodes by their position on the workflow canvas on the Y axis (top to bottom)
@@ -97,6 +102,19 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*
 		}{date, *machines, duration, runURL})
 	}
 
+	machineCount := defaultMachineCount
+	if maxMachines > 0 && maxMachines < defaultMachineCount {
+		machineCount = maxMachines
+	} else if len(runStats) > 0 {
+		highestMachineCount := 0
+		for _, runStat := range runStats {
+			if runStat.machines > highestMachineCount {
+				highestMachineCount = runStat.machines
+			}
+		}
+		machineCount = highestMachineCount
+	}
+
 	// Author info
 	sb.WriteString(fmt.Sprintf("**Author:** %s\n\n", workflow.Author))
 
@@ -127,15 +145,8 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*
 	if len(labeledNodes) > 0 {
 		exampleCommand += fmt.Sprintf(" --output \"%s\"", labeledNodes[0].Meta.Label)
 	}
-	if len(runStats) > 0 {
-		highestMachineCount := 0
-		for _, runStat := range runStats {
-			if runStat.machines > highestMachineCount {
-				highestMachineCount = runStat.machines
-			}
-		}
-		exampleCommand += fmt.Sprintf(" --machines %d", highestMachineCount)
-	}
+
+	exampleCommand += fmt.Sprintf(" --machines %d", machineCount)
 	sb.WriteString(fmt.Sprintf("```\n%s\n```\n\n", exampleCommand))
 
 	// Inputs section
@@ -214,6 +225,20 @@ func run(cfg *Config) error {
 		return fmt.Errorf("failed to get workflow version: %w", err)
 	}
 
+	versionMaxMachines := 0
+	fleet, err := client.GetFleetByName(ctx, execute.DefaultFleetName)
+	if err == nil {
+		maxMachines, err := client.GetWorkflowVersionMaxMachines(ctx, workflowVersion.ID, fleet.ID)
+		if err == nil {
+			if maxMachines.Default != nil {
+				versionMaxMachines = *maxMachines.Default
+			}
+			if maxMachines.SelfHosted != nil {
+				versionMaxMachines = *maxMachines.SelfHosted
+			}
+		}
+	}
+
 	labeledPrimitiveNodes, err := workflowbuilder.GetLabeledPrimitiveNodes(workflowVersion)
 	if err != nil {
 		return fmt.Errorf("failed to get labeled primitive nodes: %w", err)
@@ -229,7 +254,7 @@ func run(cfg *Config) error {
 		return fmt.Errorf("failed to get runs: %w", err)
 	}
 
-	helpMarkdown := generateHelpMarkdown(workflow, labeledPrimitiveNodes, labeledNodes, cfg.WorkflowSpec, runs)
+	helpMarkdown := generateHelpMarkdown(workflow, labeledPrimitiveNodes, labeledNodes, cfg.WorkflowSpec, runs, versionMaxMachines)
 	r, _ := glamour.NewTermRenderer(
 		glamour.WithAutoStyle(),
 		glamour.WithWordWrap(-1),
