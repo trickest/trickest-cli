@@ -66,15 +66,22 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledNodes []*trickest.
 	sb.WriteString(fmt.Sprintf("**Author:** %s\n\n", workflow.Author))
 
 	// Inputs section
-	sb.WriteString("## Inputs\n\n")
-	// Sort nodes by their position on the workflow canvas
-	sort.Slice(labeledNodes, func(i, j int) bool {
-		return labeledNodes[i].Coordinates.Y < labeledNodes[j].Coordinates.Y
-	})
-	for _, node := range labeledNodes {
-		sb.WriteString(fmt.Sprintf("- `%s` (%s)\n", node.Label, strings.ToLower(node.Type)))
+	if len(labeledNodes) > 0 {
+		sb.WriteString("## Inputs\n\n")
+		// Sort nodes by their position on the workflow canvas
+		sort.Slice(labeledNodes, func(i, j int) bool {
+			return labeledNodes[i].Coordinates.Y < labeledNodes[j].Coordinates.Y
+		})
+		sb.WriteString("These are the current workflow input values. When you execute the workflow, you only need to set the inputs you want to change.\n\n")
+		for _, node := range labeledNodes {
+			inputLine := fmt.Sprintf("- `%s` (%s)", node.Label, strings.ToLower(node.Type))
+			if node.Value != "" {
+				inputLine += fmt.Sprintf(" = %s", node.Value)
+			}
+			sb.WriteString(fmt.Sprintf("%s\n", inputLine))
+		}
+		sb.WriteString("\n")
 	}
-	sb.WriteString("\n")
 
 	// Example command
 	sb.WriteString("## Example Command\n\n")
@@ -93,7 +100,7 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledNodes []*trickest.
 	exampleCommand += fmt.Sprintf(" %s", workflowRef)
 	// Add inputs with example values
 	for _, node := range labeledNodes {
-		nodeValue := fmt.Sprintf("<%s value>", node.Label)
+		nodeValue := fmt.Sprintf("<%s-value>", strings.ReplaceAll(node.Label, " ", "-"))
 		if node.Value != "" {
 			nodeValue = node.Value.(string)
 		}
