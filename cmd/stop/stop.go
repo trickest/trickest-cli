@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/trickest/trickest-cli/pkg/config"
 	"github.com/trickest/trickest-cli/pkg/trickest"
@@ -134,6 +135,10 @@ func run(cfg *Config) error {
 					errs = append(errs, fmt.Errorf("cannot stop node %q (%s) - current status is %q", subJob.Label, subJob.Name, subJob.Status))
 					continue
 				}
+				if isModule(subJob) {
+					errs = append(errs, fmt.Errorf("cannot stop node %q (%s) - modules cannot be stopped individually; you must stop the entire run", subJob.Label, subJob.Name))
+					continue
+				}
 				err := client.StopSubJob(ctx, subJob.ID)
 				if err != nil {
 					errs = append(errs, fmt.Errorf("failed to stop node %q (%s) in run %s: %w", subJob.Label, subJob.Name, run.ID, err))
@@ -180,4 +185,8 @@ func run(cfg *Config) error {
 		}(), "\n"))
 	}
 	return nil
+}
+
+func isModule(subJob trickest.SubJob) bool {
+	return subJob.TWEid == uuid.Nil
 }
