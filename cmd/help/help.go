@@ -141,7 +141,6 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*
 	// Inputs section
 	if len(labeledPrimitiveNodes) > 0 {
 		sb.WriteString("## Inputs\n\n")
-		sb.WriteString("Use the `--input` flag to set the inputs you want to change.\n\n")
 		for _, node := range labeledPrimitiveNodes {
 			inputLine := fmt.Sprintf("- `%s` (%s)", node.Label, strings.ToLower(node.Type))
 			if node.Value != "" {
@@ -149,17 +148,18 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*
 			}
 			sb.WriteString(fmt.Sprintf("%s\n", inputLine))
 		}
-		sb.WriteString("\n")
+		sb.WriteString("\n\n")
+		sb.WriteString("Use the `--input` flag to set the inputs you want to change.\n\n")
 	}
 
 	// Outputs section
 	if len(labeledNodes) > 0 {
 		sb.WriteString("## Outputs\n\n")
-		sb.WriteString("Use the `--output` flag to specify the outputs you want to get.\n\n")
 		for _, node := range labeledNodes {
 			sb.WriteString(fmt.Sprintf("- `%s`\n", node.Meta.Label))
 		}
-		sb.WriteString("\n")
+		sb.WriteString("\n\n")
+		sb.WriteString("Use the `--output` flag to specify the outputs you want to get.\n\n")
 	}
 
 	// Past runs section
