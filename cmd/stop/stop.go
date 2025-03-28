@@ -53,7 +53,7 @@ var StopCmd = &cobra.Command{
 
 func run(cfg *Config) error {
 	if len(cfg.Nodes) == 0 {
-		node, err := util.GetNodeIDFromWorkflowURL(util.URL)
+		node, err := config.GetNodeIDFromWorkflowURL(util.URL)
 		if err == nil {
 			cfg.Nodes = []string{node}
 		}

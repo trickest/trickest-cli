@@ -1,9 +1,7 @@
 package util
 
 import (
-	"fmt"
 	"log"
-	"net/url"
 	"os"
 )
 
@@ -45,31 +43,4 @@ func GetToken() string {
 
 	log.Fatal("Trickest authentication token not set! Use --token, --token-file, or TRICKEST_TOKEN environment variable.")
 	return ""
-}
-
-func GetNodeIDFromWorkflowURL(workflowURL string) (string, error) {
-	return geParameterValueFromURL(workflowURL, "node")
-}
-
-func geParameterValueFromURL(workflowURL string, parameter string) (string, error) {
-	u, err := url.Parse(workflowURL)
-	if err != nil {
-		return "", fmt.Errorf("invalid URL: %w", err)
-	}
-
-	queryParams, err := url.ParseQuery(u.RawQuery)
-	if err != nil {
-		return "", fmt.Errorf("invalid URL query: %w", err)
-	}
-
-	paramValues, found := queryParams[parameter]
-	if !found {
-		return "", fmt.Errorf("no %s parameter in the URL", parameter)
-	}
-
-	if len(paramValues) != 1 {
-		return "", fmt.Errorf("invalid number of %s parameters in the URL: %d", parameter, len(paramValues))
-	}
-
-	return paramValues[0], nil
 }
