@@ -180,7 +180,7 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*
 
 	// Long description (README content)
 	if workflow.LongDescription != "" {
-		sb.WriteString("## Description\n\n")
+		sb.WriteString("## Author's Notes\n\n")
 		sb.WriteString(workflow.LongDescription)
 		sb.WriteString("\n\n")
 	}
