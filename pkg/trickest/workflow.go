@@ -16,6 +16,7 @@ type Workflow struct {
 	ID               uuid.UUID     `json:"id,omitempty"`
 	Name             string        `json:"name,omitempty"`
 	Description      string        `json:"description,omitempty"`
+	LongDescription  string        `json:"long_description,omitempty"`
 	SpaceInfo        *uuid.UUID    `json:"space_info,omitempty"`
 	SpaceName        string        `json:"space_name,omitempty"`
 	ProjectInfo      *uuid.UUID    `json:"project_info,omitempty"`

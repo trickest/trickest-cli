@@ -8,6 +8,21 @@ import (
 	"github.com/trickest/trickest-cli/pkg/trickest"
 )
 
+func GetLabeledPrimitiveNodes(wfVersion *trickest.WorkflowVersion) ([]*trickest.PrimitiveNode, error) {
+	if wfVersion == nil {
+		return nil, fmt.Errorf("workflow version is nil")
+	}
+
+	var labeledNodes []*trickest.PrimitiveNode
+	for _, node := range wfVersion.Data.PrimitiveNodes {
+		if node.Label != node.Value {
+			labeledNodes = append(labeledNodes, node)
+		}
+	}
+
+	return labeledNodes, nil
+}
+
 // addPrimitiveNode adds a new primitive node or updates an existing one
 func addPrimitiveNode(wfVersion *trickest.WorkflowVersion, nodeType string, value any) (*trickest.PrimitiveNode, error) {
 	if wfVersion == nil {
