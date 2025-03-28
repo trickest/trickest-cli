@@ -134,8 +134,10 @@ func run(cfg *Config) error {
 					errs = append(errs, fmt.Errorf("cannot stop node %q (%s) - current status is %q", subJob.Label, subJob.Name, subJob.Status))
 					continue
 				}
-				if err := client.StopSubJob(ctx, subJob.ID); err != nil {
-					errs = append(errs, err)
+				err := client.StopSubJob(ctx, subJob.ID)
+				if err != nil {
+					errs = append(errs, fmt.Errorf("failed to stop node %q (%s) in run %s: %w", subJob.Label, subJob.Name, run.ID, err))
+					continue
 				} else {
 					fmt.Printf("Successfully sent stop request for node %q (%s) in run %s\n", subJob.Label, subJob.Name, run.ID)
 				}
@@ -156,8 +158,10 @@ func run(cfg *Config) error {
 						continue
 					}
 
-					if err := client.StopSubJob(ctx, subJobChild.ID); err != nil {
-						errs = append(errs, err)
+					err = client.StopSubJob(ctx, subJobChild.ID)
+					if err != nil {
+						errs = append(errs, fmt.Errorf("failed to stop child %d of node %q (%s) in run %s: %w", child, subJob.Label, subJob.Name, run.ID, err))
+						continue
 					} else {
 						fmt.Printf("Successfully sent stop request for child %d of node %q (%s) in run %s\n", child, subJob.Label, subJob.Name, run.ID)
 					}
