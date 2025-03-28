@@ -78,23 +78,23 @@ func (p *RunPrinter) PrintAll(run *trickest.Run, subJobs []trickest.SubJob, vers
 	// Print timestamps
 	if run.CreatedDate != nil {
 		output.WriteString(p.formatKeyValue("Created",
-			run.CreatedDate.In(time.Local).Format(time.RFC1123)+" ("+formatDuration(time.Since(*run.CreatedDate))+" ago)"))
+			run.CreatedDate.In(time.Local).Format(time.RFC1123)+" ("+FormatDuration(time.Since(*run.CreatedDate))+" ago)"))
 	}
 
 	if run.Status != "PENDING" {
 		if run.StartedDate != nil {
 			output.WriteString(p.formatKeyValue("Started",
-				run.StartedDate.In(time.Local).Format(time.RFC1123)+" ("+formatDuration(time.Since(*run.StartedDate))+" ago)"))
+				run.StartedDate.In(time.Local).Format(time.RFC1123)+" ("+FormatDuration(time.Since(*run.StartedDate))+" ago)"))
 		}
 	}
 
 	if run.Finished {
 		output.WriteString(p.formatKeyValue("Finished",
-			run.CompletedDate.In(time.Local).Format(time.RFC1123)+" ("+formatDuration(time.Since(*run.CompletedDate))+" ago)"))
-		output.WriteString(p.formatKeyValue("Duration", formatDuration(run.CompletedDate.Sub(*run.StartedDate))))
+			run.CompletedDate.In(time.Local).Format(time.RFC1123)+" ("+FormatDuration(time.Since(*run.CompletedDate))+" ago)"))
+		output.WriteString(p.formatKeyValue("Duration", FormatDuration(run.CompletedDate.Sub(*run.StartedDate))))
 	} else if run.Status == "RUNNING" {
 		if run.StartedDate != nil {
-			output.WriteString(p.formatKeyValue("Duration", formatDuration(time.Since(*run.StartedDate))))
+			output.WriteString(p.formatKeyValue("Duration", FormatDuration(time.Since(*run.StartedDate))))
 		}
 	}
 
@@ -137,8 +137,8 @@ func (p *RunPrinter) formatKeyValue(key, value string) string {
 	return fmt.Sprintf("%-12s %v\n", key+":", value)
 }
 
-// formatDuration formats a duration for printing
-func formatDuration(duration time.Duration) string {
+// FormatDuration formats a duration for printing
+func FormatDuration(duration time.Duration) string {
 	duration = duration.Round(time.Second)
 	units := durafmt.Units{
 		Year:   durafmt.Unit{Singular: "year", Plural: "years"},
@@ -265,7 +265,7 @@ func (p *RunPrinter) printTrees(roots []*TreeNode, allNodes *map[string]*TreeNod
 					nodeName := strings.Trim(lineSplit[1], ")")
 					node := (*allNodes)[nodeName]
 					_, _ = fmt.Fprintf(w, "\t"+line+"\t"+node.Status+"\t"+
-						formatDuration(node.Duration)+"\t"+node.OutputStatus+"\n")
+						FormatDuration(node.Duration)+"\t"+node.OutputStatus+"\n")
 				} else {
 					_, _ = fmt.Fprintf(w, "\t"+line+"\t\t\t\n")
 				}

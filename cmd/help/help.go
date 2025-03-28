@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/glamour"
 	"github.com/trickest/trickest-cli/pkg/config"
+	display "github.com/trickest/trickest-cli/pkg/display/run"
 	"github.com/trickest/trickest-cli/pkg/trickest"
 	"github.com/trickest/trickest-cli/pkg/workflowbuilder"
 	"github.com/trickest/trickest-cli/util"
@@ -50,7 +51,7 @@ var HelpCmd = &cobra.Command{
 	},
 }
 
-func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*trickest.PrimitiveNode, labeledNodes []*trickest.Node, workflowSpec config.WorkflowRunSpec) string {
+func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*trickest.PrimitiveNode, labeledNodes []*trickest.Node, workflowSpec config.WorkflowRunSpec, runs []trickest.Run) string {
 	var sb strings.Builder
 	workflowURL := constructWorkflowURL(workflow)
 
@@ -97,6 +98,27 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*
 		sb.WriteString("\n")
 	}
 
+	// Past runs section
+	machineCounts := []int{}
+	if len(runs) > 0 {
+		sb.WriteString("## Past Runs\n\n")
+		sb.WriteString("| Started at | Machines | Duration | URL |\n")
+		sb.WriteString("|------|----------|----------|-----|\n")
+		for _, run := range runs {
+			machines := run.Machines.Default
+			if machines == nil {
+				machines = run.Machines.SelfHosted
+			}
+			machineCounts = append(machineCounts, *machines)
+			date := run.StartedDate.Format("2006-01-02 15:04")
+			duration := run.CompletedDate.Sub(*run.StartedDate)
+			durationStr := display.FormatDuration(duration)
+			runURL := fmt.Sprintf("%s?run=%s", workflowURL, run.ID)
+			sb.WriteString(fmt.Sprintf("| %s | %d | %s | [View](%s) |\n", date, *machines, durationStr, runURL))
+		}
+		sb.WriteString("\n")
+	}
+
 	// Example command
 	sb.WriteString("## Example Command\n\n")
 	exampleCommand := fmt.Sprintf("%s execute", os.Args[0])
@@ -123,6 +145,15 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*
 	// Add the first output only to avoid cluttering the command too much
 	if len(labeledNodes) > 0 {
 		exampleCommand += fmt.Sprintf(" --output \"%s\"", labeledNodes[0].Meta.Label)
+	}
+	if len(machineCounts) > 0 {
+		highestMachineCount := 0
+		for _, machineCount := range machineCounts {
+			if machineCount > highestMachineCount {
+				highestMachineCount = machineCount
+			}
+		}
+		exampleCommand += fmt.Sprintf(" --machines %d", highestMachineCount)
 	}
 	sb.WriteString(fmt.Sprintf("```\n%s\n```\n\n", exampleCommand))
 
@@ -172,7 +203,12 @@ func run(cfg *Config) error {
 		return fmt.Errorf("failed to get labeled nodes: %w", err)
 	}
 
-	helpMarkdown := generateHelpMarkdown(workflow, labeledPrimitiveNodes, labeledNodes, cfg.WorkflowSpec)
+	runs, err := client.GetRuns(ctx, workflow.ID, "COMPLETED", 5)
+	if err != nil {
+		return fmt.Errorf("failed to get runs: %w", err)
+	}
+
+	helpMarkdown := generateHelpMarkdown(workflow, labeledPrimitiveNodes, labeledNodes, cfg.WorkflowSpec, runs)
 	r, _ := glamour.NewTermRenderer(
 		glamour.WithAutoStyle(),
 		glamour.WithWordWrap(-1),
