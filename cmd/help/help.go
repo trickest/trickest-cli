@@ -6,6 +6,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/glamour"
 	"github.com/trickest/trickest-cli/pkg/config"
@@ -52,8 +53,19 @@ var HelpCmd = &cobra.Command{
 }
 
 func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*trickest.PrimitiveNode, labeledNodes []*trickest.Node, workflowSpec config.WorkflowRunSpec, runs []trickest.Run) string {
-	var sb strings.Builder
 	workflowURL := constructWorkflowURL(workflow)
+
+	// Sort input nodes by their position on the workflow canvas on the Y axis (top to bottom)
+	sort.Slice(labeledPrimitiveNodes, func(i, j int) bool {
+		return labeledPrimitiveNodes[i].Coordinates.Y < labeledPrimitiveNodes[j].Coordinates.Y
+	})
+
+	// Sort output nodes by their position on the workflow canvas on the X axis (right to left)
+	sort.Slice(labeledNodes, func(i, j int) bool {
+		return labeledNodes[i].Meta.Coordinates.X > labeledNodes[j].Meta.Coordinates.X
+	})
+
+	var sb strings.Builder
 
 	// Title
 	sb.WriteString(fmt.Sprintf("# %s\n\n", workflow.Name))
@@ -63,61 +75,30 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*
 		sb.WriteString(fmt.Sprintf("%s\n\n", workflow.Description))
 	}
 
+	runStats := []struct {
+		date     time.Time
+		machines int
+		duration time.Duration
+		url      string
+	}{}
+	for _, run := range runs {
+		machines := run.Machines.Default
+		if machines == nil {
+			machines = run.Machines.SelfHosted
+		}
+		date := *run.StartedDate
+		duration := run.CompletedDate.Sub(date)
+		runURL := fmt.Sprintf("%s?run=%s", workflowURL, run.ID)
+		runStats = append(runStats, struct {
+			date     time.Time
+			machines int
+			duration time.Duration
+			url      string
+		}{date, *machines, duration, runURL})
+	}
+
 	// Author info
 	sb.WriteString(fmt.Sprintf("**Author:** %s\n\n", workflow.Author))
-
-	// Inputs section
-	if len(labeledPrimitiveNodes) > 0 {
-		sb.WriteString("## Inputs\n\n")
-		// Sort nodes by their position on the workflow canvas on the Y axis (top to bottom)
-		sort.Slice(labeledPrimitiveNodes, func(i, j int) bool {
-			return labeledPrimitiveNodes[i].Coordinates.Y < labeledPrimitiveNodes[j].Coordinates.Y
-		})
-		sb.WriteString("Use the `--input` flag to set the inputs you want to change.\n\n")
-		for _, node := range labeledPrimitiveNodes {
-			inputLine := fmt.Sprintf("- `%s` (%s)", node.Label, strings.ToLower(node.Type))
-			if node.Value != "" {
-				inputLine += fmt.Sprintf(" = %s", node.Value)
-			}
-			sb.WriteString(fmt.Sprintf("%s\n", inputLine))
-		}
-		sb.WriteString("\n")
-	}
-
-	// Outputs section
-	if len(labeledNodes) > 0 {
-		sb.WriteString("## Outputs\n\n")
-		// Sort nodes by their position on the workflow canvas on the X axis (right to left)
-		sort.Slice(labeledNodes, func(i, j int) bool {
-			return labeledNodes[i].Meta.Coordinates.X > labeledNodes[j].Meta.Coordinates.X
-		})
-		sb.WriteString("Use the `--output` flag to specify the outputs you want to get.\n\n")
-		for _, node := range labeledNodes {
-			sb.WriteString(fmt.Sprintf("- `%s`\n", node.Meta.Label))
-		}
-		sb.WriteString("\n")
-	}
-
-	// Past runs section
-	machineCounts := []int{}
-	if len(runs) > 0 {
-		sb.WriteString("## Past Runs\n\n")
-		sb.WriteString("| Started at | Machines | Duration | URL |\n")
-		sb.WriteString("|------|----------|----------|-----|\n")
-		for _, run := range runs {
-			machines := run.Machines.Default
-			if machines == nil {
-				machines = run.Machines.SelfHosted
-			}
-			machineCounts = append(machineCounts, *machines)
-			date := run.StartedDate.Format("2006-01-02 15:04")
-			duration := run.CompletedDate.Sub(*run.StartedDate)
-			durationStr := display.FormatDuration(duration)
-			runURL := fmt.Sprintf("%s?run=%s", workflowURL, run.ID)
-			sb.WriteString(fmt.Sprintf("| %s | %d | %s | [View](%s) |\n", date, *machines, durationStr, runURL))
-		}
-		sb.WriteString("\n")
-	}
 
 	// Example command
 	sb.WriteString("## Example Command\n\n")
@@ -146,16 +127,56 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*
 	if len(labeledNodes) > 0 {
 		exampleCommand += fmt.Sprintf(" --output \"%s\"", labeledNodes[0].Meta.Label)
 	}
-	if len(machineCounts) > 0 {
+	if len(runStats) > 0 {
 		highestMachineCount := 0
-		for _, machineCount := range machineCounts {
-			if machineCount > highestMachineCount {
-				highestMachineCount = machineCount
+		for _, runStat := range runStats {
+			if runStat.machines > highestMachineCount {
+				highestMachineCount = runStat.machines
 			}
 		}
 		exampleCommand += fmt.Sprintf(" --machines %d", highestMachineCount)
 	}
 	sb.WriteString(fmt.Sprintf("```\n%s\n```\n\n", exampleCommand))
+
+	// Inputs section
+	if len(labeledPrimitiveNodes) > 0 {
+		sb.WriteString("## Inputs\n\n")
+		sb.WriteString("Use the `--input` flag to set the inputs you want to change.\n\n")
+		for _, node := range labeledPrimitiveNodes {
+			inputLine := fmt.Sprintf("- `%s` (%s)", node.Label, strings.ToLower(node.Type))
+			if node.Value != "" {
+				inputLine += fmt.Sprintf(" = %s", node.Value)
+			}
+			sb.WriteString(fmt.Sprintf("%s\n", inputLine))
+		}
+		sb.WriteString("\n")
+	}
+
+	// Outputs section
+	if len(labeledNodes) > 0 {
+		sb.WriteString("## Outputs\n\n")
+		sb.WriteString("Use the `--output` flag to specify the outputs you want to get.\n\n")
+		for _, node := range labeledNodes {
+			sb.WriteString(fmt.Sprintf("- `%s`\n", node.Meta.Label))
+		}
+		sb.WriteString("\n")
+	}
+
+	// Past runs section
+	if len(runStats) > 0 {
+		sb.WriteString("## Past Runs\n\n")
+		sb.WriteString("| Started at | Machines | Duration | URL |\n")
+		sb.WriteString("|------------|----------|----------|-----|\n")
+		for _, runStat := range runStats {
+			machines := runStat.machines
+			date := runStat.date.Format("2006-01-02 15:04")
+			duration := runStat.duration
+			durationStr := display.FormatDuration(duration)
+			runURL := runStat.url
+			sb.WriteString(fmt.Sprintf("| %s | %d | %s | [View](%s) |\n", date, machines, durationStr, runURL))
+		}
+		sb.WriteString("\n")
+	}
 
 	// Long description (README content)
 	if workflow.LongDescription != "" {
