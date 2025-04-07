@@ -28,6 +28,7 @@ var RootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		_ = cmd.Help()
 	},
+	Version: "v2.0.0",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -59,4 +60,6 @@ func init() {
 	RootCmd.AddCommand(scripts.ScriptsCmd)
 	RootCmd.AddCommand(stop.StopCmd)
 	RootCmd.AddCommand(help.HelpCmd)
+
+	RootCmd.SetVersionTemplate(`{{printf "Trickest CLI %s\n" .Version}}`)
 }
