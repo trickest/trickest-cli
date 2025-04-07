@@ -146,7 +146,9 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*
 		exampleCommand += fmt.Sprintf(" --output \"%s\"", labeledNodes[0].Meta.Label)
 	}
 
-	exampleCommand += fmt.Sprintf(" --machines %d", machineCount)
+	if machineCount > 1 {
+		exampleCommand += fmt.Sprintf(" --machines %d", machineCount)
+	}
 	sb.WriteString(fmt.Sprintf("```\n%s\n```\n\n", exampleCommand))
 
 	// Inputs section
