@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/trickest/trickest-cli/pkg/config"
 	display "github.com/trickest/trickest-cli/pkg/display/run"
@@ -94,12 +95,31 @@ func displayRunDetails(ctx context.Context, client *trickest.Client, run *tricke
 		run.RunInsights = insights
 	}
 
+	pastRuns, err := client.GetRuns(ctx, *run.WorkflowInfo, "COMPLETED", 0)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Couldn't calculate average duration: failed to get past runs: %s", err)
+	} else {
+		totalDuration := time.Duration(0)
+		for _, pastRun := range pastRuns {
+			duration := pastRun.CompletedDate.Sub(*pastRun.StartedDate)
+			totalDuration += duration
+		}
+		averageDuration := totalDuration / time.Duration(len(pastRuns))
+		run.AverageDuration = &trickest.Duration{Duration: averageDuration}
+	}
+
 	if cfg.JSONOutput {
 		ipAddresses, err := client.GetRunIPAddresses(ctx, *run.ID)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: Couldn't get the run IP addresses: %s", err)
 		} else {
 			run.IPAddresses = ipAddresses
+		}
+
+		if run.Status == "RUNNING" {
+			run.Duration = &trickest.Duration{Duration: time.Since(*run.StartedDate)}
+		} else {
+			run.Duration = &trickest.Duration{Duration: run.CompletedDate.Sub(*run.StartedDate)}
 		}
 
 		data, err := json.MarshalIndent(run, "", "  ")

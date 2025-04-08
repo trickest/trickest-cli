@@ -2,6 +2,7 @@ package trickest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -34,6 +35,18 @@ type Run struct {
 	UseStaticIPs        *bool              `json:"use_static_ips,omitempty"`
 	IPAddresses         []string           `json:"ip_addresses,omitempty"`
 	RunInsights         *RunSubJobInsights `json:"run_insights,omitempty"`
+	Duration            *Duration          `json:"duration,omitempty"`
+	AverageDuration     *Duration          `json:"average_duration,omitempty"`
+}
+
+// Duration is a custom type for duration that json marshals to "Xh Ym" matching the web UI
+type Duration struct {
+	Duration time.Duration
+}
+
+func (d *Duration) MarshalJSON() ([]byte, error) {
+	seconds := int64(d.Duration.Seconds())
+	return json.Marshal(fmt.Sprintf("%dh %dm", seconds/3600, (seconds%3600)/60))
 }
 
 // Machines represents machine configuration

@@ -74,30 +74,34 @@ func (p *RunPrinter) PrintAll(run *trickest.Run, subJobs []trickest.SubJob, vers
 	output.WriteString(p.formatKeyValue("Name", run.WorkflowName))
 	output.WriteString(p.formatKeyValue("Status", run.Status))
 	output.WriteString(p.formatKeyValue("Machines", formatMachines(run.Machines)))
+	output.WriteString("\n")
 
 	// Print timestamps
 	if run.CreatedDate != nil {
 		output.WriteString(p.formatKeyValue("Created",
 			run.CreatedDate.In(time.Local).Format(time.RFC1123)+" ("+FormatDuration(time.Since(*run.CreatedDate))+" ago)"))
 	}
-
 	if run.Status != "PENDING" {
 		if run.StartedDate != nil {
 			output.WriteString(p.formatKeyValue("Started",
 				run.StartedDate.In(time.Local).Format(time.RFC1123)+" ("+FormatDuration(time.Since(*run.StartedDate))+" ago)"))
 		}
 	}
-
 	if run.Finished {
 		output.WriteString(p.formatKeyValue("Finished",
 			run.CompletedDate.In(time.Local).Format(time.RFC1123)+" ("+FormatDuration(time.Since(*run.CompletedDate))+" ago)"))
+	}
+	output.WriteString("\n")
+
+	// Print duration and average duration
+	if run.Finished {
 		output.WriteString(p.formatKeyValue("Duration", FormatDuration(run.CompletedDate.Sub(*run.StartedDate))))
 	} else if run.Status == "RUNNING" {
-		if run.StartedDate != nil {
-			output.WriteString(p.formatKeyValue("Duration", FormatDuration(time.Since(*run.StartedDate))))
-		}
+		output.WriteString(p.formatKeyValue("Duration", FormatDuration(time.Since(*run.StartedDate))))
 	}
-
+	if run.AverageDuration != nil {
+		output.WriteString(p.formatKeyValue("Average Duration", FormatDuration(run.AverageDuration.Duration)))
+	}
 	output.WriteString("\n")
 
 	// Print subjob insights
@@ -147,7 +151,7 @@ func formatMachineCount(name string, count *int) string {
 
 // formatKeyValue formats a key-value pair with a fixed width
 func (p *RunPrinter) formatKeyValue(key, value string) string {
-	return fmt.Sprintf("%-12s %v\n", key+":", value)
+	return fmt.Sprintf("%-18s %v\n", key+":", value)
 }
 
 // FormatDuration formats a duration for printing
