@@ -74,6 +74,7 @@ func (p *RunPrinter) PrintAll(run *trickest.Run, subJobs []trickest.SubJob, vers
 	output.WriteString(p.formatKeyValue("Name", run.WorkflowName))
 	output.WriteString(p.formatKeyValue("Status", run.Status))
 	output.WriteString(p.formatKeyValue("Machines", formatMachines(run.Machines)))
+	output.WriteString(p.formatKeyValue("Fleet", run.FleetName))
 	output.WriteString("\n")
 
 	// Print timestamps
@@ -124,28 +125,13 @@ func (p *RunPrinter) PrintAll(run *trickest.Run, subJobs []trickest.SubJob, vers
 
 // formatMachines formats the machine allocation for the run
 func formatMachines(machines trickest.Machines) string {
-	machineCounts := map[string]*int{
-		"self hosted": machines.SelfHosted,
-		"default":     machines.Default,
+	if machines.Default != nil && *machines.Default > 0 {
+		return fmt.Sprintf("%d", *machines.Default)
 	}
-
-	var formattedMachines []string
-	for machine, count := range machineCounts {
-		if formatted := formatMachineCount(machine, count); formatted != "" {
-			formattedMachines = append(formattedMachines, formatted)
-		}
+	if machines.SelfHosted != nil && *machines.SelfHosted > 0 {
+		return fmt.Sprintf("%d", *machines.SelfHosted)
 	}
-
-	separator := ", "
-	return strings.Join(formattedMachines, separator)
-}
-
-// formatMachineCount formats a machine count for printing
-func formatMachineCount(name string, count *int) string {
-	if count == nil || *count == 0 {
-		return ""
-	}
-	return fmt.Sprintf("%s: %d", name, *count)
+	return ""
 }
 
 // formatKeyValue formats a key-value pair with a fixed width

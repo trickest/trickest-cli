@@ -98,6 +98,21 @@ func (c *Client) GetFleets(ctx context.Context) ([]Fleet, error) {
 	return fleets, nil
 }
 
+func (c *Client) GetFleet(ctx context.Context, fleetID uuid.UUID) (*Fleet, error) {
+	fleets, err := c.GetFleets(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get fleets: %w", err)
+	}
+
+	for _, fleet := range fleets {
+		if fleet.ID == fleetID {
+			return &fleet, nil
+		}
+	}
+
+	return nil, fmt.Errorf("fleet %q not found", fleetID)
+}
+
 func (c *Client) GetFleetByName(ctx context.Context, fleetName string) (*Fleet, error) {
 	fleets, err := c.GetFleets(ctx)
 	if err != nil {

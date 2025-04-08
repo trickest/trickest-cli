@@ -96,6 +96,17 @@ func (w *RunWatcher) Watch(ctx context.Context) error {
 
 	printer := NewRunPrinter(w.includePrimitiveNodes, w.writer)
 
+	run, err := w.client.GetRun(ctx, w.runID)
+	if err != nil {
+		return fmt.Errorf("failed to get run: %w", err)
+	}
+
+	fleet, err := w.client.GetFleet(ctx, *run.Fleet)
+	if err != nil {
+		return fmt.Errorf("failed to get fleet: %w", err)
+	}
+	fleetName := fleet.Name
+
 	for {
 		select {
 		case err := <-interruptErr:
@@ -105,7 +116,7 @@ func (w *RunWatcher) Watch(ctx context.Context) error {
 			return err
 		default:
 			w.mutex.Lock()
-			run, err := w.client.GetRun(context.Background(), w.runID)
+			run, err := w.client.GetRun(ctx, w.runID)
 			if err != nil {
 				w.mutex.Unlock()
 				return fmt.Errorf("failed to get run: %w", err)
@@ -128,6 +139,7 @@ func (w *RunWatcher) Watch(ctx context.Context) error {
 				return fmt.Errorf("failed to get run insights: %w", err)
 			}
 			run.RunInsights = insights
+			run.FleetName = fleetName
 
 			printer.PrintAll(run, subJobs, w.workflowVersion)
 			_ = w.writer.Flush()

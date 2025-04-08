@@ -108,6 +108,13 @@ func displayRunDetails(ctx context.Context, client *trickest.Client, run *tricke
 		run.AverageDuration = &trickest.Duration{Duration: averageDuration}
 	}
 
+	fleet, err := client.GetFleet(ctx, *run.Fleet)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Couldn't get the fleet: %s", err)
+	} else {
+		run.FleetName = fleet.Name
+	}
+
 	if cfg.JSONOutput {
 		ipAddresses, err := client.GetRunIPAddresses(ctx, *run.ID)
 		if err != nil {

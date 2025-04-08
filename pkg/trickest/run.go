@@ -31,6 +31,7 @@ type Run struct {
 	Finished            bool               `json:"finished,omitempty"`
 	Author              string             `json:"author,omitempty"`
 	Fleet               *uuid.UUID         `json:"fleet,omitempty"`
+	FleetName           string             `json:"fleet_name,omitempty"`
 	Vault               *uuid.UUID         `json:"vault,omitempty"`
 	UseStaticIPs        *bool              `json:"use_static_ips,omitempty"`
 	IPAddresses         []string           `json:"ip_addresses,omitempty"`
