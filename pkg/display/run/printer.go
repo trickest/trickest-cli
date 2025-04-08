@@ -227,7 +227,7 @@ func (p *RunPrinter) createTrees(subJobs []trickest.SubJob, wfVersion *trickest.
 	}
 
 	for node := range wfVersion.Data.Nodes {
-		if allNodes[node].Parents == nil || len(allNodes[node].Parents) == 0 {
+		if len(allNodes[node].Parents) == 0 {
 			roots = append(roots, allNodes[node])
 		}
 	}
