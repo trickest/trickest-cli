@@ -12,27 +12,28 @@ import (
 
 // Run represents a workflow run
 type Run struct {
-	ID                  *uuid.UUID `json:"id,omitempty"`
-	Name                string     `json:"name,omitempty"`
-	Status              string     `json:"status,omitempty"`
-	Machines            Machines   `json:"machines,omitempty"`
-	WorkflowVersionInfo *uuid.UUID `json:"workflow_version_info,omitempty"`
-	WorkflowInfo        *uuid.UUID `json:"workflow_info,omitempty"`
-	WorkflowName        string     `json:"workflow_name,omitempty"`
-	SpaceInfo           *uuid.UUID `json:"space_info,omitempty"`
-	SpaceName           string     `json:"space_name,omitempty"`
-	ProjectInfo         *uuid.UUID `json:"project_info,omitempty"`
-	ProjectName         string     `json:"project_name,omitempty"`
-	CreationType        string     `json:"creation_type,omitempty"`
-	CreatedDate         *time.Time `json:"created_date,omitempty"`
-	StartedDate         *time.Time `json:"started_date,omitempty"`
-	CompletedDate       *time.Time `json:"completed_date,omitempty"`
-	Finished            bool       `json:"finished,omitempty"`
-	Author              string     `json:"author,omitempty"`
-	Fleet               *uuid.UUID `json:"fleet,omitempty"`
-	Vault               *uuid.UUID `json:"vault,omitempty"`
-	UseStaticIPs        *bool      `json:"use_static_ips,omitempty"`
-	IPAddresses         []string   `json:"ip_addresses,omitempty"`
+	ID                  *uuid.UUID         `json:"id,omitempty"`
+	Name                string             `json:"name,omitempty"`
+	Status              string             `json:"status,omitempty"`
+	Machines            Machines           `json:"machines,omitempty"`
+	WorkflowVersionInfo *uuid.UUID         `json:"workflow_version_info,omitempty"`
+	WorkflowInfo        *uuid.UUID         `json:"workflow_info,omitempty"`
+	WorkflowName        string             `json:"workflow_name,omitempty"`
+	SpaceInfo           *uuid.UUID         `json:"space_info,omitempty"`
+	SpaceName           string             `json:"space_name,omitempty"`
+	ProjectInfo         *uuid.UUID         `json:"project_info,omitempty"`
+	ProjectName         string             `json:"project_name,omitempty"`
+	CreationType        string             `json:"creation_type,omitempty"`
+	CreatedDate         *time.Time         `json:"created_date,omitempty"`
+	StartedDate         *time.Time         `json:"started_date,omitempty"`
+	CompletedDate       *time.Time         `json:"completed_date,omitempty"`
+	Finished            bool               `json:"finished,omitempty"`
+	Author              string             `json:"author,omitempty"`
+	Fleet               *uuid.UUID         `json:"fleet,omitempty"`
+	Vault               *uuid.UUID         `json:"vault,omitempty"`
+	UseStaticIPs        *bool              `json:"use_static_ips,omitempty"`
+	IPAddresses         []string           `json:"ip_addresses,omitempty"`
+	RunInsights         *RunSubJobInsights `json:"run_insights,omitempty"`
 }
 
 // Machines represents machine configuration
