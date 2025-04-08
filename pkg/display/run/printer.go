@@ -106,8 +106,7 @@ func (p *RunPrinter) PrintAll(run *trickest.Run, subJobs []trickest.SubJob, vers
 
 	// Print subjob insights
 	if run.RunInsights != nil {
-		output.WriteString("Subjob Insights:\n")
-		output.WriteString(p.formatKeyValue("Total", fmt.Sprintf("%d", run.RunInsights.Total)))
+		output.WriteString(p.formatKeyValue("Total Jobs", fmt.Sprintf("%d", run.RunInsights.Total)))
 		output.WriteString(p.formatSubJobStatus("Succeeded", run.RunInsights.Succeeded, run.RunInsights.Total))
 		output.WriteString(p.formatSubJobStatus("Running", run.RunInsights.Running, run.RunInsights.Total))
 		output.WriteString(p.formatSubJobStatus("Pending", run.RunInsights.Pending, run.RunInsights.Total))
