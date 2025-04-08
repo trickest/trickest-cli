@@ -88,6 +88,16 @@ func run(cfg *Config) error {
 }
 
 func displayRunDetails(ctx context.Context, client *trickest.Client, run *trickest.Run, cfg *Config) error {
+	// Fetch the complete run details if the fleet information is missing
+	// This happens when the run is retrieved from the workflow runs list which returns a simplified run object
+	var err error
+	if run.Fleet == nil {
+		run, err = client.GetRun(ctx, *run.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get run: %w", err)
+		}
+	}
+
 	insights, err := client.GetRunSubJobInsights(ctx, *run.ID)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: Couldn't get the run insights: %s", err)
