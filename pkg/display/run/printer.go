@@ -118,7 +118,15 @@ func (p *RunPrinter) PrintAll(run *trickest.Run, subJobs []trickest.SubJob, vers
 	}
 
 	// Print subjob tree
-	output.WriteString(p.formatSubJobTree(subJobs, version))
+	//
+	// For nodes without an associated subjob (i.e. not executed):
+	// - If the run is still running, mark them as "pending"
+	// - If the run is finished, mark them as "stopped"
+	defaultSubJobStatus := "stopped"
+	if run.Status == "RUNNING" {
+		defaultSubJobStatus = "pending"
+	}
+	output.WriteString(p.formatSubJobTree(subJobs, version, defaultSubJobStatus))
 
 	fmt.Fprint(p.writer, output.String())
 }
@@ -160,12 +168,12 @@ func FormatDuration(duration time.Duration) string {
 }
 
 // formatSubJobTree formats the subjob tree for a workflow run
-func (p *RunPrinter) formatSubJobTree(subJobs []trickest.SubJob, version *trickest.WorkflowVersion) string {
-	allNodes, roots := p.createTrees(subJobs, version)
+func (p *RunPrinter) formatSubJobTree(subJobs []trickest.SubJob, version *trickest.WorkflowVersion, defaultSubJobStatus string) string {
+	allNodes, roots := p.createTrees(subJobs, version, defaultSubJobStatus)
 	return p.printTrees(roots, &allNodes)
 }
 
-func (p *RunPrinter) createTrees(subJobs []trickest.SubJob, wfVersion *trickest.WorkflowVersion) (map[string]*TreeNode, []*TreeNode) {
+func (p *RunPrinter) createTrees(subJobs []trickest.SubJob, wfVersion *trickest.WorkflowVersion, defaultSubJobStatus string) (map[string]*TreeNode, []*TreeNode) {
 	allNodes := make(map[string]*TreeNode, 0)
 	roots := make([]*TreeNode, 0)
 
@@ -174,7 +182,7 @@ func (p *RunPrinter) createTrees(subJobs []trickest.SubJob, wfVersion *trickest.
 			Name:         node.Name,
 			Label:        node.Meta.Label,
 			Inputs:       &node.Inputs,
-			Status:       "pending",
+			Status:       defaultSubJobStatus,
 			OutputStatus: "no outputs",
 			Children:     make([]*TreeNode, 0),
 			Parents:      make([]*TreeNode, 0),
