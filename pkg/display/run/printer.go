@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"regexp"
 	"sort"
@@ -22,31 +23,41 @@ type TreeNode struct {
 	Name         string
 	Label        string
 	Inputs       *map[string]*trickest.NodeInput
-	Outputs      *map[string]*trickest.NodeOutput
 	Status       string
 	OutputStatus string
 	Duration     time.Duration
 	Printed      bool
 	Children     []*TreeNode
 	Parents      []*TreeNode
-	Coordinates  struct {
-		X float64 `json:"x"`
-		Y float64 `json:"y"`
-	}
-	Type   string
-	Script *struct {
-		Args   []any  `json:"args"`
-		Image  string `json:"image"`
-		Source string `json:"source"`
-	}
-	Container *struct {
-		Args    []string `json:"args,omitempty"`
-		Image   string   `json:"image"`
-		Command []string `json:"command"`
-	}
-	OutputCommand   *string
-	WorkerConnected *string
-	Workflow        *string
+
+	TaskGroup       bool
+	TaskCount       int
+	TaskStatus      SubJobStatus
+	TaskMaxDuration TaskDuration
+	TaskMinDuration TaskDuration
+	DurationStats   DurationStats
+}
+
+type TaskDuration struct {
+	TaskIndex int
+	Duration  time.Duration
+}
+
+type DurationStats struct {
+	Q1       time.Duration
+	Q3       time.Duration
+	IQR      time.Duration
+	Median   time.Duration
+	Outliers []TaskDuration
+}
+
+type SubJobStatus struct {
+	Pending   int `json:"pending"`
+	Running   int `json:"running"`
+	Succeeded int `json:"succeeded"`
+	Failed    int `json:"failed"`
+	Stopping  int `json:"stopping"`
+	Stopped   int `json:"stopped"`
 }
 
 // RunPrinter handles the formatting and display of run information
@@ -67,7 +78,7 @@ func NewRunPrinter(includePrimitiveNodes bool, writer io.Writer) *RunPrinter {
 }
 
 // PrintAll formats and prints run details and subjob tree
-func (p *RunPrinter) PrintAll(run *trickest.Run, subJobs []trickest.SubJob, version *trickest.WorkflowVersion) {
+func (p *RunPrinter) PrintAll(run *trickest.Run, subJobs []trickest.SubJob, version *trickest.WorkflowVersion, includeTaskGroupStats bool) {
 	var output strings.Builder
 
 	// Print basic run details
@@ -126,7 +137,7 @@ func (p *RunPrinter) PrintAll(run *trickest.Run, subJobs []trickest.SubJob, vers
 	if run.Status == "RUNNING" {
 		defaultSubJobStatus = "pending"
 	}
-	output.WriteString(p.formatSubJobTree(subJobs, version, defaultSubJobStatus))
+	output.WriteString(p.formatSubJobTree(subJobs, version, defaultSubJobStatus, includeTaskGroupStats))
 
 	fmt.Fprint(p.writer, output.String())
 }
@@ -168,12 +179,12 @@ func FormatDuration(duration time.Duration) string {
 }
 
 // formatSubJobTree formats the subjob tree for a workflow run
-func (p *RunPrinter) formatSubJobTree(subJobs []trickest.SubJob, version *trickest.WorkflowVersion, defaultSubJobStatus string) string {
-	allNodes, roots := p.createTrees(subJobs, version, defaultSubJobStatus)
-	return p.printTrees(roots, &allNodes)
+func (p *RunPrinter) formatSubJobTree(subJobs []trickest.SubJob, version *trickest.WorkflowVersion, defaultSubJobStatus string, includeTaskGroupStats bool) string {
+	allNodes, roots := p.createTrees(subJobs, version, defaultSubJobStatus, includeTaskGroupStats)
+	return p.printTrees(roots, &allNodes, includeTaskGroupStats)
 }
 
-func (p *RunPrinter) createTrees(subJobs []trickest.SubJob, wfVersion *trickest.WorkflowVersion, defaultSubJobStatus string) (map[string]*TreeNode, []*TreeNode) {
+func (p *RunPrinter) createTrees(subJobs []trickest.SubJob, wfVersion *trickest.WorkflowVersion, defaultSubJobStatus string, includeTaskGroupStats bool) (map[string]*TreeNode, []*TreeNode) {
 	allNodes := make(map[string]*TreeNode, 0)
 	roots := make([]*TreeNode, 0)
 
@@ -239,6 +250,50 @@ func (p *RunPrinter) createTrees(subJobs []trickest.SubJob, wfVersion *trickest.
 		} else {
 			allNodes[sj.Name].Duration = time.Since(sj.StartedDate).Round(time.Second)
 		}
+		if sj.TaskGroup && includeTaskGroupStats {
+			allNodes[sj.Name].TaskGroup = true
+			allNodes[sj.Name].TaskCount = len(sj.Children)
+
+			allNodes[sj.Name].TaskMinDuration = TaskDuration{
+				TaskIndex: -1,
+				Duration:  time.Duration(math.MaxInt64),
+			}
+			allNodes[sj.Name].TaskMaxDuration = TaskDuration{
+				TaskIndex: -1,
+				Duration:  time.Duration(math.MinInt64),
+			}
+
+			var taskDurations []TaskDuration
+			for _, child := range sj.Children {
+				if child.Status == "PENDING" {
+					allNodes[sj.Name].TaskStatus.Pending++
+				} else if child.Status == "RUNNING" {
+					allNodes[sj.Name].TaskStatus.Running++
+				} else if child.Status == "SUCCEEDED" {
+					allNodes[sj.Name].TaskStatus.Succeeded++
+				} else if child.Status == "FAILED" {
+					allNodes[sj.Name].TaskStatus.Failed++
+				} else if child.Status == "STOPPING" {
+					allNodes[sj.Name].TaskStatus.Stopping++
+				} else if child.Status == "STOPPED" {
+					allNodes[sj.Name].TaskStatus.Stopped++
+				}
+
+				taskDuration := TaskDuration{
+					TaskIndex: child.TaskIndex,
+					Duration:  child.FinishedDate.Sub(child.StartedDate),
+				}
+				taskDurations = append(taskDurations, taskDuration)
+
+				if taskDuration.Duration > allNodes[sj.Name].TaskMaxDuration.Duration {
+					allNodes[sj.Name].TaskMaxDuration = taskDuration
+				}
+				if taskDuration.Duration < allNodes[sj.Name].TaskMinDuration.Duration {
+					allNodes[sj.Name].TaskMinDuration = taskDuration
+				}
+			}
+			allNodes[sj.Name].DurationStats = calculateDurationStats(taskDurations)
+		}
 	}
 
 	return allNodes, roots
@@ -259,12 +314,12 @@ func getNodeNameFromConnectionID(id string) (string, error) {
 	return idSplit[1], nil
 }
 
-func (p *RunPrinter) printTrees(roots []*TreeNode, allNodes *map[string]*TreeNode) string {
+func (p *RunPrinter) printTrees(roots []*TreeNode, allNodes *map[string]*TreeNode, includeTaskGroupStats bool) string {
 	trees := ""
 	nodePattern := regexp.MustCompile(`\([-a-z0-9]+-[0-9]+\)`)
 
 	for _, root := range roots {
-		tree := p.printTree(root, nil, allNodes)
+		tree := p.printTree(root, nil, allNodes, includeTaskGroupStats)
 
 		for _, node := range *allNodes {
 			node.Printed = false
@@ -295,7 +350,7 @@ func (p *RunPrinter) printTrees(roots []*TreeNode, allNodes *map[string]*TreeNod
 	return trees
 }
 
-func (p *RunPrinter) printTree(node *TreeNode, branch *treeprint.Tree, allNodes *map[string]*TreeNode) string {
+func (p *RunPrinter) printTree(node *TreeNode, branch *treeprint.Tree, allNodes *map[string]*TreeNode, includeTaskGroupStats bool) string {
 	prefixSymbol := ""
 	switch node.Status {
 	case "pending":
@@ -317,6 +372,59 @@ func (p *RunPrinter) printTree(node *TreeNode, branch *treeprint.Tree, allNodes 
 	} else {
 		childBranch := (*branch).AddBranch(printValue)
 		branch = &childBranch
+	}
+
+	if node.TaskGroup && includeTaskGroupStats {
+		isBatchOutput := strings.HasPrefix(node.Name, "batch-output-")
+		taskInfo := (*branch).AddBranch("Task Group Info")
+		tasksBranch := taskInfo.AddBranch(fmt.Sprintf("%d tasks", node.TaskCount))
+		if node.TaskStatus.Succeeded != node.TaskCount { // Only show task group detailed counts if not all tasks succeeded
+			// %%%% is a double-escaped percent sign, once for the branch, once for the sprintf
+			if node.TaskStatus.Succeeded > 0 {
+				tasksBranch.AddBranch(fmt.Sprintf("%d succeeded (%.2f%%%%)", node.TaskStatus.Succeeded, float64(node.TaskStatus.Succeeded)/float64(node.TaskCount)*100))
+			}
+			if node.TaskStatus.Running > 0 {
+				tasksBranch.AddBranch(fmt.Sprintf("%d running (%.2f%%%%)", node.TaskStatus.Running, float64(node.TaskStatus.Running)/float64(node.TaskCount)*100))
+			}
+			if node.TaskStatus.Pending > 0 {
+				tasksBranch.AddBranch(fmt.Sprintf("%d pending (%.2f%%%%)", node.TaskStatus.Pending, float64(node.TaskStatus.Pending)/float64(node.TaskCount)*100))
+			}
+			if node.TaskStatus.Failed > 0 {
+				tasksBranch.AddBranch(fmt.Sprintf("%d failed (%.2f%%%%)", node.TaskStatus.Failed, float64(node.TaskStatus.Failed)/float64(node.TaskCount)*100))
+			}
+			if node.TaskStatus.Stopping > 0 {
+				tasksBranch.AddBranch(fmt.Sprintf("%d stopping (%.2f%%%%)", node.TaskStatus.Stopping, float64(node.TaskStatus.Stopping)/float64(node.TaskCount)*100))
+			}
+			if node.TaskStatus.Stopped > 0 {
+				tasksBranch.AddBranch(fmt.Sprintf("%d stopped (%.2f%%%%)", node.TaskStatus.Stopped, float64(node.TaskStatus.Stopped)/float64(node.TaskCount)*100))
+			}
+		}
+
+		if !isBatchOutput { // Batch output nodes' stats are normally not useful so we skip them to avoid cluttering the output
+			durationBranch := taskInfo.AddBranch("Task Duration Stats")
+			if node.TaskMaxDuration.Duration > 0 && node.TaskMaxDuration.TaskIndex != -1 {
+				durationBranch.AddNode(fmt.Sprintf("Max: %s (task %d)", FormatDuration(node.TaskMaxDuration.Duration), node.TaskMaxDuration.TaskIndex))
+			}
+			if node.TaskMinDuration.Duration > 0 && node.TaskMinDuration.TaskIndex != -1 {
+				durationBranch.AddNode(fmt.Sprintf("Min: %s (task %d)", FormatDuration(node.TaskMinDuration.Duration), node.TaskMinDuration.TaskIndex))
+			}
+			if node.DurationStats.Median > 0 {
+				durationBranch.AddNode(fmt.Sprintf("Median: %s", FormatDuration(node.DurationStats.Median)))
+			}
+
+			if len(node.DurationStats.Outliers) > 0 {
+				outlierBranch := durationBranch.AddBranch("Outliers")
+				for _, outlier := range node.DurationStats.Outliers {
+					if outlier.Duration < node.DurationStats.Q1 {
+						timeDiff := node.DurationStats.Median - outlier.Duration
+						outlierBranch.AddNode(fmt.Sprintf("Task %d: %s faster than median (duration: %s)", outlier.TaskIndex, FormatDuration(timeDiff), FormatDuration(outlier.Duration)))
+					} else {
+						timeDiff := outlier.Duration - node.DurationStats.Median
+						outlierBranch.AddNode(fmt.Sprintf("Task %d: %s slower than median (duration: %s)", outlier.TaskIndex, FormatDuration(timeDiff), FormatDuration(outlier.Duration)))
+					}
+				}
+			}
+		}
 	}
 
 	if p.includePrimitiveNodes && node.Inputs != nil {
@@ -366,11 +474,47 @@ func (p *RunPrinter) printTree(node *TreeNode, branch *treeprint.Tree, allNodes 
 
 	for _, child := range node.Children {
 		if !(*allNodes)[node.Name].Printed && (*allNodes)[child.Name].Inputs != nil {
-			p.printTree(child, branch, allNodes)
+			p.printTree(child, branch, allNodes, includeTaskGroupStats)
 		}
 	}
 
 	(*allNodes)[node.Name].Printed = true
 
 	return (*branch).String()
+}
+
+func calculateDurationStats(durations []TaskDuration) DurationStats {
+	if len(durations) < 2 {
+		return DurationStats{}
+	}
+
+	sort.Slice(durations, func(i, j int) bool {
+		return durations[i].Duration < durations[j].Duration
+	})
+
+	n := len(durations)
+	q1Index := n / 4
+	medianIndex := n / 2
+	q3Index := (3 * n) / 4
+
+	stats := DurationStats{
+		Q1:     durations[q1Index].Duration,
+		Q3:     durations[q3Index].Duration,
+		Median: durations[medianIndex].Duration,
+	}
+	stats.IQR = stats.Q3 - stats.Q1
+
+	upperBound := stats.Q3 + (stats.IQR * 3 / 2) // Tasks that are 3/2 * IQR above Q3 are considered outliers
+	lowerBound := stats.Q1 / 2                   // Tasks that are 1/2 * Q1 below Q1 are considered outliers
+	minOutlierThreshold := 5 * time.Minute       // Minimum absolute threshold for considering a task as an outlier to avoid flagging insignificant outliers
+
+	for _, d := range durations {
+		if d.Duration < lowerBound && (stats.Median-d.Duration) > minOutlierThreshold {
+			stats.Outliers = append(stats.Outliers, d)
+		} else if d.Duration > upperBound && (d.Duration-stats.Median) > minOutlierThreshold {
+			stats.Outliers = append(stats.Outliers, d)
+		}
+	}
+
+	return stats
 }

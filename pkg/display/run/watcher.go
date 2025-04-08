@@ -20,6 +20,7 @@ type RunWatcher struct {
 	runID                 uuid.UUID
 	workflowVersion       *trickest.WorkflowVersion
 	includePrimitiveNodes bool
+	includeTaskGroupStats bool
 	ci                    bool
 	writer                *uilive.Writer
 	mutex                 *sync.Mutex
@@ -32,6 +33,13 @@ type RunWatcherOption func(*RunWatcher)
 func WithIncludePrimitiveNodes(include bool) RunWatcherOption {
 	return func(w *RunWatcher) {
 		w.includePrimitiveNodes = include
+	}
+}
+
+// WithIncludeTaskGroupStats configures whether to include task group stats
+func WithIncludeTaskGroupStats(include bool) RunWatcherOption {
+	return func(w *RunWatcher) {
+		w.includeTaskGroupStats = include
 	}
 }
 
@@ -147,7 +155,7 @@ func (w *RunWatcher) Watch(ctx context.Context) error {
 			run.FleetName = fleetName
 			run.AverageDuration = &trickest.Duration{Duration: averageDuration}
 
-			printer.PrintAll(run, subJobs, w.workflowVersion)
+			printer.PrintAll(run, subJobs, w.workflowVersion, w.includeTaskGroupStats)
 			_ = w.writer.Flush()
 
 			if run.Finished {

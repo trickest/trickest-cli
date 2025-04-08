@@ -22,6 +22,7 @@ type Config struct {
 
 	Watch                 bool
 	IncludePrimitiveNodes bool
+	IncludeTaskGroupStats bool
 	JSONOutput            bool
 
 	RunID   string
@@ -33,6 +34,7 @@ var cfg = &Config{}
 func init() {
 	GetCmd.Flags().BoolVar(&cfg.Watch, "watch", false, "Watch the workflow execution if it's still running")
 	GetCmd.Flags().BoolVar(&cfg.IncludePrimitiveNodes, "show-params", false, "Show parameters in the workflow tree")
+	GetCmd.Flags().BoolVar(&cfg.IncludeTaskGroupStats, "analyze-task-groups", false, "Show detailed statistics for task groups, including task counts, status distribution, and duration analysis (min/max/median/outliers) (experimental)")
 	GetCmd.Flags().StringVar(&cfg.RunID, "run", "", "Get the status of a specific run")
 	GetCmd.Flags().BoolVar(&cfg.JSONOutput, "json", false, "Display output in JSON format")
 }
@@ -150,6 +152,7 @@ func displayRunDetails(ctx context.Context, client *trickest.Client, run *tricke
 				*run.ID,
 				display.WithWorkflowVersion(version),
 				display.WithIncludePrimitiveNodes(cfg.IncludePrimitiveNodes),
+				display.WithIncludeTaskGroupStats(cfg.IncludeTaskGroupStats),
 			)
 			if err != nil {
 				return fmt.Errorf("failed to create run watcher: %w", err)
@@ -165,7 +168,18 @@ func displayRunDetails(ctx context.Context, client *trickest.Client, run *tricke
 			if err != nil {
 				return fmt.Errorf("failed to get subjobs: %w", err)
 			}
-			printer.PrintAll(run, subjobs, version)
+			if cfg.IncludeTaskGroupStats {
+				for i := range subjobs {
+					if subjobs[i].TaskGroup {
+						childSubJobs, err := client.GetChildSubJobs(ctx, subjobs[i].ID)
+						if err != nil {
+							return fmt.Errorf("failed to get child subjobs: %w", err)
+						}
+						subjobs[i].Children = childSubJobs
+					}
+				}
+			}
+			printer.PrintAll(run, subjobs, version, cfg.IncludeTaskGroupStats)
 		}
 	}
 	return nil
