@@ -87,19 +87,19 @@ func run(cfg *Config) error {
 }
 
 func displayRunDetails(ctx context.Context, client *trickest.Client, run *trickest.Run, cfg *Config) error {
+	insights, err := client.GetRunSubJobInsights(ctx, *run.ID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Couldn't get the run insights: %s", err)
+	} else {
+		run.RunInsights = insights
+	}
+
 	if cfg.JSONOutput {
 		ipAddresses, err := client.GetRunIPAddresses(ctx, *run.ID)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: Couldn't get the run IP addresses: %s", err)
 		} else {
 			run.IPAddresses = ipAddresses
-		}
-
-		insights, err := client.GetRunSubJobInsights(ctx, *run.ID)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: Couldn't get the run insights: %s", err)
-		} else {
-			run.RunInsights = insights
 		}
 
 		data, err := json.MarshalIndent(run, "", "  ")
@@ -134,11 +134,7 @@ func displayRunDetails(ctx context.Context, client *trickest.Client, run *tricke
 			if err != nil {
 				return fmt.Errorf("failed to get subjobs: %w", err)
 			}
-			insights, err := client.GetRunSubJobInsights(ctx, *run.ID)
-			if err != nil {
-				return fmt.Errorf("failed to get run insights: %w", err)
-			}
-			printer.PrintAll(run, insights, subjobs, version)
+			printer.PrintAll(run, subjobs, version)
 		}
 	}
 	return nil

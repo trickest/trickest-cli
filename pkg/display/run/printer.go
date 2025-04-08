@@ -67,7 +67,7 @@ func NewRunPrinter(includePrimitiveNodes bool, writer io.Writer) *RunPrinter {
 }
 
 // PrintAll formats and prints run details and subjob tree
-func (p *RunPrinter) PrintAll(run *trickest.Run, insights *trickest.RunSubJobInsights, subJobs []trickest.SubJob, version *trickest.WorkflowVersion) {
+func (p *RunPrinter) PrintAll(run *trickest.Run, subJobs []trickest.SubJob, version *trickest.WorkflowVersion) {
 	var output strings.Builder
 
 	// Print basic run details
@@ -101,15 +101,15 @@ func (p *RunPrinter) PrintAll(run *trickest.Run, insights *trickest.RunSubJobIns
 	output.WriteString("\n")
 
 	// Print subjob insights
-	if insights != nil {
+	if run.RunInsights != nil {
 		output.WriteString("Subjob Insights:\n")
-		output.WriteString(p.formatKeyValue("Total", fmt.Sprintf("%d", insights.Total)))
-		output.WriteString(p.formatSubJobStatus("Succeeded", insights.Succeeded, insights.Total))
-		output.WriteString(p.formatSubJobStatus("Running", insights.Running, insights.Total))
-		output.WriteString(p.formatSubJobStatus("Pending", insights.Pending, insights.Total))
-		output.WriteString(p.formatSubJobStatus("Failed", insights.Failed, insights.Total))
-		output.WriteString(p.formatSubJobStatus("Stopping", insights.Stopping, insights.Total))
-		output.WriteString(p.formatSubJobStatus("Stopped", insights.Stopped, insights.Total))
+		output.WriteString(p.formatKeyValue("Total", fmt.Sprintf("%d", run.RunInsights.Total)))
+		output.WriteString(p.formatSubJobStatus("Succeeded", run.RunInsights.Succeeded, run.RunInsights.Total))
+		output.WriteString(p.formatSubJobStatus("Running", run.RunInsights.Running, run.RunInsights.Total))
+		output.WriteString(p.formatSubJobStatus("Pending", run.RunInsights.Pending, run.RunInsights.Total))
+		output.WriteString(p.formatSubJobStatus("Failed", run.RunInsights.Failed, run.RunInsights.Total))
+		output.WriteString(p.formatSubJobStatus("Stopping", run.RunInsights.Stopping, run.RunInsights.Total))
+		output.WriteString(p.formatSubJobStatus("Stopped", run.RunInsights.Stopped, run.RunInsights.Total))
 		output.WriteString("\n")
 	}
 
