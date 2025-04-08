@@ -107,6 +107,11 @@ func (w *RunWatcher) Watch(ctx context.Context) error {
 	}
 	fleetName := fleet.Name
 
+	averageDuration, err := w.client.GetWorkflowRunsAverageDuration(ctx, *run.WorkflowInfo)
+	if err != nil {
+		return fmt.Errorf("failed to get average duration: %w", err)
+	}
+
 	for {
 		select {
 		case err := <-interruptErr:
@@ -140,6 +145,7 @@ func (w *RunWatcher) Watch(ctx context.Context) error {
 			}
 			run.RunInsights = insights
 			run.FleetName = fleetName
+			run.AverageDuration = &trickest.Duration{Duration: averageDuration}
 
 			printer.PrintAll(run, subJobs, w.workflowVersion)
 			_ = w.writer.Flush()

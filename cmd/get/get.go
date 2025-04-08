@@ -95,16 +95,10 @@ func displayRunDetails(ctx context.Context, client *trickest.Client, run *tricke
 		run.RunInsights = insights
 	}
 
-	pastRuns, err := client.GetRuns(ctx, *run.WorkflowInfo, "COMPLETED", 0)
+	averageDuration, err := client.GetWorkflowRunsAverageDuration(ctx, *run.WorkflowInfo)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: Couldn't calculate average duration: failed to get past runs: %s", err)
+		fmt.Fprintf(os.Stderr, "Warning: Couldn't calculate average duration: %s", err)
 	} else {
-		totalDuration := time.Duration(0)
-		for _, pastRun := range pastRuns {
-			duration := pastRun.CompletedDate.Sub(*pastRun.StartedDate)
-			totalDuration += duration
-		}
-		averageDuration := totalDuration / time.Duration(len(pastRuns))
 		run.AverageDuration = &trickest.Duration{Duration: averageDuration}
 	}
 

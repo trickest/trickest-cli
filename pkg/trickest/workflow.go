@@ -339,3 +339,19 @@ func (c *Client) CreateWorkflowVersion(ctx context.Context, version *WorkflowVer
 
 	return &newVersion, nil
 }
+
+func (c *Client) GetWorkflowRunsAverageDuration(ctx context.Context, workflowID uuid.UUID) (time.Duration, error) {
+	pastRuns, err := c.GetRuns(ctx, workflowID, "COMPLETED", 0)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get past runs: %w", err)
+	}
+
+	totalDuration := time.Duration(0)
+	for _, pastRun := range pastRuns {
+		duration := pastRun.CompletedDate.Sub(*pastRun.StartedDate)
+		totalDuration += duration
+	}
+	averageDuration := totalDuration / time.Duration(len(pastRuns))
+
+	return averageDuration, nil
+}
