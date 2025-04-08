@@ -56,6 +56,13 @@ func (s WorkflowRunSpec) GetRuns(ctx context.Context, client *trickest.Client) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to get runs: %w", err)
 	}
+
+	// Set the workflow name and ID for each run because the mass get doesn't include them
+	for i := range runs {
+		runs[i].WorkflowName = workflow.Name
+		runs[i].WorkflowInfo = &workflow.ID
+	}
+
 	return runs, nil
 }
 
@@ -183,5 +190,10 @@ func (s WorkflowRunSpec) resolveSingleRun(ctx context.Context, client *trickest.
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest run: %w", err)
 	}
+
+	// Set the workflow name and ID for the run because the mass get doesn't include them
+	run.WorkflowName = workflow.Name
+	run.WorkflowInfo = &workflow.ID
+
 	return run, nil
 }
