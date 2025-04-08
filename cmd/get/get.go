@@ -127,7 +127,11 @@ func displayRunDetails(ctx context.Context, client *trickest.Client, run *tricke
 			if err != nil {
 				return fmt.Errorf("failed to get subjobs: %w", err)
 			}
-			printer.PrintAll(run, subjobs, version)
+			insights, err := client.GetRunSubJobInsights(ctx, *run.ID)
+			if err != nil {
+				return fmt.Errorf("failed to get run insights: %w", err)
+			}
+			printer.PrintAll(run, insights, subjobs, version)
 		}
 	}
 	return nil

@@ -122,7 +122,13 @@ func (w *RunWatcher) Watch(ctx context.Context) error {
 				return fmt.Errorf("failed to get sub-jobs: %w", err)
 			}
 
-			printer.PrintAll(run, subJobs, w.workflowVersion)
+			insights, err := w.client.GetRunSubJobInsights(ctx, w.runID)
+			if err != nil {
+				w.mutex.Unlock()
+				return fmt.Errorf("failed to get run insights: %w", err)
+			}
+
+			printer.PrintAll(run, insights, subJobs, w.workflowVersion)
 			_ = w.writer.Flush()
 
 			if run.Finished {

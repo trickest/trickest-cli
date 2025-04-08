@@ -41,6 +41,16 @@ type Machines struct {
 	SelfHosted *int `json:"self_hosted,omitempty"`
 }
 
+type RunSubJobInsights struct {
+	Total     int `json:"total"`
+	Pending   int `json:"pending"`
+	Running   int `json:"running"`
+	Succeeded int `json:"succeeded"`
+	Failed    int `json:"failed"`
+	Stopping  int `json:"stopping"`
+	Stopped   int `json:"stopped"`
+}
+
 // GetRun retrieves a run by ID
 func (c *Client) GetRun(ctx context.Context, id uuid.UUID) (*Run, error) {
 	var run Run
@@ -175,4 +185,15 @@ func (c *Client) CreateRun(ctx context.Context, versionID uuid.UUID, machines in
 	}
 
 	return &createdRun, nil
+}
+
+func (c *Client) GetRunSubJobInsights(ctx context.Context, runID uuid.UUID) (*RunSubJobInsights, error) {
+	var insights RunSubJobInsights
+	path := fmt.Sprintf("/subjob/insight?execution=%s", runID)
+
+	if err := c.Hive.doJSON(ctx, http.MethodGet, path, nil, &insights); err != nil {
+		return nil, fmt.Errorf("failed to get run insights: %w", err)
+	}
+
+	return &insights, nil
 }

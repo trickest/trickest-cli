@@ -67,7 +67,7 @@ func NewRunPrinter(includePrimitiveNodes bool, writer io.Writer) *RunPrinter {
 }
 
 // PrintAll formats and prints run details and subjob tree
-func (p *RunPrinter) PrintAll(run *trickest.Run, subJobs []trickest.SubJob, version *trickest.WorkflowVersion) {
+func (p *RunPrinter) PrintAll(run *trickest.Run, insights *trickest.RunSubJobInsights, subJobs []trickest.SubJob, version *trickest.WorkflowVersion) {
 	var output strings.Builder
 
 	// Print basic run details
@@ -99,6 +99,19 @@ func (p *RunPrinter) PrintAll(run *trickest.Run, subJobs []trickest.SubJob, vers
 	}
 
 	output.WriteString("\n")
+
+	// Print subjob insights
+	if insights != nil {
+		output.WriteString("Subjob Insights:\n")
+		output.WriteString(p.formatKeyValue("Total", fmt.Sprintf("%d", insights.Total)))
+		output.WriteString(p.formatSubJobStatus("Succeeded", insights.Succeeded, insights.Total))
+		output.WriteString(p.formatSubJobStatus("Running", insights.Running, insights.Total))
+		output.WriteString(p.formatSubJobStatus("Pending", insights.Pending, insights.Total))
+		output.WriteString(p.formatSubJobStatus("Failed", insights.Failed, insights.Total))
+		output.WriteString(p.formatSubJobStatus("Stopping", insights.Stopping, insights.Total))
+		output.WriteString(p.formatSubJobStatus("Stopped", insights.Stopped, insights.Total))
+		output.WriteString("\n")
+	}
 
 	// Print subjob tree
 	output.WriteString(p.formatSubJobTree(subJobs, version))
@@ -232,6 +245,13 @@ func (p *RunPrinter) createTrees(subJobs []trickest.SubJob, wfVersion *trickest.
 	}
 
 	return allNodes, roots
+}
+
+func (p *RunPrinter) formatSubJobStatus(status string, count int, total int) string {
+	if count == 0 {
+		return ""
+	}
+	return p.formatKeyValue(status, fmt.Sprintf("%d/%d (%.2f%%)", count, total, float64(count)/float64(total)*100))
 }
 
 func getNodeNameFromConnectionID(id string) (string, error) {
