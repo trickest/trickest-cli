@@ -146,6 +146,19 @@ func (w *RunWatcher) Watch(ctx context.Context) error {
 				return fmt.Errorf("failed to get sub-jobs: %w", err)
 			}
 
+			if w.includeTaskGroupStats {
+				for i := range subJobs {
+					if subJobs[i].TaskGroup {
+						childSubJobs, err := w.client.GetChildSubJobs(ctx, subJobs[i].ID)
+						if err != nil {
+							w.mutex.Unlock()
+							return fmt.Errorf("failed to get child sub-jobs: %w", err)
+						}
+						subJobs[i].Children = childSubJobs
+					}
+				}
+			}
+
 			insights, err := w.client.GetRunSubJobInsights(ctx, w.runID)
 			if err != nil {
 				w.mutex.Unlock()
