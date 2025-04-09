@@ -109,7 +109,7 @@ func (c *Client) GetRunByURL(ctx context.Context, workflowURL string) (*Run, err
 
 // GetRuns retrieves workflow runs with optional filtering
 func (c *Client) GetRuns(ctx context.Context, workflowID uuid.UUID, status string, limit int) ([]Run, error) {
-	path := "/execution/?type=Editor"
+	path := fmt.Sprintf("/execution/?type=Editor&vault=%s", c.vaultID)
 
 	if workflowID != uuid.Nil {
 		path += fmt.Sprintf("&workflow=%s", workflowID)
