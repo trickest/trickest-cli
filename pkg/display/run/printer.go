@@ -44,11 +44,9 @@ type TaskDuration struct {
 }
 
 type DurationStats struct {
-	Q1       time.Duration
-	Q3       time.Duration
-	IQR      time.Duration
-	Median   time.Duration
-	Outliers []TaskDuration
+	Median                  time.Duration
+	MedianAbsoluteDeviation time.Duration
+	Outliers                []TaskDuration
 }
 
 type SubJobStatus struct {
@@ -279,10 +277,20 @@ func (p *RunPrinter) createTrees(subJobs []trickest.SubJob, wfVersion *trickest.
 					allNodes[sj.Name].TaskStatus.Stopped++
 				}
 
+				if child.StartedDate.IsZero() {
+					continue
+				}
+
 				taskDuration := TaskDuration{
 					TaskIndex: child.TaskIndex,
-					Duration:  child.FinishedDate.Sub(child.StartedDate),
 				}
+
+				if child.FinishedDate.IsZero() {
+					taskDuration.Duration = time.Since(child.StartedDate)
+				} else {
+					taskDuration.Duration = child.FinishedDate.Sub(child.StartedDate)
+				}
+
 				taskDurations = append(taskDurations, taskDuration)
 
 				if taskDuration.Duration > allNodes[sj.Name].TaskMaxDuration.Duration {
@@ -408,14 +416,17 @@ func (p *RunPrinter) printTree(node *TreeNode, branch *treeprint.Tree, allNodes 
 			if node.TaskMinDuration.Duration > 0 && node.TaskMinDuration.TaskIndex != -1 {
 				durationBranch.AddNode(fmt.Sprintf("Min: %s (task %d)", FormatDuration(node.TaskMinDuration.Duration), node.TaskMinDuration.TaskIndex))
 			}
-			if node.DurationStats.Median > 0 {
-				durationBranch.AddNode(fmt.Sprintf("Median: %s", FormatDuration(node.DurationStats.Median)))
-			}
 
+			if node.DurationStats.Median > 0 {
+				medianBranch := durationBranch.AddBranch(fmt.Sprintf("Median: %s", FormatDuration(node.DurationStats.Median)))
+				if node.DurationStats.MedianAbsoluteDeviation > 0 {
+					medianBranch.AddNode(fmt.Sprintf("Median Absolute Deviation: %s", FormatDuration(node.DurationStats.MedianAbsoluteDeviation)))
+				}
+			}
 			if len(node.DurationStats.Outliers) > 0 {
 				outlierBranch := durationBranch.AddBranch("Outliers")
 				for _, outlier := range node.DurationStats.Outliers {
-					if outlier.Duration < node.DurationStats.Q1 {
+					if outlier.Duration < node.DurationStats.Median {
 						timeDiff := node.DurationStats.Median - outlier.Duration
 						outlierBranch.AddNode(fmt.Sprintf("Task %d: %s faster than median (duration: %s)", outlier.TaskIndex, FormatDuration(timeDiff), FormatDuration(outlier.Duration)))
 					} else {
@@ -492,26 +503,37 @@ func calculateDurationStats(durations []TaskDuration) DurationStats {
 		return durations[i].Duration < durations[j].Duration
 	})
 
-	n := len(durations)
-	q1Index := n / 4
-	medianIndex := n / 2
-	q3Index := (3 * n) / 4
-
+	medianIndex := len(durations) / 2
+	median := durations[medianIndex].Duration
 	stats := DurationStats{
-		Q1:     durations[q1Index].Duration,
-		Q3:     durations[q3Index].Duration,
-		Median: durations[medianIndex].Duration,
+		Median: median,
 	}
-	stats.IQR = stats.Q3 - stats.Q1
 
-	upperBound := stats.Q3 + (stats.IQR * 3 / 2) // Tasks that are 3/2 * IQR above Q3 are considered outliers
-	lowerBound := stats.Q1 / 2                   // Tasks that are 1/2 * Q1 below Q1 are considered outliers
-	minOutlierThreshold := 5 * time.Minute       // Minimum absolute threshold for considering a task as an outlier to avoid flagging insignificant outliers
+	// Calculate Median Absolute Deviation (MAD)
+	var absoluteDeviations []time.Duration
+	for _, d := range durations {
+		diff := d.Duration - median
+		if diff < 0 {
+			diff = -diff
+		}
+		absoluteDeviations = append(absoluteDeviations, diff)
+	}
+	sort.Slice(absoluteDeviations, func(i, j int) bool {
+		return absoluteDeviations[i] < absoluteDeviations[j]
+	})
+	mad := absoluteDeviations[len(absoluteDeviations)/2]
+	stats.MedianAbsoluteDeviation = mad
+
+	// Use absolute threshold for outlier detection
+	// A task is considered an outlier if it's more than threshold away from the median
+	threshold := 15 * time.Minute
 
 	for _, d := range durations {
-		if d.Duration < lowerBound && (stats.Median-d.Duration) > minOutlierThreshold {
-			stats.Outliers = append(stats.Outliers, d)
-		} else if d.Duration > upperBound && (d.Duration-stats.Median) > minOutlierThreshold {
+		diff := d.Duration - median
+		if diff < 0 {
+			diff = -diff
+		}
+		if diff > threshold {
 			stats.Outliers = append(stats.Outliers, d)
 		}
 	}
