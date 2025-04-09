@@ -383,7 +383,6 @@ func (p *RunPrinter) printTree(node *TreeNode, branch *treeprint.Tree, allNodes 
 	}
 
 	if node.TaskGroup && includeTaskGroupStats {
-		isBatchOutput := strings.HasPrefix(node.Name, "batch-output-")
 		taskInfo := (*branch).AddBranch("Task Group Info")
 		tasksBranch := taskInfo.AddBranch(fmt.Sprintf("%d tasks", node.TaskCount))
 		if node.TaskStatus.Succeeded != node.TaskCount { // Only show task group detailed counts if not all tasks succeeded
@@ -408,7 +407,7 @@ func (p *RunPrinter) printTree(node *TreeNode, branch *treeprint.Tree, allNodes 
 			}
 		}
 
-		if !isBatchOutput { // Batch output nodes' stats are normally not useful so we skip them to avoid cluttering the output
+		if hasInterestingStats(node.Name) {
 			durationBranch := taskInfo.AddBranch("Task Duration Stats")
 			if node.TaskMaxDuration.Duration > 0 && node.TaskMaxDuration.TaskIndex != -1 {
 				durationBranch.AddNode(fmt.Sprintf("Max: %s (task %d)", FormatDuration(node.TaskMaxDuration.Duration), node.TaskMaxDuration.TaskIndex))
@@ -539,4 +538,19 @@ func calculateDurationStats(durations []TaskDuration) DurationStats {
 	}
 
 	return stats
+}
+
+// hasInterestingStats returns true if the node's stats are worth displaying
+func hasInterestingStats(nodeName string) bool {
+	unInterestingNodeNames := map[string]bool{
+		"batch-output":   true,
+		"string-to-file": true,
+	}
+
+	parts := strings.Split(nodeName, "-")
+	if len(parts) < 2 {
+		return true
+	}
+	baseNodeName := strings.Join(parts[:len(parts)-1], "-")
+	return !unInterestingNodeNames[baseNodeName]
 }
