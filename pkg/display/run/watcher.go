@@ -16,14 +16,15 @@ import (
 
 // RunWatcher handles watching and displaying the status of a workflow run
 type RunWatcher struct {
-	client                *trickest.Client
-	runID                 uuid.UUID
-	workflowVersion       *trickest.WorkflowVersion
-	includePrimitiveNodes bool
-	includeTaskGroupStats bool
-	ci                    bool
-	writer                *uilive.Writer
-	mutex                 *sync.Mutex
+	client                   *trickest.Client
+	runID                    uuid.UUID
+	workflowVersion          *trickest.WorkflowVersion
+	includePrimitiveNodes    bool
+	includeTaskGroupStats    bool
+	ci                       bool
+	writer                   *uilive.Writer
+	mutex                    *sync.Mutex
+	fetchedTaskGroupChildren map[uuid.UUID][]trickest.SubJob // Cache to store completed children data
 }
 
 // RunWatcherOption is a function that configures a RunWatcher
@@ -60,10 +61,11 @@ func WithWorkflowVersion(version *trickest.WorkflowVersion) RunWatcherOption {
 // NewRunWatcher creates a new RunWatcher instance
 func NewRunWatcher(client *trickest.Client, runID uuid.UUID, opts ...RunWatcherOption) (*RunWatcher, error) {
 	w := &RunWatcher{
-		client: client,
-		runID:  runID,
-		writer: uilive.New(),
-		mutex:  &sync.Mutex{},
+		client:                   client,
+		runID:                    runID,
+		writer:                   uilive.New(),
+		mutex:                    &sync.Mutex{},
+		fetchedTaskGroupChildren: make(map[uuid.UUID][]trickest.SubJob),
 	}
 
 	for _, opt := range opts {
@@ -149,12 +151,16 @@ func (w *RunWatcher) Watch(ctx context.Context) error {
 			if w.includeTaskGroupStats {
 				for i := range subJobs {
 					if subJobs[i].TaskGroup {
-						childSubJobs, err := w.client.GetChildSubJobs(ctx, subJobs[i].ID)
-						if err != nil {
-							w.mutex.Unlock()
-							return fmt.Errorf("failed to get child sub-jobs: %w", err)
+						// Only reload children if the task group is still running or hasn't been fetched before
+						if subJobs[i].Status == "RUNNING" || len(w.fetchedTaskGroupChildren[subJobs[i].ID]) == 0 {
+							childSubJobs, err := w.client.GetChildSubJobs(ctx, subJobs[i].ID)
+							if err != nil {
+								w.mutex.Unlock()
+								return fmt.Errorf("failed to get child sub-jobs: %w", err)
+							}
+							w.fetchedTaskGroupChildren[subJobs[i].ID] = childSubJobs
 						}
-						subJobs[i].Children = childSubJobs
+						subJobs[i].Children = w.fetchedTaskGroupChildren[subJobs[i].ID]
 					}
 				}
 			}
