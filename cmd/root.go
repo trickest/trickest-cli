@@ -15,6 +15,7 @@ import (
 	"github.com/trickest/trickest-cli/cmd/scripts"
 	"github.com/trickest/trickest-cli/cmd/stop"
 	"github.com/trickest/trickest-cli/cmd/tools"
+	"github.com/trickest/trickest-cli/pkg/version"
 	"github.com/trickest/trickest-cli/util"
 
 	"github.com/spf13/cobra"
@@ -28,7 +29,7 @@ var RootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		_ = cmd.Help()
 	},
-	Version: "v2.0.0",
+	Version: version.Version,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

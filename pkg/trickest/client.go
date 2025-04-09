@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/trickest/trickest-cli/pkg/version"
 )
 
 // Client provides access to the Trickest API
@@ -122,6 +123,7 @@ func doRequest(ctx context.Context, client *Client, method, path string, body an
 
 	req.Header.Set("Authorization", "Token "+client.token)
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", fmt.Sprintf("trickest-cli/%s", version.Version))
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
