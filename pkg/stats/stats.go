@@ -3,24 +3,25 @@ package stats
 import (
 	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/trickest/trickest-cli/pkg/trickest"
 )
 
 type TaskGroupStats struct {
-	Count                   int
-	Status                  SubJobStatus
-	MinDuration             TaskDuration
-	MaxDuration             TaskDuration
-	Median                  time.Duration
-	MedianAbsoluteDeviation time.Duration
-	Outliers                []TaskDuration
+	Count                   int               `json:"count"`
+	Status                  SubJobStatus      `json:"status"`
+	MinDuration             TaskDuration      `json:"min_duration,omitempty"`
+	MaxDuration             TaskDuration      `json:"max_duration,omitempty"`
+	Median                  trickest.Duration `json:"median,omitempty"`
+	MedianAbsoluteDeviation trickest.Duration `json:"median_absolute_deviation,omitempty"`
+	Outliers                []TaskDuration    `json:"outliers,omitempty"`
 }
 
 type TaskDuration struct {
 	TaskIndex int
-	Duration  time.Duration
+	Duration  trickest.Duration
 }
 
 type SubJobStatus struct {
@@ -37,11 +38,11 @@ func CalculateTaskGroupStats(sj trickest.SubJob) TaskGroupStats {
 		Count: len(sj.Children),
 		MinDuration: TaskDuration{
 			TaskIndex: -1,
-			Duration:  time.Duration(math.MaxInt64),
+			Duration:  trickest.Duration{Duration: time.Duration(math.MaxInt64)},
 		},
 		MaxDuration: TaskDuration{
 			TaskIndex: -1,
-			Duration:  time.Duration(math.MinInt64),
+			Duration:  trickest.Duration{Duration: time.Duration(math.MinInt64)},
 		},
 	}
 
@@ -71,40 +72,40 @@ func CalculateTaskGroupStats(sj trickest.SubJob) TaskGroupStats {
 		}
 
 		if child.FinishedDate.IsZero() {
-			taskDuration.Duration = time.Since(child.StartedDate)
+			taskDuration.Duration = trickest.Duration{Duration: time.Since(child.StartedDate)}
 		} else {
-			taskDuration.Duration = child.FinishedDate.Sub(child.StartedDate)
+			taskDuration.Duration = trickest.Duration{Duration: child.FinishedDate.Sub(child.StartedDate)}
 		}
 
 		taskDurations = append(taskDurations, taskDuration)
 
-		if taskDuration.Duration > stats.MaxDuration.Duration {
+		if taskDuration.Duration.Duration > stats.MaxDuration.Duration.Duration {
 			stats.MaxDuration = taskDuration
 		}
-		if taskDuration.Duration < stats.MinDuration.Duration {
+		if taskDuration.Duration.Duration < stats.MinDuration.Duration.Duration {
 			stats.MinDuration = taskDuration
 		}
 	}
 
 	if len(taskDurations) >= 2 {
 		sort.Slice(taskDurations, func(i, j int) bool {
-			return taskDurations[i].Duration < taskDurations[j].Duration
+			return taskDurations[i].Duration.Duration < taskDurations[j].Duration.Duration
 		})
 
 		medianIndex := len(taskDurations) / 2
 		stats.Median = taskDurations[medianIndex].Duration
 
 		// Calculate Median Absolute Deviation (MAD)
-		var absoluteDeviations []time.Duration
+		var absoluteDeviations []trickest.Duration
 		for _, d := range taskDurations {
-			diff := d.Duration - stats.Median
+			diff := d.Duration.Duration - stats.Median.Duration
 			if diff < 0 {
 				diff = -diff
 			}
-			absoluteDeviations = append(absoluteDeviations, diff)
+			absoluteDeviations = append(absoluteDeviations, trickest.Duration{Duration: diff})
 		}
 		sort.Slice(absoluteDeviations, func(i, j int) bool {
-			return absoluteDeviations[i] < absoluteDeviations[j]
+			return absoluteDeviations[i].Duration < absoluteDeviations[j].Duration
 		})
 		stats.MedianAbsoluteDeviation = absoluteDeviations[len(absoluteDeviations)/2]
 
@@ -113,7 +114,7 @@ func CalculateTaskGroupStats(sj trickest.SubJob) TaskGroupStats {
 		threshold := 15 * time.Minute
 
 		for _, d := range taskDurations {
-			diff := d.Duration - stats.Median
+			diff := d.Duration.Duration - stats.Median.Duration
 			if diff < 0 {
 				diff = -diff
 			}
@@ -124,4 +125,19 @@ func CalculateTaskGroupStats(sj trickest.SubJob) TaskGroupStats {
 	}
 
 	return stats
+}
+
+// HasInterestingStats returns true if the node's stats are worth displaying
+func HasInterestingStats(nodeName string) bool {
+	unInterestingNodeNames := map[string]bool{
+		"batch-output":   true,
+		"string-to-file": true,
+	}
+
+	parts := strings.Split(nodeName, "-")
+	if len(parts) < 2 {
+		return true
+	}
+	baseNodeName := strings.Join(parts[:len(parts)-1], "-")
+	return !unInterestingNodeNames[baseNodeName]
 }
