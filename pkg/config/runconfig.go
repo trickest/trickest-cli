@@ -28,18 +28,27 @@ func ParseConfigFile(path string) (*RunConfig, error) {
 
 func parseRunConfig(data []byte) (*RunConfig, error) {
 	var rawConfig struct {
-		Inputs       map[string]any `yaml:"inputs"`
-		Outputs      any            `yaml:"outputs"`
-		Machines     int            `yaml:"machines"`
-		UseStaticIPs bool           `yaml:"use-static-ips"`
-		Fleet        string         `yaml:"fleet"`
+		Input  map[string]any `yaml:"input"`  // To match the input flag
+		Inputs map[string]any `yaml:"inputs"` // For backward compatibility
+
+		Output  any `yaml:"output"`  // To match the output flag
+		Outputs any `yaml:"outputs"` // For backward compatibility
+
+		Machines     int    `yaml:"machines"`
+		UseStaticIPs bool   `yaml:"use-static-ips"`
+		Fleet        string `yaml:"fleet"`
 	}
 
 	if err := yaml.Unmarshal(data, &rawConfig); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal run config: %w", err)
 	}
 
-	nodeInputs, primitiveNodeInputs, err := ParseInputs(rawConfig.Inputs)
+	inputs := rawConfig.Inputs
+	if inputs == nil {
+		inputs = rawConfig.Input
+	}
+
+	nodeInputs, primitiveNodeInputs, err := ParseInputs(inputs)
 	if err != nil {
 		return nil, err
 	}
@@ -52,21 +61,24 @@ func parseRunConfig(data []byte) (*RunConfig, error) {
 		Fleet:               rawConfig.Fleet,
 	}
 
+	rawOutputs := rawConfig.Outputs
+	if rawOutputs == nil {
+		rawOutputs = rawConfig.Output
+	}
+
 	// Handle a single output or a list of outputs
-	outputs := []string{}
-	if rawConfig.Outputs != nil {
-		switch v := rawConfig.Outputs.(type) {
+	if rawOutputs != nil {
+		switch v := rawOutputs.(type) {
 		case string:
-			outputs = append(outputs, v)
+			config.Outputs = append(config.Outputs, v)
 		case []any:
 			for _, item := range v {
-				outputs = append(outputs, fmt.Sprintf("%v", item))
+				config.Outputs = append(config.Outputs, fmt.Sprintf("%v", item))
 			}
 		default:
-			outputs = append(outputs, fmt.Sprintf("%v", v))
+			config.Outputs = append(config.Outputs, fmt.Sprintf("%v", v))
 		}
 	}
-	config.Outputs = outputs
 
 	return config, nil
 }
