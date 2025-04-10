@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"time"
 
+	"github.com/google/uuid"
 	"github.com/trickest/trickest-cli/pkg/config"
 	display "github.com/trickest/trickest-cli/pkg/display/run"
+	"github.com/trickest/trickest-cli/pkg/stats"
 	"github.com/trickest/trickest-cli/pkg/trickest"
 	"github.com/trickest/trickest-cli/util"
 
@@ -121,31 +122,55 @@ func displayRunDetails(ctx context.Context, client *trickest.Client, run *tricke
 		run.FleetName = fleet.Name
 	}
 
+	version, err := client.GetWorkflowVersion(ctx, *run.WorkflowVersionInfo)
+	if err != nil {
+		return fmt.Errorf("failed to get workflow version: %w", err)
+	}
+	subjobs, err := client.GetSubJobs(ctx, *run.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get subjobs: %w", err)
+	}
+	subjobs = trickest.LabelSubJobs(subjobs, *version)
+
+	ipAddresses, err := client.GetRunIPAddresses(ctx, *run.ID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Couldn't get the run IP addresses: %s", err)
+	} else {
+		run.IPAddresses = ipAddresses
+	}
+
+	if cfg.IncludeTaskGroupStats {
+		for i := range subjobs {
+			if subjobs[i].TaskGroup {
+				childSubJobs, err := client.GetChildSubJobs(ctx, subjobs[i].ID)
+				if err != nil {
+					return fmt.Errorf("failed to get child subjobs: %w", err)
+				}
+				subjobs[i].Children = childSubJobs
+			}
+		}
+	}
+
 	if cfg.JSONOutput {
-		ipAddresses, err := client.GetRunIPAddresses(ctx, *run.ID)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: Couldn't get the run IP addresses: %s", err)
+		var jsonRun *JSONRun
+		if cfg.IncludeTaskGroupStats {
+			taskGroupStatsMap := make(map[uuid.UUID]stats.TaskGroupStats)
+			for _, subjob := range subjobs {
+				if subjob.TaskGroup {
+					taskGroupStatsMap[subjob.ID] = stats.CalculateTaskGroupStats(subjob)
+				}
+			}
+			jsonRun = NewJSONRun(run, subjobs, taskGroupStatsMap)
 		} else {
-			run.IPAddresses = ipAddresses
+			jsonRun = NewJSONRun(run, subjobs, nil)
 		}
-
-		if run.Status == "RUNNING" {
-			run.Duration = &trickest.Duration{Duration: time.Since(*run.StartedDate)}
-		} else {
-			run.Duration = &trickest.Duration{Duration: run.CompletedDate.Sub(*run.StartedDate)}
-		}
-
-		data, err := json.MarshalIndent(run, "", "  ")
+		data, err := json.MarshalIndent(jsonRun, "", "  ")
 		if err != nil {
 			return fmt.Errorf("failed to marshal run data: %w", err)
 		}
 		output := string(data)
 		fmt.Println(output)
 	} else {
-		version, err := client.GetWorkflowVersion(ctx, *run.WorkflowVersionInfo)
-		if err != nil {
-			return fmt.Errorf("failed to get workflow version: %w", err)
-		}
 		if cfg.Watch {
 			watcher, err := display.NewRunWatcher(
 				client,
@@ -164,21 +189,6 @@ func displayRunDetails(ctx context.Context, client *trickest.Client, run *tricke
 			}
 		} else {
 			printer := display.NewRunPrinter(cfg.IncludePrimitiveNodes, os.Stdout)
-			subjobs, err := client.GetSubJobs(ctx, *run.ID)
-			if err != nil {
-				return fmt.Errorf("failed to get subjobs: %w", err)
-			}
-			if cfg.IncludeTaskGroupStats {
-				for i := range subjobs {
-					if subjobs[i].TaskGroup {
-						childSubJobs, err := client.GetChildSubJobs(ctx, subjobs[i].ID)
-						if err != nil {
-							return fmt.Errorf("failed to get child subjobs: %w", err)
-						}
-						subjobs[i].Children = childSubJobs
-					}
-				}
-			}
 			printer.PrintAll(run, subjobs, version, cfg.IncludeTaskGroupStats)
 		}
 	}
