@@ -333,30 +333,30 @@ func (p *RunPrinter) printTree(node *TreeNode, branch *treeprint.Tree, allNodes 
 			}
 		}
 
-		if hasInterestingStats(node.Name) {
+		if stats.HasInterestingStats(node.Name) {
 			durationBranch := taskInfo.AddBranch("Task Duration Stats")
-			if node.TaskGroupStats.MaxDuration.Duration > 0 && node.TaskGroupStats.MaxDuration.TaskIndex != -1 {
-				durationBranch.AddNode(fmt.Sprintf("Max: %s (task %d)", FormatDuration(node.TaskGroupStats.MaxDuration.Duration), node.TaskGroupStats.MaxDuration.TaskIndex))
+			if node.TaskGroupStats.MaxDuration.Duration.Duration > 0 && node.TaskGroupStats.MaxDuration.TaskIndex != -1 {
+				durationBranch.AddNode(fmt.Sprintf("Max: %s (task %d)", FormatDuration(node.TaskGroupStats.MaxDuration.Duration.Duration), node.TaskGroupStats.MaxDuration.TaskIndex))
 			}
-			if node.TaskGroupStats.MinDuration.Duration > 0 && node.TaskGroupStats.MinDuration.TaskIndex != -1 {
-				durationBranch.AddNode(fmt.Sprintf("Min: %s (task %d)", FormatDuration(node.TaskGroupStats.MinDuration.Duration), node.TaskGroupStats.MinDuration.TaskIndex))
+			if node.TaskGroupStats.MinDuration.Duration.Duration > 0 && node.TaskGroupStats.MinDuration.TaskIndex != -1 {
+				durationBranch.AddNode(fmt.Sprintf("Min: %s (task %d)", FormatDuration(node.TaskGroupStats.MinDuration.Duration.Duration), node.TaskGroupStats.MinDuration.TaskIndex))
 			}
 
-			if node.TaskGroupStats.Median > 0 {
-				medianBranch := durationBranch.AddBranch(fmt.Sprintf("Median: %s", FormatDuration(node.TaskGroupStats.Median)))
-				if node.TaskGroupStats.MedianAbsoluteDeviation > 0 {
-					medianBranch.AddNode(fmt.Sprintf("Median Absolute Deviation: %s", FormatDuration(node.TaskGroupStats.MedianAbsoluteDeviation)))
+			if node.TaskGroupStats.Median.Duration > 0 {
+				medianBranch := durationBranch.AddBranch(fmt.Sprintf("Median: %s", FormatDuration(node.TaskGroupStats.Median.Duration)))
+				if node.TaskGroupStats.MedianAbsoluteDeviation.Duration > 0 {
+					medianBranch.AddNode(fmt.Sprintf("Median Absolute Deviation: %s", FormatDuration(node.TaskGroupStats.MedianAbsoluteDeviation.Duration)))
 				}
 			}
 			if len(node.TaskGroupStats.Outliers) > 0 {
 				outlierBranch := durationBranch.AddBranch("Outliers")
 				for _, outlier := range node.TaskGroupStats.Outliers {
-					if outlier.Duration < node.TaskGroupStats.Median {
-						timeDiff := node.TaskGroupStats.Median - outlier.Duration
-						outlierBranch.AddNode(fmt.Sprintf("Task %d: %s faster than median (duration: %s)", outlier.TaskIndex, FormatDuration(timeDiff), FormatDuration(outlier.Duration)))
+					if outlier.Duration.Duration < node.TaskGroupStats.Median.Duration {
+						timeDiff := node.TaskGroupStats.Median.Duration - outlier.Duration.Duration
+						outlierBranch.AddNode(fmt.Sprintf("Task %d: %s faster than median (duration: %s)", outlier.TaskIndex, FormatDuration(timeDiff), FormatDuration(outlier.Duration.Duration)))
 					} else {
-						timeDiff := outlier.Duration - node.TaskGroupStats.Median
-						outlierBranch.AddNode(fmt.Sprintf("Task %d: %s slower than median (duration: %s)", outlier.TaskIndex, FormatDuration(timeDiff), FormatDuration(outlier.Duration)))
+						timeDiff := outlier.Duration.Duration - node.TaskGroupStats.Median.Duration
+						outlierBranch.AddNode(fmt.Sprintf("Task %d: %s slower than median (duration: %s)", outlier.TaskIndex, FormatDuration(timeDiff), FormatDuration(outlier.Duration.Duration)))
 					}
 				}
 			}
@@ -417,19 +417,4 @@ func (p *RunPrinter) printTree(node *TreeNode, branch *treeprint.Tree, allNodes 
 	(*allNodes)[node.Name].Printed = true
 
 	return (*branch).String()
-}
-
-// hasInterestingStats returns true if the node's stats are worth displaying
-func hasInterestingStats(nodeName string) bool {
-	unInterestingNodeNames := map[string]bool{
-		"batch-output":   true,
-		"string-to-file": true,
-	}
-
-	parts := strings.Split(nodeName, "-")
-	if len(parts) < 2 {
-		return true
-	}
-	baseNodeName := strings.Join(parts[:len(parts)-1], "-")
-	return !unInterestingNodeNames[baseNodeName]
 }
