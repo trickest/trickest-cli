@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/trickest/trickest-cli/pkg/trickest"
@@ -30,7 +31,7 @@ type WorkflowRunSpec struct {
 // GetRuns retrieves runs based on the specification
 func (s WorkflowRunSpec) GetRuns(ctx context.Context, client *trickest.Client) ([]trickest.Run, error) {
 	// If we have an specific run ID or no multiple run flags, get a single run
-	if s.RunID != "" || (s.NumberOfRuns == 0 && !s.AllRuns) {
+	if s.RunID != "" || (s.NumberOfRuns == 0 && !s.AllRuns) || strings.Contains(s.URL, "?run=") {
 		run, err := s.resolveSingleRun(ctx, client)
 		if err != nil {
 			return nil, err
