@@ -25,6 +25,7 @@ type SubJob struct {
 	Message       string         `json:"message"`
 	TaskGroup     bool           `json:"task_group"`
 	TaskIndex     int            `json:"task_index"`
+	IPAddress     string         `json:"ip_address"`
 	TWEid         uuid.UUID      `json:"twe_id"`
 	Label         string
 	Children      []SubJob
