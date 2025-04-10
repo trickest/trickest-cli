@@ -40,14 +40,17 @@ type Run struct {
 	AverageDuration     *Duration          `json:"average_duration,omitempty"`
 }
 
-// Duration is a custom type for duration that json marshals to "Xh Ym" matching the web UI
+// Duration is a custom type for duration that json marshals to "Xh Ym" or "Xm Ys" matching the web UI
 type Duration struct {
 	Duration time.Duration
 }
 
 func (d *Duration) MarshalJSON() ([]byte, error) {
 	seconds := int64(d.Duration.Seconds())
-	return json.Marshal(fmt.Sprintf("%dh %dm", seconds/3600, (seconds%3600)/60))
+	if seconds >= 3600 {
+		return json.Marshal(fmt.Sprintf("%dh %dm", seconds/3600, (seconds%3600)/60))
+	}
+	return json.Marshal(fmt.Sprintf("%dm %ds", seconds/60, seconds%60))
 }
 
 // Machines represents machine configuration
