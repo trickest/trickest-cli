@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"math"
 	"os"
 	"regexp"
 	"sort"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/hako/durafmt"
+	"github.com/trickest/trickest-cli/pkg/stats"
 	"github.com/trickest/trickest-cli/pkg/trickest"
 	"github.com/xlab/treeprint"
 )
@@ -30,32 +30,8 @@ type TreeNode struct {
 	Children     []*TreeNode
 	Parents      []*TreeNode
 
-	TaskGroup       bool
-	TaskCount       int
-	TaskStatus      SubJobStatus
-	TaskMaxDuration TaskDuration
-	TaskMinDuration TaskDuration
-	DurationStats   DurationStats
-}
-
-type TaskDuration struct {
-	TaskIndex int
-	Duration  time.Duration
-}
-
-type DurationStats struct {
-	Median                  time.Duration
-	MedianAbsoluteDeviation time.Duration
-	Outliers                []TaskDuration
-}
-
-type SubJobStatus struct {
-	Pending   int `json:"pending"`
-	Running   int `json:"running"`
-	Succeeded int `json:"succeeded"`
-	Failed    int `json:"failed"`
-	Stopping  int `json:"stopping"`
-	Stopped   int `json:"stopped"`
+	TaskGroup      bool
+	TaskGroupStats stats.TaskGroupStats
 }
 
 // RunPrinter handles the formatting and display of run information
@@ -250,57 +226,7 @@ func (p *RunPrinter) createTrees(subJobs []trickest.SubJob, wfVersion *trickest.
 		}
 		if sj.TaskGroup && includeTaskGroupStats {
 			allNodes[sj.Name].TaskGroup = true
-			allNodes[sj.Name].TaskCount = len(sj.Children)
-
-			allNodes[sj.Name].TaskMinDuration = TaskDuration{
-				TaskIndex: -1,
-				Duration:  time.Duration(math.MaxInt64),
-			}
-			allNodes[sj.Name].TaskMaxDuration = TaskDuration{
-				TaskIndex: -1,
-				Duration:  time.Duration(math.MinInt64),
-			}
-
-			var taskDurations []TaskDuration
-			for _, child := range sj.Children {
-				if child.Status == "PENDING" {
-					allNodes[sj.Name].TaskStatus.Pending++
-				} else if child.Status == "RUNNING" {
-					allNodes[sj.Name].TaskStatus.Running++
-				} else if child.Status == "SUCCEEDED" {
-					allNodes[sj.Name].TaskStatus.Succeeded++
-				} else if child.Status == "FAILED" {
-					allNodes[sj.Name].TaskStatus.Failed++
-				} else if child.Status == "STOPPING" {
-					allNodes[sj.Name].TaskStatus.Stopping++
-				} else if child.Status == "STOPPED" {
-					allNodes[sj.Name].TaskStatus.Stopped++
-				}
-
-				if child.StartedDate.IsZero() {
-					continue
-				}
-
-				taskDuration := TaskDuration{
-					TaskIndex: child.TaskIndex,
-				}
-
-				if child.FinishedDate.IsZero() {
-					taskDuration.Duration = time.Since(child.StartedDate)
-				} else {
-					taskDuration.Duration = child.FinishedDate.Sub(child.StartedDate)
-				}
-
-				taskDurations = append(taskDurations, taskDuration)
-
-				if taskDuration.Duration > allNodes[sj.Name].TaskMaxDuration.Duration {
-					allNodes[sj.Name].TaskMaxDuration = taskDuration
-				}
-				if taskDuration.Duration < allNodes[sj.Name].TaskMinDuration.Duration {
-					allNodes[sj.Name].TaskMinDuration = taskDuration
-				}
-			}
-			allNodes[sj.Name].DurationStats = calculateDurationStats(taskDurations)
+			allNodes[sj.Name].TaskGroupStats = stats.CalculateTaskGroupStats(sj)
 		}
 	}
 
@@ -384,52 +310,52 @@ func (p *RunPrinter) printTree(node *TreeNode, branch *treeprint.Tree, allNodes 
 
 	if node.TaskGroup && includeTaskGroupStats {
 		taskInfo := (*branch).AddBranch("Task Group Info")
-		tasksBranch := taskInfo.AddBranch(fmt.Sprintf("%d tasks", node.TaskCount))
-		if node.TaskStatus.Succeeded != node.TaskCount { // Only show task group detailed counts if not all tasks succeeded
+		tasksBranch := taskInfo.AddBranch(fmt.Sprintf("%d tasks", node.TaskGroupStats.Count))
+		if node.TaskGroupStats.Status.Succeeded != node.TaskGroupStats.Count { // Only show task group detailed counts if not all tasks succeeded
 			// %%%% is a double-escaped percent sign, once for the branch, once for the sprintf
-			if node.TaskStatus.Succeeded > 0 {
-				tasksBranch.AddBranch(fmt.Sprintf("%d succeeded (%.2f%%%%)", node.TaskStatus.Succeeded, float64(node.TaskStatus.Succeeded)/float64(node.TaskCount)*100))
+			if node.TaskGroupStats.Status.Succeeded > 0 {
+				tasksBranch.AddBranch(fmt.Sprintf("%d succeeded (%.2f%%%%)", node.TaskGroupStats.Status.Succeeded, float64(node.TaskGroupStats.Status.Succeeded)/float64(node.TaskGroupStats.Count)*100))
 			}
-			if node.TaskStatus.Running > 0 {
-				tasksBranch.AddBranch(fmt.Sprintf("%d running (%.2f%%%%)", node.TaskStatus.Running, float64(node.TaskStatus.Running)/float64(node.TaskCount)*100))
+			if node.TaskGroupStats.Status.Running > 0 {
+				tasksBranch.AddBranch(fmt.Sprintf("%d running (%.2f%%%%)", node.TaskGroupStats.Status.Running, float64(node.TaskGroupStats.Status.Running)/float64(node.TaskGroupStats.Count)*100))
 			}
-			if node.TaskStatus.Pending > 0 {
-				tasksBranch.AddBranch(fmt.Sprintf("%d pending (%.2f%%%%)", node.TaskStatus.Pending, float64(node.TaskStatus.Pending)/float64(node.TaskCount)*100))
+			if node.TaskGroupStats.Status.Pending > 0 {
+				tasksBranch.AddBranch(fmt.Sprintf("%d pending (%.2f%%%%)", node.TaskGroupStats.Status.Pending, float64(node.TaskGroupStats.Status.Pending)/float64(node.TaskGroupStats.Count)*100))
 			}
-			if node.TaskStatus.Failed > 0 {
-				tasksBranch.AddBranch(fmt.Sprintf("%d failed (%.2f%%%%)", node.TaskStatus.Failed, float64(node.TaskStatus.Failed)/float64(node.TaskCount)*100))
+			if node.TaskGroupStats.Status.Failed > 0 {
+				tasksBranch.AddBranch(fmt.Sprintf("%d failed (%.2f%%%%)", node.TaskGroupStats.Status.Failed, float64(node.TaskGroupStats.Status.Failed)/float64(node.TaskGroupStats.Count)*100))
 			}
-			if node.TaskStatus.Stopping > 0 {
-				tasksBranch.AddBranch(fmt.Sprintf("%d stopping (%.2f%%%%)", node.TaskStatus.Stopping, float64(node.TaskStatus.Stopping)/float64(node.TaskCount)*100))
+			if node.TaskGroupStats.Status.Stopping > 0 {
+				tasksBranch.AddBranch(fmt.Sprintf("%d stopping (%.2f%%%%)", node.TaskGroupStats.Status.Stopping, float64(node.TaskGroupStats.Status.Stopping)/float64(node.TaskGroupStats.Count)*100))
 			}
-			if node.TaskStatus.Stopped > 0 {
-				tasksBranch.AddBranch(fmt.Sprintf("%d stopped (%.2f%%%%)", node.TaskStatus.Stopped, float64(node.TaskStatus.Stopped)/float64(node.TaskCount)*100))
+			if node.TaskGroupStats.Status.Stopped > 0 {
+				tasksBranch.AddBranch(fmt.Sprintf("%d stopped (%.2f%%%%)", node.TaskGroupStats.Status.Stopped, float64(node.TaskGroupStats.Status.Stopped)/float64(node.TaskGroupStats.Count)*100))
 			}
 		}
 
 		if hasInterestingStats(node.Name) {
 			durationBranch := taskInfo.AddBranch("Task Duration Stats")
-			if node.TaskMaxDuration.Duration > 0 && node.TaskMaxDuration.TaskIndex != -1 {
-				durationBranch.AddNode(fmt.Sprintf("Max: %s (task %d)", FormatDuration(node.TaskMaxDuration.Duration), node.TaskMaxDuration.TaskIndex))
+			if node.TaskGroupStats.MaxDuration.Duration > 0 && node.TaskGroupStats.MaxDuration.TaskIndex != -1 {
+				durationBranch.AddNode(fmt.Sprintf("Max: %s (task %d)", FormatDuration(node.TaskGroupStats.MaxDuration.Duration), node.TaskGroupStats.MaxDuration.TaskIndex))
 			}
-			if node.TaskMinDuration.Duration > 0 && node.TaskMinDuration.TaskIndex != -1 {
-				durationBranch.AddNode(fmt.Sprintf("Min: %s (task %d)", FormatDuration(node.TaskMinDuration.Duration), node.TaskMinDuration.TaskIndex))
+			if node.TaskGroupStats.MinDuration.Duration > 0 && node.TaskGroupStats.MinDuration.TaskIndex != -1 {
+				durationBranch.AddNode(fmt.Sprintf("Min: %s (task %d)", FormatDuration(node.TaskGroupStats.MinDuration.Duration), node.TaskGroupStats.MinDuration.TaskIndex))
 			}
 
-			if node.DurationStats.Median > 0 {
-				medianBranch := durationBranch.AddBranch(fmt.Sprintf("Median: %s", FormatDuration(node.DurationStats.Median)))
-				if node.DurationStats.MedianAbsoluteDeviation > 0 {
-					medianBranch.AddNode(fmt.Sprintf("Median Absolute Deviation: %s", FormatDuration(node.DurationStats.MedianAbsoluteDeviation)))
+			if node.TaskGroupStats.Median > 0 {
+				medianBranch := durationBranch.AddBranch(fmt.Sprintf("Median: %s", FormatDuration(node.TaskGroupStats.Median)))
+				if node.TaskGroupStats.MedianAbsoluteDeviation > 0 {
+					medianBranch.AddNode(fmt.Sprintf("Median Absolute Deviation: %s", FormatDuration(node.TaskGroupStats.MedianAbsoluteDeviation)))
 				}
 			}
-			if len(node.DurationStats.Outliers) > 0 {
+			if len(node.TaskGroupStats.Outliers) > 0 {
 				outlierBranch := durationBranch.AddBranch("Outliers")
-				for _, outlier := range node.DurationStats.Outliers {
-					if outlier.Duration < node.DurationStats.Median {
-						timeDiff := node.DurationStats.Median - outlier.Duration
+				for _, outlier := range node.TaskGroupStats.Outliers {
+					if outlier.Duration < node.TaskGroupStats.Median {
+						timeDiff := node.TaskGroupStats.Median - outlier.Duration
 						outlierBranch.AddNode(fmt.Sprintf("Task %d: %s faster than median (duration: %s)", outlier.TaskIndex, FormatDuration(timeDiff), FormatDuration(outlier.Duration)))
 					} else {
-						timeDiff := outlier.Duration - node.DurationStats.Median
+						timeDiff := outlier.Duration - node.TaskGroupStats.Median
 						outlierBranch.AddNode(fmt.Sprintf("Task %d: %s slower than median (duration: %s)", outlier.TaskIndex, FormatDuration(timeDiff), FormatDuration(outlier.Duration)))
 					}
 				}
@@ -491,53 +417,6 @@ func (p *RunPrinter) printTree(node *TreeNode, branch *treeprint.Tree, allNodes 
 	(*allNodes)[node.Name].Printed = true
 
 	return (*branch).String()
-}
-
-func calculateDurationStats(durations []TaskDuration) DurationStats {
-	if len(durations) < 2 {
-		return DurationStats{}
-	}
-
-	sort.Slice(durations, func(i, j int) bool {
-		return durations[i].Duration < durations[j].Duration
-	})
-
-	medianIndex := len(durations) / 2
-	median := durations[medianIndex].Duration
-	stats := DurationStats{
-		Median: median,
-	}
-
-	// Calculate Median Absolute Deviation (MAD)
-	var absoluteDeviations []time.Duration
-	for _, d := range durations {
-		diff := d.Duration - median
-		if diff < 0 {
-			diff = -diff
-		}
-		absoluteDeviations = append(absoluteDeviations, diff)
-	}
-	sort.Slice(absoluteDeviations, func(i, j int) bool {
-		return absoluteDeviations[i] < absoluteDeviations[j]
-	})
-	mad := absoluteDeviations[len(absoluteDeviations)/2]
-	stats.MedianAbsoluteDeviation = mad
-
-	// Use absolute threshold for outlier detection
-	// A task is considered an outlier if it's more than threshold away from the median
-	threshold := 15 * time.Minute
-
-	for _, d := range durations {
-		diff := d.Duration - median
-		if diff < 0 {
-			diff = -diff
-		}
-		if diff > threshold {
-			stats.Outliers = append(stats.Outliers, d)
-		}
-	}
-
-	return stats
 }
 
 // hasInterestingStats returns true if the node's stats are worth displaying
