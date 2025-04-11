@@ -1,19 +1,30 @@
 package files
 
 import (
-	"bytes"
+	"context"
 	"fmt"
-	"io"
-	"mime/multipart"
-	"net/http"
 	"os"
-	"path/filepath"
-	"strings"
 
-	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
+	"github.com/trickest/trickest-cli/pkg/trickest"
 	"github.com/trickest/trickest-cli/util"
 )
+
+type CreateConfig struct {
+	Token   string
+	BaseURL string
+
+	FilePaths []string
+}
+
+var createCfg = &CreateConfig{}
+
+func init() {
+	FilesCmd.AddCommand(filesCreateCmd)
+
+	filesCreateCmd.Flags().StringSliceVar(&createCfg.FilePaths, "file", []string{}, "File(s) to upload")
+	filesCreateCmd.MarkFlagRequired("file")
+}
 
 // filesCreateCmd represents the filesCreate command
 var filesCreateCmd = &cobra.Command{
@@ -22,82 +33,32 @@ var filesCreateCmd = &cobra.Command{
 	Long: "Create files on the Trickest file storage.\n" +
 		"Note: If a file with the same name already exists, it will be overwritten.",
 	Run: func(cmd *cobra.Command, args []string) {
-		filePaths := strings.Split(Files, ",")
-		for _, filePath := range filePaths {
-			err := createFile(filePath)
-			if err != nil {
-				fmt.Printf("Error: %s\n", err)
-				os.Exit(1)
-			} else {
-				fmt.Printf("Uploaded %s successfully\n", filePath)
-			}
+		createCfg.Token = util.GetToken()
+		createCfg.BaseURL = util.Cfg.BaseUrl
+		if err := runCreate(createCfg); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
 		}
 	},
 }
 
-func init() {
-	FilesCmd.AddCommand(filesCreateCmd)
-
-	filesCreateCmd.Flags().StringVar(&Files, "file", "", "File or files (comma-separated)")
-	filesCreateCmd.MarkFlagRequired("file")
-}
-
-func createFile(filePath string) error {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return fmt.Errorf("couldn't open %s: %s", filePath, err)
-	}
-	defer file.Close()
-
-	fileName := filepath.Base(file.Name())
-
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	defer writer.Close()
-
-	part, err := writer.CreateFormFile("thumb", fileName)
-	if err != nil {
-		return fmt.Errorf("couldn't create form file for %s: %s", filePath, err)
-	}
-
-	fileInfo, _ := file.Stat()
-	bar := progressbar.NewOptions64(
-		fileInfo.Size(),
-		progressbar.OptionSetDescription(fmt.Sprintf("Creating %s...", fileName)),
-		progressbar.OptionSetWidth(30),
-		progressbar.OptionShowBytes(true),
-		progressbar.OptionShowCount(),
-		progressbar.OptionOnCompletion(func() { fmt.Println() }),
+func runCreate(cfg *CreateConfig) error {
+	client, err := trickest.NewClient(
+		trickest.WithToken(cfg.Token),
+		trickest.WithBaseURL(cfg.BaseURL),
 	)
-
-	_, err = io.Copy(io.MultiWriter(part, bar), file)
 	if err != nil {
-		return fmt.Errorf("couldn't process %s: %s", filePath, err)
+		return fmt.Errorf("failed to create client: %w", err)
 	}
 
-	_, err = part.Write([]byte("\n--" + writer.Boundary() + "--"))
-	if err != nil {
-		return fmt.Errorf("couldn't upload %s: %s", filePath, err)
+	ctx := context.Background()
+
+	for _, filePath := range cfg.FilePaths {
+		_, err := client.UploadFile(ctx, filePath, true)
+		if err != nil {
+			return fmt.Errorf("failed to upload file %s: %w", filePath, err)
+		}
 	}
 
-	client := &http.Client{}
-	req, err := http.NewRequest("POST", util.Cfg.BaseUrl+"v1/file/", body)
-	if err != nil {
-		return fmt.Errorf("couldn't create request for %s: %s", filePath, err)
-	}
-
-	req.Header.Add("Authorization", "Token "+util.GetToken())
-	req.Header.Add("Content-Type", writer.FormDataContentType())
-
-	var resp *http.Response
-	resp, err = client.Do(req)
-	if err != nil {
-		return fmt.Errorf("couldn't upload %s: %s", filePath, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("unexpected status code while uploading %s: %s", filePath, resp.Status)
-	}
 	return nil
 }

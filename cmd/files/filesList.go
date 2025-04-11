@@ -1,19 +1,33 @@
 package files
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/trickest/trickest-cli/types"
-	"github.com/xlab/treeprint"
+	"github.com/trickest/trickest-cli/pkg/display"
+	"github.com/trickest/trickest-cli/pkg/trickest"
+	"github.com/trickest/trickest-cli/util"
 )
 
-var (
-	searchQuery string
-	jsonOutput  bool
-)
+type ListConfig struct {
+	Token   string
+	BaseURL string
+
+	SearchQuery string
+	JSONOutput  bool
+}
+
+var listCfg = &ListConfig{}
+
+func init() {
+	FilesCmd.AddCommand(filesListCmd)
+
+	filesListCmd.Flags().StringVar(&listCfg.SearchQuery, "query", "", "Filter listed files using the specified search query")
+	filesListCmd.Flags().BoolVar(&listCfg.JSONOutput, "json", false, "Display output in JSON format")
+}
 
 // filesListCmd represents the filesGet command
 var filesListCmd = &cobra.Command{
@@ -21,44 +35,45 @@ var filesListCmd = &cobra.Command{
 	Short: "List files in the Trickest file storage",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		files, err := getMetadata(searchQuery)
-		if err != nil {
-			fmt.Printf("Error: %s\n", err)
+		listCfg.Token = util.GetToken()
+		listCfg.BaseURL = util.Cfg.BaseUrl
+		if err := runList(listCfg); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
-		} else {
-			printFiles(files, jsonOutput)
 		}
 	},
 }
 
-func init() {
-	FilesCmd.AddCommand(filesListCmd)
-
-	filesListCmd.Flags().StringVar(&searchQuery, "query", "", "Filter listed files using the specified search query")
-	filesListCmd.Flags().BoolVar(&jsonOutput, "json", false, "Display output in JSON format")
-}
-
-func printFiles(files []types.File, jsonOutput bool) {
-	var output string
-
-	if jsonOutput {
-		data, err := json.Marshal(files)
-		if err != nil {
-			fmt.Println("Error marshalling response data")
-			return
-		}
-		output = string(data)
-	} else {
-		tree := treeprint.New()
-		tree.SetValue("Files")
-		for _, file := range files {
-			fileSubBranch := tree.AddBranch("\U0001f4c4 " + file.Name)                             //📄
-			fileSubBranch.AddNode("\U0001f522 " + file.PrettySize)                                 //🔢
-			fileSubBranch.AddNode("\U0001f4c5 " + file.ModifiedDate.Format("2006-01-02 15:04:05")) //📅
-		}
-
-		output = tree.String()
+func runList(cfg *ListConfig) error {
+	client, err := trickest.NewClient(
+		trickest.WithToken(cfg.Token),
+		trickest.WithBaseURL(cfg.BaseURL),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create client: %w", err)
 	}
 
-	fmt.Println(output)
+	ctx := context.Background()
+
+	files, err := client.SearchFiles(ctx, cfg.SearchQuery)
+	if err != nil {
+		return fmt.Errorf("failed to get files: %w", err)
+	}
+
+	if cfg.JSONOutput {
+		data, err := json.Marshal(files)
+		if err != nil {
+			return fmt.Errorf("failed to marshall files: %w", err)
+		}
+		_, err = fmt.Fprintln(os.Stdout, string(data))
+		if err != nil {
+			return fmt.Errorf("failed to print files: %w", err)
+		}
+	} else {
+		err = display.PrintFiles(os.Stdout, files)
+		if err != nil {
+			return fmt.Errorf("failed to print files: %w", err)
+		}
+	}
+	return nil
 }

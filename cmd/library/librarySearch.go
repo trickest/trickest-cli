@@ -1,13 +1,14 @@
 package library
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"math"
+	"os"
 
-	"github.com/google/uuid"
 	"github.com/spf13/cobra"
-	"github.com/trickest/trickest-cli/cmd/list"
+	"github.com/trickest/trickest-cli/pkg/display"
+	"github.com/trickest/trickest-cli/pkg/trickest"
 	"github.com/trickest/trickest-cli/util"
 )
 
@@ -17,47 +18,84 @@ var librarySearchCmd = &cobra.Command{
 	Short: "Search for workflows, modules, and tools in the Trickest library",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		search := ""
-		if len(args) > 0 {
-			search = args[0]
+		if len(args) == 0 {
+			fmt.Fprintf(os.Stderr, "Error: search query is required\n")
+			os.Exit(1)
 		}
-		tools := list.GetTools(math.MaxInt, search, "")
-		workflows := util.GetWorkflows(uuid.Nil, uuid.Nil, search, true)
-		modules := list.GetModules(math.MaxInt, search)
-		if jsonOutput {
-			results := map[string]interface{}{
-				"workflows": workflows,
-				"modules":   modules,
-				"tools":     tools,
-			}
-			data, err := json.Marshal(results)
-			if err != nil {
-				fmt.Println("Error marshalling response data")
-				return
-			}
-			output := string(data)
-			fmt.Println(output)
-		} else {
-			if len(workflows) > 0 {
-				printWorkflows(workflows, jsonOutput)
-			} else {
-				fmt.Println("Couldn't find any workflow in the library that matches the search!")
-			}
-			if len(modules) > 0 {
-				printModules(modules, jsonOutput)
-			} else {
-				fmt.Println("Couldn't find any module in the library that matches the search!")
-			}
-			if len(tools) > 0 {
-				PrintTools(tools, jsonOutput)
-			} else {
-				fmt.Println("Couldn't find any tool in the library that matches the search!")
-			}
+		cfg.Token = util.GetToken()
+		cfg.BaseURL = util.Cfg.BaseUrl
+		search := args[0]
+		if err := runSearch(cfg, search); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
 		}
 	},
 }
 
 func init() {
 	LibraryCmd.AddCommand(librarySearchCmd)
-	librarySearchCmd.Flags().BoolVar(&jsonOutput, "json", false, "Display output in JSON format")
+	librarySearchCmd.Flags().BoolVar(&cfg.JSONOutput, "json", false, "Display output in JSON format")
+}
+
+func runSearch(cfg *Config, search string) error {
+	client, err := trickest.NewClient(
+		trickest.WithToken(cfg.Token),
+		trickest.WithBaseURL(cfg.BaseURL),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create client: %w", err)
+	}
+
+	ctx := context.Background()
+
+	modules, err := client.SearchLibraryModules(ctx, search)
+	if err != nil {
+		return fmt.Errorf("failed to search for modules: %w", err)
+	}
+
+	workflows, err := client.SearchLibraryWorkflows(ctx, search)
+	if err != nil {
+		return fmt.Errorf("failed to search for workflows: %w", err)
+	}
+
+	tools, err := client.SearchLibraryTools(ctx, search)
+	if err != nil {
+		return fmt.Errorf("failed to search for tools: %w", err)
+	}
+
+	if cfg.JSONOutput {
+		results := map[string]interface{}{
+			"workflows": workflows,
+			"modules":   modules,
+			"tools":     tools,
+		}
+		data, err := json.Marshal(results)
+		if err != nil {
+			return fmt.Errorf("failed to marshal response data: %w", err)
+		}
+		fmt.Println(string(data))
+	} else {
+		if len(modules) > 0 {
+			err = display.PrintModules(os.Stdout, modules)
+			if err != nil {
+				return fmt.Errorf("failed to print modules: %w", err)
+			}
+		}
+		if len(workflows) > 0 {
+			err = display.PrintWorkflows(os.Stdout, workflows)
+			if err != nil {
+				return fmt.Errorf("failed to print workflows: %w", err)
+			}
+		}
+		if len(tools) > 0 {
+			err = display.PrintTools(os.Stdout, tools)
+			if err != nil {
+				return fmt.Errorf("failed to print tools: %w", err)
+			}
+		}
+		if len(modules) == 0 && len(workflows) == 0 && len(tools) == 0 {
+			return fmt.Errorf("no results found for search query: %s", search)
+		}
+	}
+	return nil
 }

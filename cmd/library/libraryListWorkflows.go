@@ -1,15 +1,15 @@
 package library
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 
-	"github.com/google/uuid"
 	"github.com/spf13/cobra"
-	"github.com/trickest/trickest-cli/types"
+	"github.com/trickest/trickest-cli/pkg/display"
+	"github.com/trickest/trickest-cli/pkg/trickest"
 	"github.com/trickest/trickest-cli/util"
-	"github.com/xlab/treeprint"
 )
 
 // libraryListWorkflowsCmd represents the libraryListWorkflows command
@@ -18,11 +18,10 @@ var libraryListWorkflowsCmd = &cobra.Command{
 	Short: "List workflows from the Trickest library",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		workflows := util.GetWorkflows(uuid.Nil, uuid.Nil, "", true)
-		if len(workflows) > 0 {
-			printWorkflows(workflows, jsonOutput)
-		} else {
-			fmt.Println("Couldn't find any workflow in the library!")
+		cfg.Token = util.GetToken()
+		cfg.BaseURL = util.Cfg.BaseUrl
+		if err := runListWorkflows(cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	},
@@ -30,30 +29,41 @@ var libraryListWorkflowsCmd = &cobra.Command{
 
 func init() {
 	libraryListCmd.AddCommand(libraryListWorkflowsCmd)
-	libraryListWorkflowsCmd.Flags().BoolVar(&jsonOutput, "json", false, "Display output in JSON format")
+	libraryListWorkflowsCmd.Flags().BoolVar(&cfg.JSONOutput, "json", false, "Display output in JSON format")
 }
 
-func printWorkflows(workflows []types.Workflow, jsonOutput bool) {
-	var output string
+func runListWorkflows(cfg *Config) error {
+	client, err := trickest.NewClient(
+		trickest.WithToken(cfg.Token),
+		trickest.WithBaseURL(cfg.BaseURL),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create client: %w", err)
+	}
 
-	if jsonOutput {
+	ctx := context.Background()
+
+	workflows, err := client.ListLibraryWorkflows(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get workflows: %w", err)
+	}
+
+	if len(workflows) == 0 {
+		return fmt.Errorf("couldn't find any workflow in the library")
+	}
+
+	if cfg.JSONOutput {
 		data, err := json.Marshal(workflows)
 		if err != nil {
-			fmt.Println("Error marshalling project data")
-			return
+			return fmt.Errorf("failed to marshal workflows: %w", err)
 		}
-		output = string(data)
+		fmt.Println(string(data))
 	} else {
-		tree := treeprint.New()
-		tree.SetValue("Workflows")
-		for _, workflow := range workflows {
-			wfSubBranch := tree.AddBranch("\U0001f9be " + workflow.Name) //🦾
-			if workflow.Description != "" {
-				wfSubBranch.AddNode("\U0001f4cb \033[3m" + workflow.Description + "\033[0m") //📋
-			}
+		err = display.PrintWorkflows(os.Stdout, workflows)
+		if err != nil {
+			return fmt.Errorf("failed to print workflows: %w", err)
 		}
-
-		output = tree.String()
 	}
-	fmt.Println(output)
+
+	return nil
 }

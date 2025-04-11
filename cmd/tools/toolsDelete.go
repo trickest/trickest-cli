@@ -1,64 +1,82 @@
 package tools
 
 import (
+	"context"
 	"fmt"
-	"net/http"
 	"os"
 
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
-	"github.com/trickest/trickest-cli/client/request"
+	"github.com/trickest/trickest-cli/pkg/trickest"
+	"github.com/trickest/trickest-cli/util"
 )
 
-var (
-	toolID   string
-	toolName string
-)
+type DeleteConfig struct {
+	Token   string
+	BaseURL string
+
+	ToolID   string
+	ToolName string
+}
+
+var deleteCfg = &DeleteConfig{}
+
+func init() {
+	ToolsCmd.AddCommand(toolsDeleteCmd)
+
+	toolsDeleteCmd.Flags().StringVar(&deleteCfg.ToolID, "id", "", "ID of the tool to delete")
+	toolsDeleteCmd.Flags().StringVar(&deleteCfg.ToolName, "name", "", "Name of the tool to delete")
+}
 
 var toolsDeleteCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete a private tool integration",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		if toolName == "" && toolID == "" {
-			cmd.Help()
-			return
-		}
-
-		if toolName != "" {
-			id, err := getToolIDByName(toolName)
-			if err != nil {
-				fmt.Printf("Error: %s\n", err)
-				os.Exit(1)
-			}
-			toolID = id.String()
-		}
-
-		err := deleteTool(toolID)
-		if err != nil {
-			fmt.Printf("Error: %s\n", err)
+		if deleteCfg.ToolName == "" && deleteCfg.ToolID == "" {
+			fmt.Fprintf(os.Stderr, "Error: tool ID or name is required\n")
 			os.Exit(1)
 		}
 
-		fmt.Printf("Succesfuly deleted %s\n", toolID)
+		if deleteCfg.ToolID != "" && deleteCfg.ToolName != "" {
+			fmt.Fprintf(os.Stderr, "Error: tool ID and name cannot both be provided\n")
+			os.Exit(1)
+		}
+
+		deleteCfg.Token = util.GetToken()
+		deleteCfg.BaseURL = util.Cfg.BaseUrl
+		if err := runDelete(deleteCfg); err != nil {
+			fmt.Printf("Error: %s\n", err)
+			os.Exit(1)
+		}
 	},
 }
 
-func init() {
-	ToolsCmd.AddCommand(toolsDeleteCmd)
-
-	toolsDeleteCmd.Flags().StringVar(&toolID, "id", "", "ID of the tool to delete")
-	toolsDeleteCmd.Flags().StringVar(&toolName, "name", "", "Name of the tool to delete")
-}
-
-func deleteTool(toolID string) error {
-	resp := request.Trickest.Delete().DoF("library/tool/%s/", toolID)
-	if resp == nil {
-		return fmt.Errorf("couldn't delete %s: invalid response", toolID)
+func runDelete(cfg *DeleteConfig) error {
+	client, err := trickest.NewClient(trickest.WithToken(cfg.Token), trickest.WithBaseURL(cfg.BaseURL))
+	if err != nil {
+		return fmt.Errorf("failed to create client: %w", err)
 	}
 
-	if resp.Status() == http.StatusNoContent {
-		return nil
+	ctx := context.Background()
+
+	var toolID uuid.UUID
+	if cfg.ToolID != "" {
+		toolID, err = uuid.Parse(cfg.ToolID)
+		if err != nil {
+			return fmt.Errorf("failed to parse tool ID: %w", err)
+		}
 	} else {
-		return fmt.Errorf("couldn't delete %s: unexpected status code (%d)", toolID, resp.Status())
+		tool, err := client.GetPrivateToolByName(ctx, cfg.ToolName)
+		if err != nil {
+			return fmt.Errorf("failed to find tool: %w", err)
+		}
+		toolID = *tool.ID
 	}
+
+	err = client.DeletePrivateTool(ctx, toolID)
+	if err != nil {
+		return fmt.Errorf("failed to delete tool: %w", err)
+	}
+	return nil
 }

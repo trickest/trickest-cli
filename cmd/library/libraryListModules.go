@@ -1,15 +1,15 @@
 package library
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"math"
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/trickest/trickest-cli/cmd/list"
-	"github.com/trickest/trickest-cli/types"
-	"github.com/xlab/treeprint"
+	"github.com/trickest/trickest-cli/pkg/display"
+	"github.com/trickest/trickest-cli/pkg/trickest"
+	"github.com/trickest/trickest-cli/util"
 )
 
 // libraryListModulesCmd represents the libraryListModules command
@@ -18,11 +18,10 @@ var libraryListModulesCmd = &cobra.Command{
 	Short: "List modules from the Trickest library",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		modules := list.GetModules(math.MaxInt, "")
-		if len(modules) > 0 {
-			printModules(modules, jsonOutput)
-		} else {
-			fmt.Println("Couldn't find any module in the library!")
+		cfg.Token = util.GetToken()
+		cfg.BaseURL = util.Cfg.BaseUrl
+		if err := runListModules(cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	},
@@ -30,38 +29,40 @@ var libraryListModulesCmd = &cobra.Command{
 
 func init() {
 	libraryListCmd.AddCommand(libraryListModulesCmd)
-	libraryListModulesCmd.Flags().BoolVar(&jsonOutput, "json", false, "Display output in JSON format")
+	libraryListModulesCmd.Flags().BoolVar(&cfg.JSONOutput, "json", false, "Display output in JSON format")
 }
 
-func printModules(modules []types.Module, jsonOutput bool) {
-	var output string
+func runListModules(cfg *Config) error {
+	client, err := trickest.NewClient(
+		trickest.WithToken(cfg.Token),
+		trickest.WithBaseURL(cfg.BaseURL),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create client: %w", err)
+	}
 
-	if jsonOutput {
+	ctx := context.Background()
+
+	modules, err := client.ListLibraryModules(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get modules: %w", err)
+	}
+
+	if len(modules) == 0 {
+		return fmt.Errorf("couldn't find any module in the library")
+	}
+
+	if cfg.JSONOutput {
 		data, err := json.Marshal(modules)
 		if err != nil {
-			fmt.Println("Error marshalling response data")
-			return
+			return fmt.Errorf("failed to marshal modules: %w", err)
 		}
-		output = string(data)
+		fmt.Println(string(data))
 	} else {
-		tree := treeprint.New()
-		tree.SetValue("Modules")
-		for _, module := range modules {
-			mdSubBranch := tree.AddBranch("\U0001f916 " + module.Name) //🤖
-			if module.Description != "" {
-				mdSubBranch.AddNode("\U0001f4cb \033[3m" + module.Description + "\033[0m") //📋
-			}
-			inputSubBranch := mdSubBranch.AddBranch("\U0001f4e5 Inputs") //📥
-			for _, input := range module.Data.Inputs {
-				inputSubBranch.AddNode(input.Name)
-			}
-			outputSubBranch := mdSubBranch.AddBranch("\U0001f4e4 Outputs") //📤
-			for _, output := range module.Data.Outputs {
-				outputSubBranch.AddNode(output.Name)
-			}
+		err = display.PrintModules(os.Stdout, modules)
+		if err != nil {
+			return fmt.Errorf("failed to print modules: %w", err)
 		}
-
-		output = tree.String()
 	}
-	fmt.Println(output)
+	return nil
 }

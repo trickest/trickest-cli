@@ -8,12 +8,15 @@ import (
 	"github.com/trickest/trickest-cli/cmd/execute"
 	"github.com/trickest/trickest-cli/cmd/files"
 	"github.com/trickest/trickest-cli/cmd/get"
+	"github.com/trickest/trickest-cli/cmd/help"
+	"github.com/trickest/trickest-cli/cmd/investigate"
 	"github.com/trickest/trickest-cli/cmd/library"
 	"github.com/trickest/trickest-cli/cmd/list"
 	"github.com/trickest/trickest-cli/cmd/output"
 	"github.com/trickest/trickest-cli/cmd/scripts"
 	"github.com/trickest/trickest-cli/cmd/stop"
 	"github.com/trickest/trickest-cli/cmd/tools"
+	"github.com/trickest/trickest-cli/pkg/version"
 	"github.com/trickest/trickest-cli/util"
 
 	"github.com/spf13/cobra"
@@ -27,6 +30,7 @@ var RootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		_ = cmd.Help()
 	},
+	Version: version.Version,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -44,9 +48,7 @@ func init() {
 	RootCmd.PersistentFlags().StringVar(&util.WorkflowName, "workflow", "", "Workflow name")
 	RootCmd.PersistentFlags().StringVar(&util.URL, "url", "", "URL for referencing a workflow, project, or space")
 	RootCmd.PersistentFlags().StringVar(&util.Cfg.Dependency, "node-dependency", "", "This flag doesn't affect the execution logic of the CLI in any way and is intended for controlling node execution order on the Trickest platform only.")
-	RootCmd.PersistentFlags().StringVar(&util.Cfg.BaseUrl, "api-endpoint", "https://api.trickest.io/hive/", "The base Trickest platform API endpoint.")
-
-	cobra.OnInitialize(util.CreateRequest, initVaultID)
+	RootCmd.PersistentFlags().StringVar(&util.Cfg.BaseUrl, "api-endpoint", "https://api.trickest.io", "The base Trickest platform API endpoint.")
 
 	RootCmd.AddCommand(list.ListCmd)
 	RootCmd.AddCommand(library.LibraryCmd)
@@ -59,9 +61,8 @@ func init() {
 	RootCmd.AddCommand(tools.ToolsCmd)
 	RootCmd.AddCommand(scripts.ScriptsCmd)
 	RootCmd.AddCommand(stop.StopCmd)
-	// RootCmd.AddCommand(export.ExportCmd)
-}
+	RootCmd.AddCommand(help.HelpCmd)
+	RootCmd.AddCommand(investigate.InvestigateCmd)
 
-func initVaultID() {
-	util.GetVault()
+	RootCmd.SetVersionTemplate(`{{printf "Trickest CLI %s\n" .Version}}`)
 }

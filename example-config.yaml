@@ -1,6 +1,19 @@
-inputs:   # Input values for a particular workflow nodes (node-id.parameter-name)
-  amass-1.domain: example.com
-machines: # Number of machines to assign to the workflow
-  large:  1
-outputs:  # List of nodes whose outputs will be downloaded.
-  - zip-to-out 
+input:  # Input values for workflow nodes. Multiple formats are supported.
+  domain: example.com          # input-node-alias
+  string-input-1: example.com  # input-node-id
+
+  amass-1.domain: example.com          # executable-node-id.parameter-name
+  enum-subdomains.domain: example.com  # executable-node-alias.parameter-name
+
+  enum-subdomains.domain:  # multiple inputs for the same executable node and parameter
+    - example.com
+    - example.net
+
+output:  # List of nodes whose outputs will be downloaded
+  - zip-to-out-1  # executable-node-id
+  - report        # executable-node-alias
+# output: report  # A single output is also supported
+
+machines: 1  # Number of machines to assign to the workflow
+fleet: "Managed fleet"  # Name of the fleet to use for execution
+use-static-ips: true  # Use static IP addresses for execution
