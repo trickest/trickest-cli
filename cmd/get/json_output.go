@@ -1,7 +1,6 @@
 package get
 
 import (
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -64,9 +63,9 @@ type JSONSubJob struct {
 func NewJSONRun(run *trickest.Run, subjobs []trickest.SubJob, taskGroupStatsMap map[uuid.UUID]stats.TaskGroupStats) *JSONRun {
 	jsonRun := &JSONRun{
 		ID:                  *run.ID,
-		Status:              strings.ToLower(run.Status),
+		Status:              run.Status,
 		Author:              run.Author,
-		CreationType:        strings.ToLower(run.CreationType),
+		CreationType:        run.CreationType,
 		CreatedDate:         run.CreatedDate,
 		StartedDate:         run.StartedDate,
 		CompletedDate:       run.CompletedDate,
@@ -106,7 +105,7 @@ func NewJSONSubJob(subjob *trickest.SubJob, taskGroupStats map[uuid.UUID]stats.T
 	jsonSubJob := &JSONSubJob{
 		Label:        subjob.Label,
 		Name:         subjob.Name,
-		Status:       strings.ToLower(subjob.Status),
+		Status:       subjob.Status,
 		Message:      subjob.Message,
 		StartedDate:  &subjob.StartedDate,
 		FinishedDate: &subjob.FinishedDate,
