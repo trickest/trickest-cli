@@ -1,6 +1,12 @@
-inputs:   # Input values for a particular workflow nodes (node-id.parameter-name)
-  amass-1.domain: example.com
-machines: # Number of machines to assign to the workflow
-  large:  1
-outputs:  # List of nodes whose outputs will be downloaded.
-  - zip-to-out 
+input:  # Input values for workflow nodes. Multiple formats are supported.
+  domain: example.com            # input-node-alias
+  string-input-1: "example.com"  # input-node-id
+  amass-1.domain: example.com    # executable-node-id.parameter-name
+  my-label.string: "str1"        # executable-node-alias.parameter-name
+
+output:  # List of nodes whose outputs will be downloaded
+  - zip-to-out-1  # executable-node-id
+  - report        # executable-node-alias
+# output: report  # A single output is also supported
+
+machines: 1  # Number of machines to assign to the workflow
