@@ -28,7 +28,7 @@ Current workflow categories are:
 
 # Library
 
-[Trickest Library](https://trickest.io/dashboard/library) is a collection of public tools, Trickest scripts, and Trickest workflows available on the platform. More info can be found at [Trickest workflows repository](https://github.com/trickest/workflows) <- (Coming soon!)
+[Trickest Library](https://trickest.io/dashboard/library) is a collection of public tools, Trickest scripts, and Trickest workflows available on the platform.
 
 
 # Installation
@@ -109,24 +109,31 @@ trickest get --workflow <workflow_name> --space <space_name> [--watch]
 | --project   | string   | /       | The name of the project to which the workflow belongs                  |
 | --workflow  | string   | /       | The name of the workflow                                               |
 | --run       | string   | /       | Get the status of a specific run                                       |
-| --watch     | boolean  | false   | Option to track execution status in case workflow is in running state  |
+| --watch     | boolean  | false   | Watch the workflow execution if it's still running                     |
+| --show-params | boolean | false   | Show parameters in the workflow tree                                   |
+| --analyze-task-groups | boolean | false   | Show detailed statistics for task groups, including task counts, status distribution, and duration analysis (min/max/median/outliers) (experimental) |
 | --json      | boolean  | false   | Display output in JSON format                                          |
 | --url       | string   | /       | URL for referencing a workflow                                         |
 
-##### If the supplied workflow has a running execution, you can jump in and watch it running with the `--watch` flag!
+The get command provides:
+- Workflow status and run information
+- Node structure and execution details
+- Task group analysis with statistics
+- Average duration and run insights
+- JSON output with detailed information
 
 ## Execute
-Use the **execute** command to execute a particular workflow or tool.
+Use the **execute** command to execute a particular workflow.
 
 ```
-trickest execute --workflow <workflow_or_tool_name> --space <space_name> --config <config_file_path> --set-name "New Name" [--watch]
+trickest execute --workflow <workflow_name> --space <space_name> --config <config_file_path> --set-name "New Name" [--watch]
 ```
 
 | Flag             | Type    | Default | Description                                                                                                                                 |
 |------------------|---------|---------|---------------------------------------------------------------------------------------------------------------------------------------------|
-| --url      | string  | /       | URL copied from the Trickest platform, referencing a workflow, a run, or a node                                                                   |
+| --url            | string  | /       | URL copied from the Trickest platform, referencing a workflow, a run, or a node                                                              |
 | --config         | file    | /       | YAML file for run configuration                                                                                                             |
-| --workflow       | string  | /       | Workflow from the Library to be executed                                                                                                      |
+| --workflow       | string  | /       | Workflow name                                                                                                    |
 | --max            | boolean | false   | Use maximum number of machines for workflow execution                                                                                       |
 | --output         | string  | /       | A comma-separated list of nodes whose outputs should be downloaded when the execution is finished                                           |
 | --output-all     | boolean | false   | Download all outputs when the execution is finished                                                                                         |
@@ -135,30 +142,19 @@ trickest execute --workflow <workflow_or_tool_name> --space <space_name> --confi
 | --watch          | boolean | false   | Option to track execution status in case workflow is in running state                                                                       |
 | --set-name       | string  | /       | Sets the new workflow name and will copy the workflow to space and project supplied                                                         |
 | --ci             | boolean | false   | Enable CI mode (in-progress executions will be stopped when the CLI is forcefully stopped - if not set, you will be asked for confirmation) |
-| --create-project | boolean | false   | If the project doesn't exist, create one using the project flag as its name (or workflow/tool name if project flag is not set)              |
-| --machines       | string  | /       | Specify the number of machines. Use one value for default/self-hosted machines (--machines 3) or three values for small-medium-large (--machines 1-1-1)                                                         |
-| --fleet          | string  | /       | The name of the fleet to use to execute the workflow 
-| --use-static-ips | boolean | false    | Use static IP addresses for the execution 
+| --create-missing | boolean | false   | Create space and project if they don't exist                                                                                                |
+| --machines       | integer | 1       | The number of machines to use for the workflow execution                                                                                    |
+| --fleet          | string  | "Managed fleet" | The name of the fleet to use to execute the workflow                                                                                |
+| --use-static-ips | boolean | false   | Use static IP addresses for the execution (can also be set via TRICKEST_USE_STATIC_IPS environment variable)                                |
+| --input          | string  | /       | Input to pass to the workflow in the format key=value (can be used multiple times)                                                          |
 
 
 #### Provide parameters using **config.yaml** file
 
-Use config.yaml file provided using `--config`` flag to specify:
+Use config.yaml file provided using `--config` flag to specify:
 - inputs values
 - execution parallelism by machine type
 - outputs to be downloaded.
-
-The structure of you `config.yaml` file should look like this:
-```
-inputs:   # Input values for the particular workflow nodes.
-  <node_name>.<input_name>: <input_value>
-machines: # Machines configuration by type related to execution parallelisam.
-  small:  <number>
-  medium: <number>
-  large:  <number>
-outputs:  # List of nodes whose outputs will be downloaded.
-  - <node_name>
-```
 
 You can use [example-config.yaml](example-config.yaml) as a starting point and edit it according to your workflow.
 
@@ -188,6 +184,29 @@ Example GitHub action usage
         output_all: true
         output: "report"
 ```
+
+
+## Help
+Use the **help** command to get detailed information about a workflow, including its inputs, outputs, and example usage.
+
+```
+trickest help --workflow <workflow_name> --space <space_name>
+```
+
+| Flag       | Type    | Default | Description                                                                                                                        |
+|------------|---------|---------|------------------------------------------------------------------------------------------------------------------------------------|
+| --workflow | string  | /       | The name of the workflow.                                                                                                          |
+| --space    | string  | /       | The name of the space to which workflow belongs                                                                                    |
+| --project  | string  | /       | The name of the project to which workflow belongs                                                                                  |
+| --url      | string  | /       | URL copied from the Trickest platform, referencing a workflow                                                                      |
+
+The help command provides:
+- Workflow description and author information
+- Example command with all available inputs and outputs
+- List of inputs with their types and default values
+- List of outputs
+- Past run statistics including duration and machine usage
+- Author's notes and additional documentation
 
 ## Stop
 
@@ -229,6 +248,29 @@ trickest output --workflow <workflow_name> --space <space_name> [--nodes <comma_
 ## Output Structure
 
 When using the **output** command,  trickest-cli will keep the local directory/file structure the same as on the platform. All your spaces and projects will become directories with the appropriate outputs. If a module is among the downloaded outputs, a file will be created for each of its outputs.
+
+## Investigate
+Use the **investigate** command to analyze a workflow run's execution details within a specific time range.
+
+```
+trickest investigate --workflow <workflow_name> --space <space_name> [--run <run_id>] [--from <start_time>] [--to <end_time>]
+```
+
+| Flag       | Type    | Default | Description                                                                                                                        |
+|------------|---------|---------|------------------------------------------------------------------------------------------------------------------------------------|
+| --workflow | string  | /       | The name of the workflow.                                                                                                          |
+| --space    | string  | /       | The name of the space to which workflow belongs                                                                                    |
+| --project  | string  | /       | The name of the project to which workflow belongs                                                                                  |
+| --url      | string  | /       | URL copied from the Trickest platform, referencing a workflow                                                                      |
+| --run      | string  | /       | Investigate a specific run                                                                                                         |
+| --from     | string  | /       | Start time of the investigation period (defaults to run's start time; supported formats: 2006-01-02 15:04:05, 15:04:05, 15:04, 3:04PM) |
+| --to       | string  | /       | End time of the investigation period (defaults to current time; supported formats: 2006-01-02 15:04:05, 15:04:05, 15:04, 3:04PM)   |
+| --json     | boolean | false   | Display output in JSON format                                                                                                      |
+
+The investigate command provides:
+- Active sub-jobs during the specified time range
+- Sub-job execution durations
+- IP addresses used by sub-jobs
 
 ## Library
 
@@ -313,35 +355,37 @@ trickest tools create --file tool.yaml
 
 | Flag                 | Type   | Default  | Description                                                         |
 |----------------------|--------|----------|---------------------------------------------------------------------|
-| --file               | string  | /       | YAML file for tool definition                                       |
+| --file               | string | /        | YAML file for tool definition (required)                            |
 
 #### Update a private tool integration
 ```
-trickest tools update --file tool.yaml
+trickest tools update --file tool.yaml [--id <tool_id>] [--name <tool_name>]
 ```
 
 | Flag                 | Type   | Default  | Description                                                         |
 |----------------------|--------|----------|---------------------------------------------------------------------|
-| --file               | string  | /       | YAML file for tool definition                                       |
+| --file               | string | /        | YAML file for tool definition (required)                            |
+| --id                 | string | /        | ID of the tool to update                                            |
+| --name               | string | /        | Name of the tool to update                                          |
 
 #### List private tool integrations
 ```
-trickest tools list
+trickest tools list [--json]
 ```
 
-| Flag                 | Type    | Default     | Description                                                         |
-|----------------------|---------|-------------|---------------------------------------------------------------------|
-| --json               | boolean | false       | Display output in JSON format                                       |
+| Flag                 | Type    | Default  | Description                                                         |
+|----------------------|---------|----------|---------------------------------------------------------------------|
+| --json               | boolean | false    | Display output in JSON format                                       |
 
 #### Delete a private tool integration
 ```
-trickest tools delete --name "my-tool"
+trickest tools delete [--id <tool_id>] [--name <tool_name>]
 ```
 
 | Flag                 | Type   | Default  | Description                                                         |
 |----------------------|--------|----------|---------------------------------------------------------------------|
-| --id                 | string  | /       | ID of the tool to delete                                            |
-| --name               | string  | /       | Name of the tool to delete                                          |
+| --id                 | string | /        | ID of the tool to delete (either --id or --name is required)        |
+| --name               | string | /        | Name of the tool to delete (either --id or --name is required)      |
 
 
 ## Scripts command
@@ -362,35 +406,37 @@ trickest scripts create --file script.yaml
 
 | Flag                 | Type   | Default  | Description                                                         |
 |----------------------|--------|----------|---------------------------------------------------------------------|
-| --file               | string  | /       | YAML file for script definition                                       |
+| --file               | string | /        | YAML file for script definition (required)                          |
 
 #### Update a private script
 ```
-trickest scripts update --file script.yaml
+trickest scripts update --file script.yaml [--id <script_id>] [--name <script_name>]
 ```
 
 | Flag                 | Type   | Default  | Description                                                         |
 |----------------------|--------|----------|---------------------------------------------------------------------|
-| --file               | string  | /       | YAML file for script definition                                       |
+| --file               | string | /        | YAML file for script definition (required)                          |
+| --id                 | string | /        | ID of the script to update                                          |
+| --name               | string | /        | Name of the script to update                                        |
 
 #### List private scripts
 ```
-trickest scripts list
+trickest scripts list [--json]
 ```
 
-| Flag                 | Type    | Default     | Description                                                         |
-|----------------------|---------|-------------|---------------------------------------------------------------------|
-| --json               | boolean | false       | Display output in JSON format                                       |
+| Flag                 | Type    | Default  | Description                                                         |
+|----------------------|---------|----------|---------------------------------------------------------------------|
+| --json               | boolean | false    | Display output in JSON format                                       |
 
 #### Delete a private script
 ```
-trickest scripts delete --name "my-script"
+trickest scripts delete [--id <script_id>] [--name <script_name>]
 ```
 
 | Flag                 | Type   | Default  | Description                                                         |
 |----------------------|--------|----------|---------------------------------------------------------------------|
-| --id                 | string  | /       | ID of the script to delete                                            |
-| --name               | string  | /       | Name of the script to delete                                          |
+| --id                 | string | /        | ID of the script to delete (either --id or --name is required)      |
+| --name               | string | /        | Name of the script to delete (either --id or --name is required)    |
 
 
 ## Report Bugs / Feedback

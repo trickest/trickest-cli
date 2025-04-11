@@ -15,3 +15,5 @@ output:  # List of nodes whose outputs will be downloaded
 # output: report  # A single output is also supported
 
 machines: 1  # Number of machines to assign to the workflow
+fleet: "Managed fleet"  # Name of the fleet to use for execution
+use-static-ips: true  # Use static IP addresses for execution
