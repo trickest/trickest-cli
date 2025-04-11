@@ -149,7 +149,7 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*
 	if machineCount > 1 {
 		exampleCommand += fmt.Sprintf(" --machines %d", machineCount)
 	}
-	sb.WriteString(fmt.Sprintf("```\n%s\n```\n\n", exampleCommand))
+	sb.WriteString(fmt.Sprintf("```bash\n%s\n```\n\n", exampleCommand))
 
 	// Inputs section
 	if len(labeledPrimitiveNodes) > 0 {
