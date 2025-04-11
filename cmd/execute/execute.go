@@ -57,7 +57,11 @@ func init() {
 	ExecuteCmd.Flags().IntVar(&cfg.Machines, "machines", DefaultMachines, "The number of machines to use for the workflow execution")
 	ExecuteCmd.Flags().BoolVar(&cfg.MaxMachines, "max", false, "Use maximum number of machines for workflow execution")
 	ExecuteCmd.Flags().StringVar(&cfg.FleetName, "fleet", DefaultFleetName, "The name of the fleet to use to execute the workflow")
-	ExecuteCmd.Flags().BoolVar(&cfg.UseStaticIPs, "use-static-ips", false, "Use static IP addresses for the execution")
+
+	if useStaticIPs, exists := os.LookupEnv("TRICKEST_USE_STATIC_IPS"); exists {
+		cfg.UseStaticIPs = useStaticIPs == "true"
+	}
+	ExecuteCmd.Flags().BoolVar(&cfg.UseStaticIPs, "use-static-ips", cfg.UseStaticIPs, "Use static IP addresses for the execution")
 
 	ExecuteCmd.Flags().StringSliceVar(&cfg.RawInputs, "input", []string{}, "Input to pass to the workflow in the format key=value (can be used multiple times)")
 
@@ -157,7 +161,7 @@ func run(cfg *Config) error {
 		}
 
 		if len(ipAddresses) == 0 {
-			return fmt.Errorf("the Static IP Addresses feature is not enabled for your account. Please contact support or rerun without static IPs")
+			return fmt.Errorf("static IP addresses are not enabled for your account - please contact support to enable this feature, or run without static IPs by setting TRICKEST_USE_STATIC_IPS=false or removing the --use-static-ips flag")
 		}
 	}
 
