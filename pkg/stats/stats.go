@@ -20,8 +20,8 @@ type TaskGroupStats struct {
 }
 
 type TaskDuration struct {
-	TaskIndex int
-	Duration  trickest.Duration
+	TaskIndex int               `json:"task_index"`
+	Duration  trickest.Duration `json:"duration"`
 }
 
 type SubJobStatus struct {
