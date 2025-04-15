@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -135,9 +136,9 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*
 	exampleCommand += fmt.Sprintf(" %s", workflowRef)
 	// Add inputs with example values
 	for _, node := range labeledPrimitiveNodes {
-		nodeValue := fmt.Sprintf("<%s-value>", strings.ReplaceAll(node.Label, " ", "-"))
-		if node.Value != "" {
-			nodeValue = node.Value.(string)
+		nodeValue := getPrimitiveNodeValue(node)
+		if nodeValue == "" {
+			nodeValue = fmt.Sprintf("<%s-value>", strings.ReplaceAll(node.Label, " ", "-"))
 		}
 		exampleCommand += fmt.Sprintf(" --input \"%s=%s\"", node.Label, nodeValue)
 	}
@@ -156,8 +157,9 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*
 		sb.WriteString("## Inputs\n\n")
 		for _, node := range labeledPrimitiveNodes {
 			inputLine := fmt.Sprintf("- `%s` (%s)", node.Label, strings.ToLower(node.Type))
-			if node.Value != "" {
-				inputLine += fmt.Sprintf(" = %s", node.Value)
+			nodeValue := getPrimitiveNodeValue(node)
+			if nodeValue != "" {
+				inputLine += fmt.Sprintf(" = %s", nodeValue)
 			}
 			sb.WriteString(fmt.Sprintf("%s\n", inputLine))
 		}
@@ -273,4 +275,11 @@ func run(cfg *Config) error {
 
 func constructWorkflowURL(workflow *trickest.Workflow) string {
 	return fmt.Sprintf("https://trickest.io/editor/%s", workflow.ID)
+}
+
+func getPrimitiveNodeValue(node *trickest.PrimitiveNode) string {
+	if node.Type == "BOOLEAN" {
+		return strconv.FormatBool(node.Value.(bool))
+	}
+	return fmt.Sprintf("%v", node.Value)
 }
