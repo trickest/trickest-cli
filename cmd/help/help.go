@@ -170,8 +170,15 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*
 	// Outputs section
 	if len(labeledNodes) > 0 {
 		sb.WriteString("## Outputs\n\n")
+		labelCounts := make(map[string]int)
 		for _, node := range labeledNodes {
-			sb.WriteString(fmt.Sprintf("- `%s`\n", node.Meta.Label))
+			labelCounts[node.Meta.Label]++
+		}
+
+		for _, node := range labeledNodes {
+			if labelCounts[node.Meta.Label] == 1 {
+				sb.WriteString(fmt.Sprintf("- `%s`\n", node.Meta.Label))
+			}
 		}
 		sb.WriteString("\n\n")
 		sb.WriteString("Use the `--output` flag to specify the outputs you want to get.\n\n")
