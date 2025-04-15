@@ -15,8 +15,17 @@ func GetLabeledPrimitiveNodes(wfVersion *trickest.WorkflowVersion) ([]*trickest.
 
 	var labeledNodes []*trickest.PrimitiveNode
 	for _, node := range wfVersion.Data.PrimitiveNodes {
-		if node.Label != node.Value {
-			labeledNodes = append(labeledNodes, node)
+		if node.Label == "" {
+			continue
+		}
+		if node.Type == "BOOLEAN" {
+			if node.Label != strconv.FormatBool(node.Value.(bool)) {
+				labeledNodes = append(labeledNodes, node)
+			}
+		} else {
+			if node.Label != node.Value {
+				labeledNodes = append(labeledNodes, node)
+			}
 		}
 	}
 
