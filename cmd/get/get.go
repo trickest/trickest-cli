@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/trickest/trickest-cli/pkg/config"
@@ -103,21 +104,21 @@ func displayRunDetails(ctx context.Context, client *trickest.Client, run *tricke
 
 	insights, err := client.GetRunSubJobInsights(ctx, *run.ID)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: Couldn't get the run insights: %s", err)
+		fmt.Fprintf(os.Stderr, "Warning: Couldn't get the run insights: %s\n", err)
 	} else {
 		run.RunInsights = insights
 	}
 
 	averageDuration, err := client.GetWorkflowRunsAverageDuration(ctx, *run.WorkflowInfo)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: Couldn't calculate average duration: %s", err)
+		run.AverageDuration = &trickest.Duration{Duration: time.Duration(0)}
 	} else {
 		run.AverageDuration = &trickest.Duration{Duration: averageDuration}
 	}
 
 	fleet, err := client.GetFleet(ctx, *run.Fleet)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: Couldn't get the fleet: %s", err)
+		fmt.Fprintf(os.Stderr, "Warning: Couldn't get the fleet: %s\n", err)
 	} else {
 		run.FleetName = fleet.Name
 	}
@@ -134,7 +135,7 @@ func displayRunDetails(ctx context.Context, client *trickest.Client, run *tricke
 
 	ipAddresses, err := client.GetRunIPAddresses(ctx, *run.ID)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: Couldn't get the run IP addresses: %s", err)
+		fmt.Fprintf(os.Stderr, "Warning: Couldn't get the run IP addresses: %s\n", err)
 	} else {
 		run.IPAddresses = ipAddresses
 	}

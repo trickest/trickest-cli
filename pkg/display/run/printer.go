@@ -86,7 +86,11 @@ func (p *RunPrinter) PrintAll(run *trickest.Run, subJobs []trickest.SubJob, vers
 		output.WriteString(p.formatKeyValue("Duration", FormatDuration(time.Since(*run.StartedDate))))
 	}
 	if run.AverageDuration != nil {
-		output.WriteString(p.formatKeyValue("Average Duration", FormatDuration(run.AverageDuration.Duration)))
+		if run.AverageDuration.Duration > 0 {
+			output.WriteString(p.formatKeyValue("Average Duration", FormatDuration(run.AverageDuration.Duration)))
+		} else {
+			output.WriteString(p.formatKeyValue("Average Duration", "N/A"))
+		}
 	}
 	output.WriteString("\n")
 
