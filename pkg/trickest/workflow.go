@@ -59,7 +59,7 @@ type WorkflowVersionData struct {
 	Nodes          map[string]*Node          `json:"nodes"`
 	Connections    []Connection              `json:"connections"`
 	PrimitiveNodes map[string]*PrimitiveNode `json:"primitiveNodes"`
-	Annotations    map[string]*Annotation    `json:"annotation,omitempty"`
+	Annotations    map[string]*Annotation    `json:"annotations,omitempty"`
 }
 
 // Node represents a workflow node
