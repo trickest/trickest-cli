@@ -114,9 +114,15 @@ func NewJSONSubJob(subjob *trickest.SubJob, taskGroupStats map[uuid.UUID]stats.T
 		TaskIndex:    subjob.TaskIndex,
 	}
 
-	if !subjob.StartedDate.IsZero() && !subjob.FinishedDate.IsZero() {
-		duration := subjob.FinishedDate.Sub(subjob.StartedDate)
-		jsonSubJob.Duration = trickest.Duration{Duration: duration}
+	if !subjob.StartedDate.IsZero() {
+		if subjob.FinishedDate.IsZero() {
+			jsonSubJob.FinishedDate = nil
+			jsonSubJob.Duration = trickest.Duration{Duration: time.Since(subjob.StartedDate)}
+		} else {
+			jsonSubJob.Duration = trickest.Duration{Duration: subjob.FinishedDate.Sub(subjob.StartedDate)}
+		}
+	} else {
+		jsonSubJob.StartedDate = nil
 	}
 
 	if len(subjob.Children) > 0 {
