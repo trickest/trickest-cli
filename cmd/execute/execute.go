@@ -265,6 +265,9 @@ func run(cfg *Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to create run: %w", err)
 	}
+	// The extra space aligns the Run ID with other fields displayed by the run watcher
+	// The run ID is printed here because it should be displayed whether the run is watched or not
+	fmt.Printf("%-18s %v\n", "Run ID:", *run.ID)
 
 	if cfg.DownloadAllNodes || len(cfg.NodesToDownload) > 0 {
 		cfg.Watch = true
