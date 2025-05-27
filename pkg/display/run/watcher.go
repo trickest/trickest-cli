@@ -119,7 +119,7 @@ func (w *RunWatcher) Watch(ctx context.Context) error {
 
 	averageDuration, err := w.client.GetWorkflowRunsAverageDuration(ctx, *run.WorkflowInfo)
 	if err != nil {
-		return fmt.Errorf("failed to get average duration: %w", err)
+		averageDuration = 0
 	}
 
 	for {
