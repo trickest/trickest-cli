@@ -65,4 +65,5 @@ func init() {
 	RootCmd.AddCommand(investigate.InvestigateCmd)
 
 	RootCmd.SetVersionTemplate(`{{printf "Trickest CLI %s\n" .Version}}`)
+	RootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 }
