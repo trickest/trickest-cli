@@ -1,4 +1,5 @@
 package version
 
 // Version is the current version of the CLI
-var Version = "v2.0.0"
+// This is set during build via ldflags in the Dockerfile and GitHub Actions release workflow
+var Version = "dev"

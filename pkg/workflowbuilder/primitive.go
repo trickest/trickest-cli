@@ -113,6 +113,7 @@ func setPrimitiveNodeValue(pNode *trickest.PrimitiveNode, value any) error {
 func processPrimitiveNodeValue(nodeType string, value any) (any, string, error) {
 	var normalizedValue any
 	var label string
+	var err error
 
 	switch val := value.(type) {
 	case string:
@@ -130,7 +131,10 @@ func processPrimitiveNodeValue(nodeType string, value any) (any, string, error) 
 			}
 			normalizedValue = val
 		case "BOOLEAN":
-			normalizedValue = val
+			normalizedValue, err = strconv.ParseBool(val)
+			if err != nil {
+				return nil, "", fmt.Errorf("invalid boolean value: %v", value)
+			}
 		}
 	case int:
 		normalizedValue = strconv.Itoa(val)
