@@ -6,7 +6,8 @@ COPY . /app
 
 WORKDIR /app
 
-RUN env GOOS=linux GOARCH=amd64 go build .
+ARG VERSION=dev
+RUN env GOOS=linux GOARCH=amd64 go build -ldflags "-X github.com/trickest/trickest-cli/pkg/version.Version=${VERSION}" .
 
 FROM --platform=linux/amd64 alpine:3.21
 
