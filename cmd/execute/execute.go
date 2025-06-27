@@ -295,7 +295,11 @@ func run(cfg *Config) error {
 		if err != nil {
 			return fmt.Errorf("failed to get run: %w", err)
 		}
-		actions.DownloadRunOutput(client, run, cfg.NodesToDownload, []string{}, cfg.OutputDirectory)
+		results, err := actions.DownloadRunOutput(client, run, cfg.NodesToDownload, []string{}, cfg.OutputDirectory)
+		if err != nil {
+			return fmt.Errorf("failed to download run outputs: %w", err)
+		}
+		actions.PrintDownloadResults(results)
 	}
 
 	return nil

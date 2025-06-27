@@ -84,9 +84,11 @@ func run(cfg *Config) error {
 	path := cfg.GetOutputPath()
 
 	for _, run := range runs {
-		if err := actions.DownloadRunOutput(client, &run, nodes, files, path); err != nil {
+		results, err := actions.DownloadRunOutput(client, &run, nodes, files, path)
+		if err != nil {
 			return fmt.Errorf("failed to download run output: %w", err)
 		}
+		actions.PrintDownloadResults(results)
 	}
 	return nil
 }
