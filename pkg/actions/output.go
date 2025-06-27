@@ -2,8 +2,8 @@ package actions
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/google/uuid"
@@ -11,47 +11,96 @@ import (
 	"github.com/trickest/trickest-cli/pkg/trickest"
 )
 
-func DownloadRunOutput(client *trickest.Client, run *trickest.Run, nodes []string, files []string, destinationPath string) error {
+// DownloadResult represents the result of downloading outputs for a single subjob
+type DownloadResult struct {
+	SubJobName string
+	FileName   string
+	Success    bool
+	Error      error
+}
+
+func PrintDownloadResults(results []DownloadResult) {
+	successCount := 0
+	failureCount := 0
+	for _, result := range results {
+		if result.Success {
+			successCount++
+		} else {
+			failureCount++
+			if result.FileName != "" {
+				fmt.Fprintf(os.Stderr, "Warning: Failed to download file %q for node %q: %v\n", result.FileName, result.SubJobName, result.Error)
+			} else {
+				fmt.Fprintf(os.Stderr, "Warning: Failed to download output for node %q: %v\n", result.SubJobName, result.Error)
+			}
+		}
+	}
+
+	if failureCount > 0 {
+		fmt.Fprintf(os.Stderr, "Download completed with %d successful and %d failed downloads\n", successCount, failureCount)
+	} else if successCount > 0 {
+		fmt.Printf("Successfully downloaded outputs for %d sub-jobs\n", successCount)
+	}
+}
+
+func DownloadRunOutput(client *trickest.Client, run *trickest.Run, nodes []string, files []string, destinationPath string) ([]DownloadResult, error) {
 	if run.Status == "PENDING" || run.Status == "SUBMITTED" {
-		return fmt.Errorf("run %s has not started yet (status: %s)", run.ID.String(), run.Status)
+		return nil, fmt.Errorf("run %s has not started yet (status: %s)", run.ID.String(), run.Status)
 	}
 
 	ctx := context.Background()
 
 	subJobs, err := client.GetSubJobs(ctx, *run.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get subjobs for run %s: %w", run.ID.String(), err)
+		return nil, fmt.Errorf("failed to get subjobs for run %s: %w", run.ID.String(), err)
 	}
 
 	version, err := client.GetWorkflowVersion(ctx, *run.WorkflowVersionInfo)
 	if err != nil {
-		return fmt.Errorf("could not get workflow version for run %s: %w", run.ID.String(), err)
+		return nil, fmt.Errorf("could not get workflow version for run %s: %w", run.ID.String(), err)
 	}
 	subJobs = trickest.LabelSubJobs(subJobs, *version)
 
 	matchingSubJobs, err := trickest.FilterSubJobs(subJobs, nodes)
 	if err != nil {
-		return fmt.Errorf("no completed node outputs matching your query were found in the run %s: %w", run.ID.String(), err)
+		return nil, fmt.Errorf("no completed node outputs matching your query were found in the run %s: %w", run.ID.String(), err)
 	}
 
 	runDir, err := filesystem.CreateRunDir(destinationPath, *run)
 	if err != nil {
-		return fmt.Errorf("failed to create directory for run %s: %w", run.ID.String(), err)
+		return nil, fmt.Errorf("failed to create directory for run %s: %w", run.ID.String(), err)
 	}
 
+	var allResults []DownloadResult
+	var errCount int
 	for _, subJob := range matchingSubJobs {
 		isModule := version.Data.Nodes[subJob.Name].Type == "WORKFLOW"
-		if err := downloadSubJobOutput(client, runDir, &subJob, files, run.ID, isModule); err != nil {
-			return fmt.Errorf("failed to download output for node %s: %w", subJob.Label, err)
+		results := downloadSubJobOutput(client, runDir, &subJob, files, run.ID, isModule)
+
+		for _, result := range results {
+			if !result.Success {
+				errCount++
+			}
 		}
+		allResults = append(allResults, results...)
 	}
 
-	return nil
+	// If all subjobs failed, return an error
+	if errCount == len(allResults) && len(allResults) > 0 {
+		return allResults, fmt.Errorf("failed to download outputs for all nodes")
+	}
+
+	// If only some failed, return results but no error
+	return allResults, nil
 }
 
-func downloadSubJobOutput(client *trickest.Client, savePath string, subJob *trickest.SubJob, files []string, runID *uuid.UUID, isModule bool) error {
+func downloadSubJobOutput(client *trickest.Client, savePath string, subJob *trickest.SubJob, files []string, runID *uuid.UUID, isModule bool) []DownloadResult {
 	if !subJob.TaskGroup && subJob.Status != "SUCCEEDED" {
-		return fmt.Errorf("subjob %s (ID: %s) is not completed (status: %s)", subJob.Label, subJob.ID, subJob.Status)
+		return []DownloadResult{{
+			SubJobName: subJob.Label,
+			FileName:   "",
+			Success:    false,
+			Error:      fmt.Errorf("subjob %s (ID: %s) is not completed (status: %s)", subJob.Label, subJob.ID, subJob.Status),
+		}}
 	}
 
 	if subJob.TaskGroup {
@@ -61,18 +110,28 @@ func downloadSubJobOutput(client *trickest.Client, savePath string, subJob *tric
 	return downloadSingleSubJobOutput(client, savePath, subJob, files, runID, isModule)
 }
 
-func downloadTaskGroupOutput(client *trickest.Client, savePath string, subJob *trickest.SubJob, files []string, runID *uuid.UUID) error {
+func downloadTaskGroupOutput(client *trickest.Client, savePath string, subJob *trickest.SubJob, files []string, runID *uuid.UUID) []DownloadResult {
 	ctx := context.Background()
 	children, err := client.GetChildSubJobs(ctx, subJob.ID)
 	if err != nil {
-		return fmt.Errorf("could not get child subjobs for subjob %s (ID: %s): %w", subJob.Label, subJob.ID, err)
+		return []DownloadResult{{
+			SubJobName: subJob.Label,
+			FileName:   "",
+			Success:    false,
+			Error:      fmt.Errorf("could not get child subjobs for subjob %s (ID: %s): %w", subJob.Label, subJob.ID, err),
+		}}
 	}
 	if len(children) == 0 {
-		return fmt.Errorf("no child subjobs found for subjob %s (ID: %s)", subJob.Label, subJob.ID)
+		return []DownloadResult{{
+			SubJobName: subJob.Label,
+			FileName:   "",
+			Success:    false,
+			Error:      fmt.Errorf("no child subjobs found for subjob %s (ID: %s)", subJob.Label, subJob.ID),
+		}}
 	}
 
 	var mu sync.Mutex
-	var errs []error
+	var results []DownloadResult
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, 5)
 
@@ -86,51 +145,73 @@ func downloadTaskGroupOutput(client *trickest.Client, savePath string, subJob *t
 			child, err := client.GetChildSubJob(ctx, subJob.ID, i)
 			if err != nil {
 				mu.Lock()
-				errs = append(errs, fmt.Errorf("could not get child %d subjobs for subjob %s (ID: %s): %w", i, subJob.Label, subJob.ID, err))
+				results = append(results, DownloadResult{
+					SubJobName: fmt.Sprintf("%d-%s", i, subJob.Label),
+					FileName:   "",
+					Success:    false,
+					Error:      fmt.Errorf("could not get child %d subjobs for subjob %s (ID: %s): %w", i, subJob.Label, subJob.ID, err),
+				})
 				mu.Unlock()
 				return
 			}
 
 			child.Label = fmt.Sprintf("%d-%s", i, subJob.Label)
-			if err := downloadSubJobOutput(client, savePath, &child, files, runID, false); err != nil {
-				mu.Lock()
-				errs = append(errs, err)
-				mu.Unlock()
-			}
+			childResults := downloadSubJobOutput(client, savePath, &child, files, runID, false)
+
+			mu.Lock()
+			results = append(results, childResults...)
+			mu.Unlock()
 		}(i)
 	}
 	wg.Wait()
 
-	if len(errs) > 0 {
-		return fmt.Errorf("errors occurred while downloading subjob children outputs:\n%s", errors.Join(errs...))
-	}
-	return nil
+	return results
 }
 
-func downloadSingleSubJobOutput(client *trickest.Client, savePath string, subJob *trickest.SubJob, files []string, runID *uuid.UUID, isModule bool) error {
+func downloadSingleSubJobOutput(client *trickest.Client, savePath string, subJob *trickest.SubJob, files []string, runID *uuid.UUID, isModule bool) []DownloadResult {
 	ctx := context.Background()
-	var errs []error
 
 	subJobOutputs, err := getSubJobOutputs(client, ctx, subJob, runID, isModule)
 	if err != nil {
-		return err
+		return []DownloadResult{{
+			SubJobName: subJob.Label,
+			FileName:   "",
+			Success:    false,
+			Error:      err,
+		}}
 	}
 
 	subJobOutputs = filterSubJobOutputsByFileNames(subJobOutputs, files)
 	if len(subJobOutputs) == 0 {
-		return fmt.Errorf("no matching output files found for subjob %s (ID: %s)", subJob.Label, subJob.ID)
+		return []DownloadResult{{
+			SubJobName: subJob.Label,
+			FileName:   "",
+			Success:    false,
+			Error:      fmt.Errorf("no matching output files found for subjob %s (ID: %s)", subJob.Label, subJob.ID),
+		}}
 	}
+
+	var results []DownloadResult
 
 	for _, output := range subJobOutputs {
 		if err := downloadOutput(client, savePath, subJob, output); err != nil {
-			errs = append(errs, err)
+			results = append(results, DownloadResult{
+				SubJobName: subJob.Label,
+				FileName:   output.Name,
+				Success:    false,
+				Error:      err,
+			})
+		} else {
+			results = append(results, DownloadResult{
+				SubJobName: subJob.Label,
+				FileName:   output.Name,
+				Success:    true,
+				Error:      nil,
+			})
 		}
 	}
 
-	if len(errs) > 0 {
-		return fmt.Errorf("errors occurred while downloading subjob outputs:\n%s", errors.Join(errs...))
-	}
-	return nil
+	return results
 }
 
 func getSubJobOutputs(client *trickest.Client, ctx context.Context, subJob *trickest.SubJob, runID *uuid.UUID, isModule bool) ([]trickest.SubJobOutput, error) {
