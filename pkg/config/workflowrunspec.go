@@ -49,7 +49,7 @@ func (s WorkflowRunSpec) GetRuns(ctx context.Context, client *trickest.Client) (
 	}
 
 	limit := 0 // 0 means get all runs
-	if s.NumberOfRuns > 0 {
+	if s.NumberOfRuns > 0 && !s.AllRuns {
 		limit = s.NumberOfRuns
 	}
 

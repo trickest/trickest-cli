@@ -124,9 +124,12 @@ func run(cfg *Config) error {
 		}
 		subJobs = trickest.LabelSubJobs(subJobs, *version)
 
-		matchingSubJobs, err := trickest.FilterSubJobs(subJobs, cfg.Nodes)
-		if err != nil {
-			return fmt.Errorf("no running nodes matching your query were found in the run %s: %w", run.ID.String(), err)
+		matchingSubJobs, unmatchedNodes := trickest.FilterSubJobs(subJobs, cfg.Nodes)
+		if len(matchingSubJobs) == 0 {
+			return fmt.Errorf("no running nodes matching your query %q were found in the run %s", strings.Join(cfg.Nodes, ","), run.ID.String())
+		}
+		if len(unmatchedNodes) > 0 {
+			fmt.Fprintf(os.Stderr, "Warning: The following nodes were not found in run %s: %s. Proceeding with the remaining nodes\n", run.ID.String(), strings.Join(unmatchedNodes, ","))
 		}
 
 		for _, subJob := range matchingSubJobs {

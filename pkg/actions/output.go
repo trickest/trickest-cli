@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -19,7 +20,7 @@ type DownloadResult struct {
 	Error      error
 }
 
-func PrintDownloadResults(results []DownloadResult) {
+func PrintDownloadResults(results []DownloadResult, runID uuid.UUID, destinationPath string) {
 	successCount := 0
 	failureCount := 0
 	for _, result := range results {
@@ -28,46 +29,58 @@ func PrintDownloadResults(results []DownloadResult) {
 		} else {
 			failureCount++
 			if result.FileName != "" {
-				fmt.Fprintf(os.Stderr, "Warning: Failed to download file %q for node %q: %v\n", result.FileName, result.SubJobName, result.Error)
+				fmt.Fprintf(os.Stderr, "Warning: Failed to download file %q for node %q in run %s: %v\n", result.FileName, result.SubJobName, runID.String(), result.Error)
 			} else {
-				fmt.Fprintf(os.Stderr, "Warning: Failed to download output for node %q: %v\n", result.SubJobName, result.Error)
+				fmt.Fprintf(os.Stderr, "Warning: Failed to download output for node %q in run %s: %v\n", result.SubJobName, runID.String(), result.Error)
 			}
 		}
 	}
 
 	if failureCount > 0 {
-		fmt.Fprintf(os.Stderr, "Download completed with %d successful and %d failed downloads\n", successCount, failureCount)
+		fmt.Fprintf(os.Stderr, "Download completed with %d successful and %d failed downloads for run %s into %q\n", successCount, failureCount, runID.String(), destinationPath+"/")
 	} else if successCount > 0 {
-		fmt.Printf("Successfully downloaded outputs for %d sub-jobs\n", successCount)
+		fmt.Printf("Successfully downloaded %d outputs from run %s into %q\n", successCount, runID.String(), destinationPath+"/")
 	}
 }
 
-func DownloadRunOutput(client *trickest.Client, run *trickest.Run, nodes []string, files []string, destinationPath string) ([]DownloadResult, error) {
+// DownloadRunOutput downloads the outputs for the specified nodes in the run
+// Returns the download result summary, the directory where the outputs were saved, and an error if _all_ of the downloads failed
+func DownloadRunOutput(client *trickest.Client, run *trickest.Run, nodes []string, files []string, destinationPath string) ([]DownloadResult, string, error) {
 	if run.Status == "PENDING" || run.Status == "SUBMITTED" {
-		return nil, fmt.Errorf("run %s has not started yet (status: %s)", run.ID.String(), run.Status)
+		return nil, "", fmt.Errorf("run %s has not started yet (status: %s)", run.ID.String(), run.Status)
 	}
 
 	ctx := context.Background()
 
 	subJobs, err := client.GetSubJobs(ctx, *run.ID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get subjobs for run %s: %w", run.ID.String(), err)
+		return nil, "", fmt.Errorf("failed to get subjobs for run %s: %w", run.ID.String(), err)
 	}
 
+	// If the run was retrieved through the GetRuns() method, the WorkflowVersionInfo field will be nil
+	if run.WorkflowVersionInfo == nil {
+		run, err = client.GetRun(ctx, *run.ID)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to get run details for run %s: %w", run.ID.String(), err)
+		}
+	}
 	version, err := client.GetWorkflowVersion(ctx, *run.WorkflowVersionInfo)
 	if err != nil {
-		return nil, fmt.Errorf("could not get workflow version for run %s: %w", run.ID.String(), err)
+		return nil, "", fmt.Errorf("could not get workflow version for run %s: %w", run.ID.String(), err)
 	}
 	subJobs = trickest.LabelSubJobs(subJobs, *version)
 
-	matchingSubJobs, err := trickest.FilterSubJobs(subJobs, nodes)
-	if err != nil {
-		return nil, fmt.Errorf("no completed node outputs matching your query were found in the run %s: %w", run.ID.String(), err)
+	matchingSubJobs, unmatchedNodes := trickest.FilterSubJobs(subJobs, nodes)
+	if len(matchingSubJobs) == 0 {
+		return nil, "", fmt.Errorf("no completed node outputs matching your query %q were found in the run %s", strings.Join(nodes, ","), run.ID.String())
+	}
+	if len(unmatchedNodes) > 0 {
+		fmt.Fprintf(os.Stderr, "Warning: The following nodes were not found in run %s: %s. Proceeding with the remaining nodes\n", run.ID.String(), strings.Join(unmatchedNodes, ","))
 	}
 
 	runDir, err := filesystem.CreateRunDir(destinationPath, *run)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create directory for run %s: %w", run.ID.String(), err)
+		return nil, "", fmt.Errorf("failed to create directory for run %s: %w", run.ID.String(), err)
 	}
 
 	var allResults []DownloadResult
@@ -84,13 +97,7 @@ func DownloadRunOutput(client *trickest.Client, run *trickest.Run, nodes []strin
 		allResults = append(allResults, results...)
 	}
 
-	// If all subjobs failed, return an error
-	if errCount == len(allResults) && len(allResults) > 0 {
-		return allResults, fmt.Errorf("failed to download outputs for all nodes")
-	}
-
-	// If only some failed, return results but no error
-	return allResults, nil
+	return allResults, runDir, nil
 }
 
 func downloadSubJobOutput(client *trickest.Client, savePath string, subJob *trickest.SubJob, files []string, runID *uuid.UUID, isModule bool) []DownloadResult {
