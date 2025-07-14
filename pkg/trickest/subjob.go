@@ -172,35 +172,36 @@ func LabelSubJobs(subJobs []SubJob, version WorkflowVersion) []SubJob {
 }
 
 // FilterSubJobs filters the subjobs based on the identifiers (label or name (node ID))
-func FilterSubJobs(subJobs []SubJob, identifiers []string) ([]SubJob, error) {
+// Returns matched subjobs and unmatched identifiers
+func FilterSubJobs(subJobs []SubJob, identifiers []string) ([]SubJob, []string) {
 	if len(identifiers) == 0 {
 		return subJobs, nil
 	}
 
-	var foundNodes []string
 	var matchingSubJobs []SubJob
+	matchedIdentifiers := make(map[string]bool)
 
 	for _, subJob := range subJobs {
 		labelExists := slices.Contains(identifiers, subJob.Label)
 		nameExists := slices.Contains(identifiers, subJob.Name)
 
-		if labelExists {
-			foundNodes = append(foundNodes, subJob.Label)
-		}
-		if nameExists {
-			foundNodes = append(foundNodes, subJob.Name)
-		}
-
 		if labelExists || nameExists {
 			matchingSubJobs = append(matchingSubJobs, subJob)
+			if labelExists {
+				matchedIdentifiers[subJob.Label] = true
+			}
+			if nameExists {
+				matchedIdentifiers[subJob.Name] = true
+			}
 		}
 	}
 
+	var unmatchedIdentifiers []string
 	for _, identifier := range identifiers {
-		if !slices.Contains(foundNodes, identifier) {
-			return nil, fmt.Errorf("subjob with name or label %s not found", identifier)
+		if !matchedIdentifiers[identifier] {
+			unmatchedIdentifiers = append(unmatchedIdentifiers, identifier)
 		}
 	}
 
-	return matchingSubJobs, nil
+	return matchingSubJobs, unmatchedIdentifiers
 }

@@ -60,9 +60,12 @@ func DownloadRunOutput(client *trickest.Client, run *trickest.Run, nodes []strin
 	}
 	subJobs = trickest.LabelSubJobs(subJobs, *version)
 
-	matchingSubJobs, err := trickest.FilterSubJobs(subJobs, nodes)
-	if err != nil {
-		return nil, fmt.Errorf("no completed node outputs matching your query were found in the run %s: %w", run.ID.String(), err)
+	matchingSubJobs, unmatchedNodes := trickest.FilterSubJobs(subJobs, nodes)
+	if len(matchingSubJobs) == 0 {
+		return nil, "", fmt.Errorf("no completed node outputs matching your query %q were found in the run %s", strings.Join(nodes, ","), run.ID.String())
+	}
+	if len(unmatchedNodes) > 0 {
+		fmt.Fprintf(os.Stderr, "Warning: The following nodes were not found in run %s: %s. Proceeding with the remaining nodes\n", run.ID.String(), strings.Join(unmatchedNodes, ","))
 	}
 
 	runDir, err := filesystem.CreateRunDir(destinationPath, *run)
