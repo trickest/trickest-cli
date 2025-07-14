@@ -83,12 +83,24 @@ func run(cfg *Config) error {
 	files := cfg.GetFiles()
 	path := cfg.GetOutputPath()
 
-	for _, run := range runs {
-		results, err := actions.DownloadRunOutput(client, &run, nodes, files, path)
+	var errorCount int
+	for i, run := range runs {
+		fmt.Fprintf(os.Stderr, "Downloading outputs for run %s\n", run.ID.String())
+		results, runDir, err := actions.DownloadRunOutput(client, &run, nodes, files, path)
 		if err != nil {
-			return fmt.Errorf("failed to download run output: %w", err)
+			fmt.Fprintf(os.Stderr, "Warning: failed to download run output for run %s: %v\n", run.ID.String(), err)
+			errorCount++
 		}
-		actions.PrintDownloadResults(results)
+
+		actions.PrintDownloadResults(results, *run.ID, runDir)
+		// Print a newline visual separation if there are more runs to process
+		if i < len(runs)-1 {
+			fmt.Fprintln(os.Stderr)
+		}
+	}
+
+	if errorCount == len(runs) {
+		return fmt.Errorf("failed to download outputs for all runs")
 	}
 	return nil
 }

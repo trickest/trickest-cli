@@ -19,7 +19,7 @@ type DownloadResult struct {
 	Error      error
 }
 
-func PrintDownloadResults(results []DownloadResult) {
+func PrintDownloadResults(results []DownloadResult, runID uuid.UUID, destinationPath string) {
 	successCount := 0
 	failureCount := 0
 	for _, result := range results {
@@ -28,17 +28,17 @@ func PrintDownloadResults(results []DownloadResult) {
 		} else {
 			failureCount++
 			if result.FileName != "" {
-				fmt.Fprintf(os.Stderr, "Warning: Failed to download file %q for node %q: %v\n", result.FileName, result.SubJobName, result.Error)
+				fmt.Fprintf(os.Stderr, "Warning: Failed to download file %q for node %q in run %s: %v\n", result.FileName, result.SubJobName, runID.String(), result.Error)
 			} else {
-				fmt.Fprintf(os.Stderr, "Warning: Failed to download output for node %q: %v\n", result.SubJobName, result.Error)
+				fmt.Fprintf(os.Stderr, "Warning: Failed to download output for node %q in run %s: %v\n", result.SubJobName, runID.String(), result.Error)
 			}
 		}
 	}
 
 	if failureCount > 0 {
-		fmt.Fprintf(os.Stderr, "Download completed with %d successful and %d failed downloads\n", successCount, failureCount)
+		fmt.Fprintf(os.Stderr, "Download completed with %d successful and %d failed downloads for run %s into %q\n", successCount, failureCount, runID.String(), destinationPath+"/")
 	} else if successCount > 0 {
-		fmt.Printf("Successfully downloaded outputs for %d sub-jobs\n", successCount)
+		fmt.Printf("Successfully downloaded %d outputs from run %s into %q\n", successCount, runID.String(), destinationPath+"/")
 	}
 }
 
