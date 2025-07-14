@@ -54,6 +54,13 @@ func DownloadRunOutput(client *trickest.Client, run *trickest.Run, nodes []strin
 		return nil, fmt.Errorf("failed to get subjobs for run %s: %w", run.ID.String(), err)
 	}
 
+	// If the run was retrieved through the GetRuns() method, the WorkflowVersionInfo field will be nil
+	if run.WorkflowVersionInfo == nil {
+		run, err = client.GetRun(ctx, *run.ID)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to get run details for run %s: %w", run.ID.String(), err)
+		}
+	}
 	version, err := client.GetWorkflowVersion(ctx, *run.WorkflowVersionInfo)
 	if err != nil {
 		return nil, fmt.Errorf("could not get workflow version for run %s: %w", run.ID.String(), err)
