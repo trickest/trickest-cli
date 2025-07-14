@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -42,16 +43,18 @@ func PrintDownloadResults(results []DownloadResult, runID uuid.UUID, destination
 	}
 }
 
-func DownloadRunOutput(client *trickest.Client, run *trickest.Run, nodes []string, files []string, destinationPath string) ([]DownloadResult, error) {
+// DownloadRunOutput downloads the outputs for the specified nodes in the run
+// Returns the download result summary, the directory where the outputs were saved, and an error if _all_ of the downloads failed
+func DownloadRunOutput(client *trickest.Client, run *trickest.Run, nodes []string, files []string, destinationPath string) ([]DownloadResult, string, error) {
 	if run.Status == "PENDING" || run.Status == "SUBMITTED" {
-		return nil, fmt.Errorf("run %s has not started yet (status: %s)", run.ID.String(), run.Status)
+		return nil, "", fmt.Errorf("run %s has not started yet (status: %s)", run.ID.String(), run.Status)
 	}
 
 	ctx := context.Background()
 
 	subJobs, err := client.GetSubJobs(ctx, *run.ID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get subjobs for run %s: %w", run.ID.String(), err)
+		return nil, "", fmt.Errorf("failed to get subjobs for run %s: %w", run.ID.String(), err)
 	}
 
 	// If the run was retrieved through the GetRuns() method, the WorkflowVersionInfo field will be nil
@@ -63,7 +66,7 @@ func DownloadRunOutput(client *trickest.Client, run *trickest.Run, nodes []strin
 	}
 	version, err := client.GetWorkflowVersion(ctx, *run.WorkflowVersionInfo)
 	if err != nil {
-		return nil, fmt.Errorf("could not get workflow version for run %s: %w", run.ID.String(), err)
+		return nil, "", fmt.Errorf("could not get workflow version for run %s: %w", run.ID.String(), err)
 	}
 	subJobs = trickest.LabelSubJobs(subJobs, *version)
 
@@ -77,7 +80,7 @@ func DownloadRunOutput(client *trickest.Client, run *trickest.Run, nodes []strin
 
 	runDir, err := filesystem.CreateRunDir(destinationPath, *run)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create directory for run %s: %w", run.ID.String(), err)
+		return nil, "", fmt.Errorf("failed to create directory for run %s: %w", run.ID.String(), err)
 	}
 
 	var allResults []DownloadResult
@@ -94,13 +97,7 @@ func DownloadRunOutput(client *trickest.Client, run *trickest.Run, nodes []strin
 		allResults = append(allResults, results...)
 	}
 
-	// If all subjobs failed, return an error
-	if errCount == len(allResults) && len(allResults) > 0 {
-		return allResults, fmt.Errorf("failed to download outputs for all nodes")
-	}
-
-	// If only some failed, return results but no error
-	return allResults, nil
+	return allResults, runDir, nil
 }
 
 func downloadSubJobOutput(client *trickest.Client, savePath string, subJob *trickest.SubJob, files []string, runID *uuid.UUID, isModule bool) []DownloadResult {
