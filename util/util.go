@@ -436,6 +436,10 @@ func GetWorkflowVersionByID(versionID, fleetID uuid.UUID) *types.WorkflowVersion
 	return &workflowVersion
 }
 
+type Parallelism struct {
+	Parallelism int `json:"parallelism"`
+}
+
 func GetWorkflowVersionMaxMachines(version string, fleet uuid.UUID) (types.Machines, error) {
 	resp := request.Trickest.Get().DoF("workflow-version/%s/max-machines/?fleet=%s", version, fleet)
 	if resp == nil {
@@ -446,10 +450,14 @@ func GetWorkflowVersionMaxMachines(version string, fleet uuid.UUID) (types.Machi
 		return types.Machines{}, fmt.Errorf("unexpected response status code for workflow version's maximum machines: %d", resp.Status())
 	}
 
-	var machines types.Machines
-	err := json.Unmarshal(resp.Body(), &machines)
+	var parallelism Parallelism
+	err := json.Unmarshal(resp.Body(), &parallelism)
 	if err != nil {
 		return types.Machines{}, fmt.Errorf("couldn't unmarshal workflow versions's maximum machines: %v", err)
+	}
+
+	machines := types.Machines{
+		Default: &parallelism.Parallelism,
 	}
 
 	return machines, nil
@@ -744,7 +752,7 @@ func FormatDuration(duration time.Duration) string {
 }
 
 func DownloadFile(url, outputDir, fileName string) error {
-	err := os.MkdirAll(outputDir, 0755)
+	err := os.MkdirAll(outputDir, 0o755)
 	if err != nil {
 		return fmt.Errorf("couldn't create output directory (%s): %w", outputDir, err)
 	}
