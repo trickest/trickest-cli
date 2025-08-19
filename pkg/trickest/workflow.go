@@ -301,33 +301,17 @@ func (c *Client) GetLatestWorkflowVersion(ctx context.Context, workflowID uuid.U
 }
 
 // GetWorkflowVersionMaxMachines retrieves the maximum machines for a workflow version
-func (c *Client) GetWorkflowVersionMaxMachines(ctx context.Context, versionID uuid.UUID, fleetID uuid.UUID) (*Machines, error) {
-	var machines Machines
+func (c *Client) GetWorkflowVersionMaxMachines(ctx context.Context, versionID uuid.UUID, fleetID uuid.UUID) (int, error) {
+	var parallelism Parallelism
 	path := fmt.Sprintf("/workflow-version/%s/max-machines/?fleet=%s", versionID, fleetID)
 
-	if err := c.Hive.doJSON(ctx, http.MethodGet, path, nil, &machines); err != nil {
-		return nil, fmt.Errorf("failed to get workflow version max machines: %w", err)
-	}
-
-	return &machines, nil
-}
-
-// GetWorkflowVersionMaxMachineCount is a convenience function that retrieves the maximum machines for a workflow version as an int
-func (c *Client) GetWorkflowVersionMaxMachineCount(ctx context.Context, versionID uuid.UUID, fleetID uuid.UUID) (int, error) {
-	machines, err := c.GetWorkflowVersionMaxMachines(ctx, versionID, fleetID)
-	if err != nil {
+	if err := c.Hive.doJSON(ctx, http.MethodGet, path, nil, &parallelism); err != nil {
 		return 0, fmt.Errorf("failed to get workflow version max machines: %w", err)
 	}
-
-	if machines.Default != nil {
-		return *machines.Default, nil
+	if parallelism.Parallelism <= 0 {
+		return 0, fmt.Errorf("invalid max machines value: %d", parallelism.Parallelism)
 	}
-
-	if machines.SelfHosted != nil {
-		return *machines.SelfHosted, nil
-	}
-
-	return 0, fmt.Errorf("no max machines found for workflow version")
+	return parallelism.Parallelism, nil
 }
 
 func (c *Client) CreateWorkflowVersion(ctx context.Context, version *WorkflowVersion) (*WorkflowVersion, error) {

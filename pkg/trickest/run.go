@@ -59,6 +59,10 @@ type Machines struct {
 	SelfHosted *int `json:"self_hosted,omitempty"`
 }
 
+type Parallelism struct {
+	Parallelism int `json:"parallelism"`
+}
+
 type RunSubJobInsights struct {
 	Total     int `json:"total"`
 	Pending   int `json:"pending"`

@@ -199,7 +199,7 @@ func run(cfg *Config) error {
 		return fmt.Errorf("failed to get workflow version: %w", err)
 	}
 
-	workflowMaxMachines, err := client.GetWorkflowVersionMaxMachineCount(ctx, workflowVersion.ID, fleet.ID)
+	workflowMaxMachines, err := client.GetWorkflowVersionMaxMachines(ctx, workflowVersion.ID, fleet.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get workflow version max machine count: %w", err)
 	}
