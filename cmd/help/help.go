@@ -242,12 +242,7 @@ func run(cfg *Config) error {
 	if err == nil {
 		maxMachines, err := client.GetWorkflowVersionMaxMachines(ctx, workflowVersion.ID, fleet.ID)
 		if err == nil {
-			if maxMachines.Default != nil {
-				versionMaxMachines = *maxMachines.Default
-			}
-			if maxMachines.SelfHosted != nil {
-				versionMaxMachines = *maxMachines.SelfHosted
-			}
+			versionMaxMachines = maxMachines
 		}
 	}
 
