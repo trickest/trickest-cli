@@ -101,22 +101,11 @@ var ExecuteCmd = &cobra.Command{
 					fmt.Printf("Error: %s\n", err)
 					os.Exit(1)
 				}
-
-				if len(fleet.Machines) == 3 {
-					// 3 types of machines: small, medium, and large
-					executionMachines = machines
-
-					if machines.Default != nil {
-						fmt.Printf("Error: you need to use the small-medium-large format to specify the numbers of machines (e.g. 1-2-3)")
-						os.Exit(1)
-					}
-				} else {
-					// 1 type of machine
-					executionMachines, err = handleSingleMachineType(*fleet, machines)
-					if err != nil {
-						fmt.Printf("Error: %s\n", err)
-						os.Exit(1)
-					}
+				// 1 type of machine
+				executionMachines, err = handleSingleMachineType(*fleet, machines)
+				if err != nil {
+					fmt.Printf("Error: %s\n", err)
+					os.Exit(1)
 				}
 			} else {
 				executionMachines = setMachinesToMinimum(version.MaxMachines)
@@ -852,7 +841,8 @@ func readWorkflowYAMLandCreateVersion(fileName string, workflowName string, obje
 }
 
 func createToolWorkflow(wfName string, space *types.SpaceDetailed, project *types.Project, deleteProjectOnError bool,
-	tool *types.Tool, primitiveNodes map[string]*types.PrimitiveNode, machine types.Machines) *types.WorkflowVersionDetailed {
+	tool *types.Tool, primitiveNodes map[string]*types.PrimitiveNode, machine types.Machines,
+) *types.WorkflowVersionDetailed {
 	if tool == nil {
 		fmt.Println("No tool specified, couldn't create a workflow!")
 		os.Exit(0)

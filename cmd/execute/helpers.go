@@ -98,7 +98,6 @@ func getScripts(pageSize int, search string, name string) []types.Script {
 }
 
 func createRun(versionID, fleetID uuid.UUID, watch bool, outputNodes []string, outputsDir string, useStaticIPs bool) {
-
 	run := types.CreateRun{
 		VersionID:    versionID,
 		Machines:     executionMachines,
@@ -397,28 +396,12 @@ func processInvalidInputType(newPNode, existingPNode types.PrimitiveNode) {
 
 func GetAvailableMachines(fleetName string) types.Machines {
 	hiveInfo := util.GetFleetInfo(fleetName)
+	available := hiveInfo.Machines.Inactive
 	availableMachines := types.Machines{}
-	for _, machine := range hiveInfo.Machines {
-		if machine.Name == "small" {
-			available := machine.Total - machine.Running
-			availableMachines.Small = &available
-		}
-		if machine.Name == "medium" {
-			available := machine.Total - machine.Running
-			availableMachines.Medium = &available
-		}
-		if machine.Name == "large" {
-			available := machine.Total - machine.Running
-			availableMachines.Large = &available
-		}
-		if machine.Name == "default" {
-			available := machine.Total - machine.Running
-			availableMachines.Default = &available
-		}
-		if machine.Name == "self_hosted" {
-			available := machine.Total - machine.Running
-			availableMachines.SelfHosted = &available
-		}
+	if hiveInfo.Type == "HOSTED" {
+		availableMachines.SelfHosted = &available
+	} else {
+		availableMachines.Default = &available
 	}
 	return availableMachines
 }
