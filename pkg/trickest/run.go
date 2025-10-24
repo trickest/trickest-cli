@@ -16,7 +16,7 @@ type Run struct {
 	ID                  *uuid.UUID         `json:"id,omitempty"`
 	Name                string             `json:"name,omitempty"`
 	Status              string             `json:"status,omitempty"`
-	Machines            Machines           `json:"machines,omitempty"`
+	Parallelism         int                `json:"parallelism,omitempty"`
 	WorkflowVersionInfo *uuid.UUID         `json:"workflow_version_info,omitempty"`
 	WorkflowInfo        *uuid.UUID         `json:"workflow_info,omitempty"`
 	WorkflowName        string             `json:"workflow_name,omitempty"`
@@ -191,15 +191,7 @@ func (c *Client) CreateRun(ctx context.Context, versionID uuid.UUID, machines in
 		UseStaticIPs:        &useStaticIPs,
 	}
 
-	if fleet.Type == FleetTypeSelfHosted {
-		run.Machines = Machines{
-			SelfHosted: &machines,
-		}
-	} else {
-		run.Machines = Machines{
-			Default: &machines,
-		}
-	}
+	run.Parallelism = machines
 
 	var createdRun Run
 	if err := c.Hive.doJSON(ctx, http.MethodPost, path, &run, &createdRun); err != nil {

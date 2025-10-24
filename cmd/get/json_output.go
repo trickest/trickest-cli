@@ -86,11 +86,7 @@ func NewJSONRun(run *trickest.Run, subjobs []trickest.SubJob, taskGroupStatsMap 
 		jsonRun.Duration = trickest.Duration{Duration: run.CompletedDate.Sub(*run.StartedDate)}
 	}
 
-	if run.Machines.Default != nil {
-		jsonRun.Machines = *run.Machines.Default
-	} else if run.Machines.SelfHosted != nil {
-		jsonRun.Machines = *run.Machines.SelfHosted
-	}
+	jsonRun.Machines = run.Parallelism
 
 	jsonRun.SubJobs = make([]JSONSubJob, len(subjobs))
 	for i, subjob := range subjobs {

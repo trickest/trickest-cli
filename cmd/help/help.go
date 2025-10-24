@@ -88,10 +88,7 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*
 		url      string
 	}{}
 	for _, run := range runs {
-		machines := run.Machines.Default
-		if machines == nil {
-			machines = run.Machines.SelfHosted
-		}
+		parallelism := run.Parallelism
 		date := *run.StartedDate
 		duration := run.CompletedDate.Sub(date)
 		runURL := fmt.Sprintf("%s?run=%s", workflowURL, run.ID)
@@ -100,7 +97,7 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*
 			machines int
 			duration time.Duration
 			url      string
-		}{date, *machines, duration, runURL})
+		}{date, parallelism, duration, runURL})
 	}
 
 	machineCount := defaultMachineCount

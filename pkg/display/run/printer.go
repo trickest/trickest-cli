@@ -58,7 +58,7 @@ func (p *RunPrinter) PrintAll(run *trickest.Run, subJobs []trickest.SubJob, vers
 	// Print basic run details
 	output.WriteString(p.formatKeyValue("Name", run.WorkflowName))
 	output.WriteString(p.formatKeyValue("Status", run.Status))
-	output.WriteString(p.formatKeyValue("Machines", formatMachines(run.Machines)))
+	output.WriteString(p.formatKeyValue("Machines", strconv.Itoa(run.Parallelism)))
 	output.WriteString(p.formatKeyValue("Fleet", run.FleetName))
 	output.WriteString("\n")
 
@@ -118,17 +118,6 @@ func (p *RunPrinter) PrintAll(run *trickest.Run, subJobs []trickest.SubJob, vers
 	output.WriteString(p.formatSubJobTree(subJobs, version, defaultSubJobStatus, includeTaskGroupStats))
 
 	fmt.Fprint(p.writer, output.String())
-}
-
-// formatMachines formats the machine allocation for the run
-func formatMachines(machines trickest.Machines) string {
-	if machines.Default != nil && *machines.Default > 0 {
-		return fmt.Sprintf("%d", *machines.Default)
-	}
-	if machines.SelfHosted != nil && *machines.SelfHosted > 0 {
-		return fmt.Sprintf("%d", *machines.SelfHosted)
-	}
-	return ""
 }
 
 // formatKeyValue formats a key-value pair with a fixed width
