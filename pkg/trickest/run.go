@@ -180,7 +180,7 @@ func (c *Client) CreateRun(ctx context.Context, versionID uuid.UUID, machines in
 		return nil, fmt.Errorf("invalid fleet")
 	}
 
-	if len(fleet.Machines) == 0 {
+	if fleet.Machines.Max == 0 {
 		return nil, fmt.Errorf("fleet has no machines")
 	}
 
@@ -191,7 +191,7 @@ func (c *Client) CreateRun(ctx context.Context, versionID uuid.UUID, machines in
 		UseStaticIPs:        &useStaticIPs,
 	}
 
-	if fleet.Machines[0].Name == "self_hosted" {
+	if fleet.Type == FleetTypeSelfHosted {
 		run.Machines = Machines{
 			SelfHosted: &machines,
 		}
