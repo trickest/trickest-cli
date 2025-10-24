@@ -44,25 +44,28 @@ type IPAddress struct {
 	IPAddress string `json:"ip_address"`
 }
 
+type FleetType string
+
+const (
+	FleetTypeManaged    = "MANAGED"
+	FleetTypeSelfHosted = "HOSTED"
+)
+
 type Fleet struct {
 	ID       uuid.UUID `json:"id"`
 	Name     string    `json:"name"`
 	Vault    uuid.UUID `json:"vault"`
 	Cluster  string    `json:"cluster"`
 	State    string    `json:"state"`
-	Machines []struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
-		Mem         string `json:"mem"`
-		CPU         string `json:"cpu"`
-		Total       int    `json:"total"`
-		Running     int    `json:"running"`
-		Up          int    `json:"up"`
-		Down        int    `json:"down"`
+	Machines struct {
+		Active   int `json:"active"`
+		Deleting int `json:"deleting"`
+		Inactive int `json:"inactive"`
+		Max      int `json:"max"`
 	} `json:"machines"`
 	CreatedDate  time.Time `json:"created_date"`
 	ModifiedDate time.Time `json:"modified_date"`
-	Type         string    `json:"type"`
+	Type         FleetType `json:"type"`
 	Default      bool      `json:"default"`
 }
 
