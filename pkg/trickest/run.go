@@ -16,7 +16,8 @@ type Run struct {
 	ID                  *uuid.UUID         `json:"id,omitempty"`
 	Name                string             `json:"name,omitempty"`
 	Status              string             `json:"status,omitempty"`
-	Machines            Machines           `json:"machines,omitempty"`
+	Machines            int                `json:"machines,omitempty"`
+	Parallelism         int                `json:"parallelism,omitempty"`
 	WorkflowVersionInfo *uuid.UUID         `json:"workflow_version_info,omitempty"`
 	WorkflowInfo        *uuid.UUID         `json:"workflow_info,omitempty"`
 	WorkflowName        string             `json:"workflow_name,omitempty"`
@@ -51,16 +52,6 @@ func (d *Duration) MarshalJSON() ([]byte, error) {
 		return json.Marshal(fmt.Sprintf("%dh %dm", seconds/3600, (seconds%3600)/60))
 	}
 	return json.Marshal(fmt.Sprintf("%dm %ds", seconds/60, seconds%60))
-}
-
-// Machines represents machine configuration
-type Machines struct {
-	Default    *int `json:"default,omitempty"`
-	SelfHosted *int `json:"self_hosted,omitempty"`
-}
-
-type Parallelism struct {
-	Parallelism int `json:"parallelism"`
 }
 
 type RunSubJobInsights struct {
@@ -189,16 +180,7 @@ func (c *Client) CreateRun(ctx context.Context, versionID uuid.UUID, machines in
 		Fleet:               &fleet.ID,
 		Vault:               &fleet.Vault,
 		UseStaticIPs:        &useStaticIPs,
-	}
-
-	if fleet.Type == FleetTypeSelfHosted {
-		run.Machines = Machines{
-			SelfHosted: &machines,
-		}
-	} else {
-		run.Machines = Machines{
-			Default: &machines,
-		}
+		Parallelism:         machines,
 	}
 
 	var createdRun Run
