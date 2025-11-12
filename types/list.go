@@ -126,7 +126,7 @@ type ScheduleInfo struct {
 	Date         *time.Time `json:"date,omitempty"`
 	Workflow     string     `json:"workflow,omitempty"`
 	RepeatPeriod int        `json:"repeat_period,omitempty"`
-	Machines     *Machines  `json:"machines,omitempty"`
+	Parallelism  int        `json:"parallelism"`
 }
 
 type Parameter struct {
@@ -152,7 +152,8 @@ type Run struct {
 	ID                  *uuid.UUID `json:"id,omitempty"`
 	Name                string     `json:"name,omitempty"`
 	Status              string     `json:"status,omitempty"`
-	Machines            Machines   `json:"machines,omitempty"`
+	Machines            int        `json:"machines,omitempty"`
+	Parallelism         int        `json:"parallelism,omitempty"`
 	WorkflowVersionInfo *uuid.UUID `json:"workflow_version_info,omitempty"`
 	WorkflowInfo        *uuid.UUID `json:"workflow_info,omitempty"`
 	WorkflowName        string     `json:"workflow_name,omitempty"`

@@ -60,7 +60,6 @@ type WorkflowVersionStripped struct {
 	WorkflowInfo uuid.UUID           `json:"workflow_info"`
 	Name         *string             `json:"name,omitempty"`
 	Description  string              `json:"description"`
-	MaxMachines  Machines            `json:"max_machines"`
 	Snapshot     bool                `json:"snapshot"`
 	Data         WorkflowVersionData `json:"data"`
 }

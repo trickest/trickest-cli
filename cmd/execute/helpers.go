@@ -98,9 +98,16 @@ func getScripts(pageSize int, search string, name string) []types.Script {
 }
 
 func createRun(versionID, fleetID uuid.UUID, watch bool, outputNodes []string, outputsDir string, useStaticIPs bool) {
+	parallelism := 0
+	if executionMachines.Default != nil {
+		parallelism = *executionMachines.Default
+	} else if executionMachines.SelfHosted != nil {
+		parallelism = *executionMachines.SelfHosted
+	}
+
 	run := types.CreateRun{
 		VersionID:    versionID,
-		Machines:     executionMachines,
+		Parallelism:  parallelism,
 		Fleet:        &fleetID,
 		UseStaticIPs: useStaticIPs,
 	}
@@ -135,12 +142,12 @@ func createRun(versionID, fleetID uuid.UUID, watch bool, outputNodes []string, o
 		watch = true
 	}
 	if watch {
-		WatchRun(createRunResp.ID, outputsDir, nodesToDownload, nil, false, &executionMachines, showParams)
+		WatchRun(createRunResp.ID, outputsDir, nodesToDownload, nil, false, showParams)
 	} else {
 		availableMachines := GetAvailableMachines(fleetName)
 		fmt.Println("Run successfully created! ID: " + createRunResp.ID.String())
-		fmt.Print("Machines:\n" + FormatMachines(executionMachines, false))
-		fmt.Print("\nAvailable:\n" + FormatMachines(availableMachines, false))
+		fmt.Print("Machines:\n" + FormatMachines(executionMachines, true))
+		fmt.Println("\nAvailable:\n" + FormatMachines(availableMachines, true))
 	}
 }
 
@@ -154,7 +161,6 @@ func createNewVersion(version *types.WorkflowVersionDetailed) *types.WorkflowVer
 		Description:  version.Description,
 		WorkflowInfo: version.WorkflowInfo,
 		Snapshot:     false,
-		MaxMachines:  version.MaxMachines,
 	}
 
 	data, err := json.Marshal(strippedVersion)

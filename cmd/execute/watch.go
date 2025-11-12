@@ -22,7 +22,7 @@ import (
 	"github.com/xlab/treeprint"
 )
 
-func WatchRun(runID uuid.UUID, downloadPath string, nodesToDownload []string, filesToDownload []string, timestampOnly bool, machines *types.Machines, showParameters bool) {
+func WatchRun(runID uuid.UUID, downloadPath string, nodesToDownload []string, filesToDownload []string, timestampOnly bool, showParameters bool) {
 	const fmtStr = "%-12s %v\n"
 	writer := uilive.New()
 	writer.Start()
@@ -73,7 +73,8 @@ func WatchRun(runID uuid.UUID, downloadPath string, nodesToDownload []string, fi
 		out := ""
 		out += fmt.Sprintf(fmtStr, "Name:", run.WorkflowName)
 		out += fmt.Sprintf(fmtStr, "Status:", strings.ToLower(run.Status))
-		out += fmt.Sprintf(fmtStr, "Machines:", FormatMachines(*machines, true))
+		out += fmt.Sprintf(fmtStr, "Machines:", run.Machines)
+		out += fmt.Sprintf(fmtStr, "Parallelism:", run.Parallelism)
 		out += fmt.Sprintf(fmtStr, "Created:", run.CreatedDate.In(time.Local).Format(time.RFC1123)+
 			" ("+util.FormatDuration(time.Since(run.CreatedDate))+" ago)")
 		if run.Status != "PENDING" {

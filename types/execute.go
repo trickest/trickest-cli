@@ -42,7 +42,7 @@ type TreeNode struct {
 }
 
 type CreateRun struct {
-	Machines     Machines   `json:"machines"`
+	Parallelism  int        `json:"parallelism"`
 	VersionID    uuid.UUID  `json:"workflow_version_info"`
 	Vault        uuid.UUID  `json:"vault"`
 	Fleet        *uuid.UUID `json:"fleet,omitempty"`
@@ -50,11 +50,11 @@ type CreateRun struct {
 }
 
 type CreateRunResponse struct {
-	ID        uuid.UUID `json:"id"`
-	Name      string    `json:"name"`
-	Machines  Machines  `json:"machines"`
-	VersionID uuid.UUID `json:"workflow_version_info"`
-	HiveInfo  uuid.UUID `json:"hive_info"`
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Parallelism int       `json:"parallelism"`
+	VersionID   uuid.UUID `json:"workflow_version_info"`
+	HiveInfo    uuid.UUID `json:"hive_info"`
 }
 
 type WorkflowYAML struct {
