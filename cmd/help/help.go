@@ -7,7 +7,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/glamour"
 	"github.com/trickest/trickest-cli/cmd/execute"
@@ -81,36 +80,14 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*
 		sb.WriteString(fmt.Sprintf("%s\n\n", workflow.Description))
 	}
 
-	runStats := []struct {
-		date     time.Time
-		machines int
-		duration time.Duration
-		url      string
-	}{}
-	for _, run := range runs {
-		machines := run.Machines.Default
-		if machines == nil {
-			machines = run.Machines.SelfHosted
-		}
-		date := *run.StartedDate
-		duration := run.CompletedDate.Sub(date)
-		runURL := fmt.Sprintf("%s?run=%s", workflowURL, run.ID)
-		runStats = append(runStats, struct {
-			date     time.Time
-			machines int
-			duration time.Duration
-			url      string
-		}{date, *machines, duration, runURL})
-	}
-
 	machineCount := defaultMachineCount
 	if maxMachines > 0 && maxMachines < defaultMachineCount {
 		machineCount = maxMachines
-	} else if len(runStats) > 0 {
+	} else if len(runs) > 0 {
 		highestMachineCount := 0
-		for _, runStat := range runStats {
-			if runStat.machines > highestMachineCount {
-				highestMachineCount = runStat.machines
+		for _, run := range runs {
+			if run.Parallelism > highestMachineCount {
+				highestMachineCount = run.Parallelism
 			}
 		}
 		machineCount = highestMachineCount
@@ -185,20 +162,20 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*
 	}
 
 	// Past runs section
-	if len(runStats) > 0 {
+	if len(runs) > 0 {
 		sb.WriteString("## Past Runs\n\n")
-		sb.WriteString("| Started at | Machines | Duration | URL |\n")
-		sb.WriteString("|------------|----------|----------|-----|\n")
-		for _, runStat := range runStats {
-			machines := runStat.machines
-			date := runStat.date.Format("2006-01-02 15:04")
-			duration := runStat.duration
+		sb.WriteString("| Started at | Parallelism | Duration | URL |\n")
+		sb.WriteString("|------------|-------------|----------|-----|\n")
+		for _, run := range runs {
+			machines := run.Parallelism
+			date := run.StartedDate.Format("2006-01-02 15:04")
+			duration := run.CompletedDate.Sub(*run.StartedDate)
 			durationStr := display.FormatDuration(duration)
-			runURL := runStat.url
+			runURL := fmt.Sprintf("%s?run=%s", workflowURL, run.ID)
 			sb.WriteString(fmt.Sprintf("| %s | %d | %s | [View](%s) |\n", date, machines, durationStr, runURL))
 		}
 		sb.WriteString("\n")
-		sb.WriteString("Use the `--machines` flag to set the number of machines to run the workflow on.\n\n")
+		sb.WriteString("Use the `--machines` flag to set the number of machines (maximum parallelism) to run the workflow on.\n\n")
 	}
 
 	// Long description (README content)

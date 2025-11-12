@@ -32,6 +32,7 @@ type JSONRun struct {
 	FleetName    string    `json:"fleet_name"`
 	UseStaticIPs bool      `json:"use_static_ips"`
 	Machines     int       `json:"machines"`
+	Parallelism  int       `json:"parallelism"`
 	IPAddresses  []string  `json:"ip_addresses"`
 
 	RunInsights *trickest.RunSubJobInsights `json:"run_insights,omitempty"`
@@ -78,18 +79,14 @@ func NewJSONRun(run *trickest.Run, subjobs []trickest.SubJob, taskGroupStatsMap 
 		UseStaticIPs:        *run.UseStaticIPs,
 		IPAddresses:         run.IPAddresses,
 		RunInsights:         run.RunInsights,
+		Machines:            run.Machines,
+		Parallelism:         run.Parallelism,
 	}
 
 	if run.Status == "RUNNING" {
 		jsonRun.Duration = trickest.Duration{Duration: time.Since(*run.StartedDate)}
 	} else {
 		jsonRun.Duration = trickest.Duration{Duration: run.CompletedDate.Sub(*run.StartedDate)}
-	}
-
-	if run.Machines.Default != nil {
-		jsonRun.Machines = *run.Machines.Default
-	} else if run.Machines.SelfHosted != nil {
-		jsonRun.Machines = *run.Machines.SelfHosted
 	}
 
 	jsonRun.SubJobs = make([]JSONSubJob, len(subjobs))

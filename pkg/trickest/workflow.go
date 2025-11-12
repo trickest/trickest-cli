@@ -36,7 +36,7 @@ type ScheduleInfo struct {
 	Date         *time.Time `json:"date,omitempty"`
 	Workflow     string     `json:"workflow,omitempty"`
 	RepeatPeriod int        `json:"repeat_period,omitempty"`
-	Machines     *Machines  `json:"machines,omitempty"`
+	Parallelism  int        `json:"parallelism,omitempty"`
 }
 
 // WorkflowVersion represents a workflow version
@@ -299,7 +299,9 @@ func (c *Client) GetLatestWorkflowVersion(ctx context.Context, workflowID uuid.U
 
 // GetWorkflowVersionMaxMachines retrieves the maximum machines for a workflow version
 func (c *Client) GetWorkflowVersionMaxMachines(ctx context.Context, versionID uuid.UUID, fleetID uuid.UUID) (int, error) {
-	var parallelism Parallelism
+	var parallelism struct {
+		Parallelism int `json:"parallelism"`
+	}
 	path := fmt.Sprintf("/workflow-version/%s/max-machines/?fleet=%s", versionID, fleetID)
 
 	if err := c.Hive.doJSON(ctx, http.MethodGet, path, nil, &parallelism); err != nil {
