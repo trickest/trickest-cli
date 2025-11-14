@@ -81,12 +81,7 @@ func NewJSONRun(run *trickest.Run, subjobs []trickest.SubJob, taskGroupStatsMap 
 		RunInsights:         run.RunInsights,
 		Machines:            run.Machines,
 		Parallelism:         run.Parallelism,
-	}
-
-	if run.Status == "RUNNING" {
-		jsonRun.Duration = trickest.Duration{Duration: time.Since(*run.StartedDate)}
-	} else {
-		jsonRun.Duration = trickest.Duration{Duration: run.CompletedDate.Sub(*run.StartedDate)}
+		Duration:            trickest.Duration{Duration: run.Duration()},
 	}
 
 	jsonRun.SubJobs = make([]JSONSubJob, len(subjobs))

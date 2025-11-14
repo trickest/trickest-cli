@@ -68,31 +68,28 @@ func (p *RunPrinter) PrintAll(run *trickest.Run, subJobs []trickest.SubJob, vers
 		output.WriteString(p.formatKeyValue("Created",
 			run.CreatedDate.In(time.Local).Format(time.RFC1123)+" ("+FormatDuration(time.Since(*run.CreatedDate))+" ago)"))
 	}
-	if run.Status != "PENDING" {
-		if run.StartedDate != nil {
-			output.WriteString(p.formatKeyValue("Started",
-				run.StartedDate.In(time.Local).Format(time.RFC1123)+" ("+FormatDuration(time.Since(*run.StartedDate))+" ago)"))
-		}
+	if run.Status != "PENDING" && run.StartedDate != nil {
+		output.WriteString(p.formatKeyValue("Started",
+			run.StartedDate.In(time.Local).Format(time.RFC1123)+" ("+FormatDuration(time.Since(*run.StartedDate))+" ago)"))
 	}
-	if run.Finished {
+	if run.Finished && run.CompletedDate != nil {
 		output.WriteString(p.formatKeyValue("Finished",
 			run.CompletedDate.In(time.Local).Format(time.RFC1123)+" ("+FormatDuration(time.Since(*run.CompletedDate))+" ago)"))
 	}
 	output.WriteString("\n")
 
 	// Print duration and average duration
-	if run.Finished {
-		output.WriteString(p.formatKeyValue("Duration", FormatDuration(run.CompletedDate.Sub(*run.StartedDate))))
-	} else if run.Status == "RUNNING" {
-		output.WriteString(p.formatKeyValue("Duration", FormatDuration(time.Since(*run.StartedDate))))
+	durationStr := "N/A"
+	if duration := run.Duration(); duration > 0 {
+		durationStr = FormatDuration(duration)
 	}
-	if run.AverageDuration != nil {
-		if run.AverageDuration.Duration > 0 {
-			output.WriteString(p.formatKeyValue("Average Duration", FormatDuration(run.AverageDuration.Duration)))
-		} else {
-			output.WriteString(p.formatKeyValue("Average Duration", "N/A"))
-		}
+	output.WriteString(p.formatKeyValue("Duration", durationStr))
+
+	avgDurationStr := "N/A"
+	if run.AverageDuration != nil && run.AverageDuration.Duration > 0 {
+		avgDurationStr = FormatDuration(run.AverageDuration.Duration)
 	}
+	output.WriteString(p.formatKeyValue("Average Duration", avgDurationStr))
 	output.WriteString("\n")
 
 	// Print subjob insights

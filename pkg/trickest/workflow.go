@@ -335,8 +335,7 @@ func (c *Client) GetWorkflowRunsAverageDuration(ctx context.Context, workflowID 
 
 	totalDuration := time.Duration(0)
 	for _, pastRun := range pastRuns {
-		duration := pastRun.CompletedDate.Sub(*pastRun.StartedDate)
-		totalDuration += duration
+		totalDuration += pastRun.Duration()
 	}
 	averageDuration := totalDuration / time.Duration(len(pastRuns))
 
