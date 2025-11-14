@@ -168,11 +168,16 @@ func generateHelpMarkdown(workflow *trickest.Workflow, labeledPrimitiveNodes []*
 		sb.WriteString("|------------|-------------|----------|-----|\n")
 		for _, run := range runs {
 			machines := run.Parallelism
-			date := run.StartedDate.Format("2006-01-02 15:04")
-			duration := run.CompletedDate.Sub(*run.StartedDate)
-			durationStr := display.FormatDuration(duration)
+			dateStr := "N/A"
+			if run.StartedDate != nil {
+				dateStr = run.StartedDate.Format("2006-01-02 15:04")
+			}
+			durationStr := "N/A"
+			if duration := run.Duration(); duration > 0 {
+				durationStr = display.FormatDuration(duration)
+			}
 			runURL := fmt.Sprintf("%s?run=%s", workflowURL, run.ID)
-			sb.WriteString(fmt.Sprintf("| %s | %d | %s | [View](%s) |\n", date, machines, durationStr, runURL))
+			sb.WriteString(fmt.Sprintf("| %s | %d | %s | [View](%s) |\n", dateStr, machines, durationStr, runURL))
 		}
 		sb.WriteString("\n")
 		sb.WriteString("Use the `--machines` flag to set the number of machines (maximum parallelism) to run the workflow on.\n\n")

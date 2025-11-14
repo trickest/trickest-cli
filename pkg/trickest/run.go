@@ -37,8 +37,17 @@ type Run struct {
 	UseStaticIPs        *bool              `json:"use_static_ips,omitempty"`
 	IPAddresses         []string           `json:"ip_addresses,omitempty"`
 	RunInsights         *RunSubJobInsights `json:"run_insights,omitempty"`
-	Duration            *Duration          `json:"duration,omitempty"`
 	AverageDuration     *Duration          `json:"average_duration,omitempty"`
+}
+
+func (r Run) Duration() time.Duration {
+	if r.StartedDate == nil {
+		return 0
+	}
+	if r.CompletedDate == nil {
+		return time.Since(*r.StartedDate)
+	}
+	return r.CompletedDate.Sub(*r.StartedDate)
 }
 
 // Duration is a custom type for duration that json marshals to "Xh Ym" or "Xm Ys" matching the web UI
