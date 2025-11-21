@@ -46,7 +46,7 @@ func PrintDownloadResults(results []DownloadResult, runID uuid.UUID, destination
 // DownloadRunOutput downloads the outputs for the specified nodes in the run
 // Returns the download result summary, the directory where the outputs were saved, and an error if _all_ of the downloads failed
 func DownloadRunOutput(client *trickest.Client, run *trickest.Run, nodes []string, files []string, destinationPath string) ([]DownloadResult, string, error) {
-	if run.Status == "PENDING" || run.Status == "SUBMITTED" {
+	if !run.Status.IsStarted() {
 		return nil, "", fmt.Errorf("run %s has not started yet (status: %s)", run.ID.String(), run.Status)
 	}
 

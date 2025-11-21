@@ -6,16 +6,32 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 )
 
+const (
+	RunStatusPending   RunStatus = "PENDING"
+	RunStatusSubmitted RunStatus = "SUBMITTED"
+	RunStatusRunning   RunStatus = "RUNNING"
+	RunStatusCompleted RunStatus = "COMPLETED"
+	RunStatusFailed    RunStatus = "FAILED"
+	RunStatusStopping  RunStatus = "STOPPING"
+	RunStatusStopped   RunStatus = "STOPPED"
+)
+
+type RunStatus string
+
+type RunStatuses []RunStatus
+
 // Run represents a workflow run
 type Run struct {
 	ID                  *uuid.UUID         `json:"id,omitempty"`
 	Name                string             `json:"name,omitempty"`
-	Status              string             `json:"status,omitempty"`
+	Status              RunStatus          `json:"status,omitempty"`
 	Machines            int                `json:"machines,omitempty"`
 	Parallelism         int                `json:"parallelism,omitempty"`
 	WorkflowVersionInfo *uuid.UUID         `json:"workflow_version_info,omitempty"`
@@ -71,6 +87,55 @@ type RunSubJobInsights struct {
 	Failed    int `json:"failed"`
 	Stopping  int `json:"stopping"`
 	Stopped   int `json:"stopped"`
+}
+
+func (s RunStatus) Valid() bool {
+	switch s {
+	case RunStatusPending, RunStatusSubmitted, RunStatusRunning,
+		RunStatusCompleted, RunStatusFailed,
+		RunStatusStopping, RunStatusStopped:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s RunStatus) IsStarted() bool {
+	switch s {
+	case RunStatusRunning, RunStatusCompleted, RunStatusFailed, RunStatusStopping, RunStatusStopped:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s RunStatus) CanStop() bool {
+	switch s {
+	case RunStatusPending, RunStatusSubmitted, RunStatusRunning:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s RunStatus) String() string {
+	return string(s)
+}
+
+func (s RunStatuses) Contains(status RunStatus) bool {
+	return slices.Contains(s, status)
+}
+
+func (s RunStatuses) Strings() []string {
+	result := make([]string, len(s))
+	for i, status := range s {
+		result[i] = status.String()
+	}
+	return result
+}
+
+func (s RunStatuses) String() string {
+	return strings.Join(s.Strings(), ",")
 }
 
 // GetRun retrieves a run by ID

@@ -22,15 +22,18 @@ type Config struct {
 	Nodes          []string
 	ChildrenRanges []string
 	Children       []int
+	RunStatuses    []string
 }
 
 var cfg = &Config{}
+var defaultStatuses = trickest.RunStatuses{trickest.RunStatusRunning}.Strings()
 
 func init() {
 	StopCmd.Flags().BoolVar(&cfg.RunSpec.AllRuns, "all", false, "Stop all runs")
 	StopCmd.Flags().StringVar(&cfg.RunSpec.RunID, "run", "", "Stop a specific run")
 	StopCmd.Flags().StringSliceVar(&cfg.Nodes, "nodes", []string{}, "Nodes to stop. If none specified, the entire run will be stopped. If a node is a task group, the `--child` flag must be used (can be used multiple times)")
 	StopCmd.Flags().StringSliceVar(&cfg.ChildrenRanges, "child", []string{}, "Child tasks to stop. If a node is a task group, the `--child` flag must be used (can be used multiple times)")
+	StopCmd.Flags().StringSliceVar(&cfg.RunStatuses, "status", defaultStatuses, "Run statuses to be evaluated for stopping (can be used multiple times or comma-separated, e.g. `pending,submitted`)")
 }
 
 // StopCmd represents the stop command
@@ -93,12 +96,27 @@ func run(cfg *Config) error {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
 
+	for _, status := range cfg.RunStatuses {
+		parsedStatus := trickest.RunStatus(strings.ToUpper(strings.TrimSpace(status)))
+		if !parsedStatus.Valid() {
+			return fmt.Errorf("invalid run status: %s", status)
+		}
+		if !parsedStatus.CanStop() {
+			return fmt.Errorf("cannot stop runs with status: %s", status)
+		}
+		cfg.RunSpec.RunStatuses = append(cfg.RunSpec.RunStatuses, parsedStatus)
+	}
+
 	ctx := context.Background()
 
-	cfg.RunSpec.RunStatus = "RUNNING"
 	runs, err := cfg.RunSpec.GetRuns(ctx, client)
 	if err != nil {
 		return fmt.Errorf("failed to get runs: %w", err)
+	}
+
+	if len(runs) == 0 {
+		fmt.Println("No runs found")
+		return nil
 	}
 
 	var errs []error

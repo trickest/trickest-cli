@@ -64,7 +64,7 @@ type JSONSubJob struct {
 func NewJSONRun(run *trickest.Run, subjobs []trickest.SubJob, taskGroupStatsMap map[uuid.UUID]stats.TaskGroupStats) *JSONRun {
 	jsonRun := &JSONRun{
 		ID:                  *run.ID,
-		Status:              run.Status,
+		Status:              run.Status.String(),
 		Author:              run.Author,
 		CreationType:        run.CreationType,
 		CreatedDate:         run.CreatedDate,
