@@ -57,7 +57,7 @@ func (p *RunPrinter) PrintAll(run *trickest.Run, subJobs []trickest.SubJob, vers
 
 	// Print basic run details
 	output.WriteString(p.formatKeyValue("Name", run.WorkflowName))
-	output.WriteString(p.formatKeyValue("Status", run.Status))
+	output.WriteString(p.formatKeyValue("Status", run.Status.String()))
 	output.WriteString(p.formatKeyValue("Machines", fmt.Sprintf("%d", run.Machines)))
 	output.WriteString(p.formatKeyValue("Parallelism", fmt.Sprintf("%d", run.Parallelism)))
 	output.WriteString(p.formatKeyValue("Fleet", run.FleetName))
@@ -68,7 +68,7 @@ func (p *RunPrinter) PrintAll(run *trickest.Run, subJobs []trickest.SubJob, vers
 		output.WriteString(p.formatKeyValue("Created",
 			run.CreatedDate.In(time.Local).Format(time.RFC1123)+" ("+FormatDuration(time.Since(*run.CreatedDate))+" ago)"))
 	}
-	if run.Status != "PENDING" && run.StartedDate != nil {
+	if run.Status.IsStarted() && run.StartedDate != nil {
 		output.WriteString(p.formatKeyValue("Started",
 			run.StartedDate.In(time.Local).Format(time.RFC1123)+" ("+FormatDuration(time.Since(*run.StartedDate))+" ago)"))
 	}
@@ -110,7 +110,7 @@ func (p *RunPrinter) PrintAll(run *trickest.Run, subJobs []trickest.SubJob, vers
 	// - If the run is still running, mark them as "pending"
 	// - If the run is finished, mark them as "stopped"
 	defaultSubJobStatus := "stopped"
-	if run.Status == "RUNNING" {
+	if run.Status == trickest.RunStatusRunning {
 		defaultSubJobStatus = "pending"
 	}
 	output.WriteString(p.formatSubJobTree(subJobs, version, defaultSubJobStatus, includeTaskGroupStats))
